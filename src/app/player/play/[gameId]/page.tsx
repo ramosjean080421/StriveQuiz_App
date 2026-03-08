@@ -55,7 +55,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
     // Cronómetro visual
     useEffect(() => {
-        if (gameStatus === "waiting" || gameStatus === "finished" || hasFinishedAll || answering || questions.length === 0) return;
+        if (gameStatus === "waiting" || gameStatus === "finished" || gameStatus === "paused" || hasFinishedAll || answering || questions.length === 0) return;
 
         const timer = setInterval(() => {
             setTimeLeft(prev => {
@@ -111,6 +111,22 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
         return () => { supabase.removeChannel(channel); };
     }, [gameId]);
+
+    // 4. Re-obtener preguntas si el juego pasa a 'active' (Las preguntas no cargan de inicio por las políticas de seguridad de lectura)
+    useEffect(() => {
+        if (gameStatus === "active" && questions.length === 0) {
+            const fetchQuestions = async () => {
+                const { data: game } = await supabase.from("games").select("quiz_id").eq("id", gameId).single();
+                if (game) {
+                    const { data: qData } = await supabase.from("questions").select("*").eq("quiz_id", game.quiz_id);
+                    if (qData) {
+                        setQuestions(qData);
+                    }
+                }
+            };
+            fetchQuestions();
+        }
+    }, [gameStatus, questions.length, gameId]);
 
     const handleAnswerSubmit = async (selectedIndex: number) => {
         if (answering) return;
@@ -177,6 +193,23 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                     </h1>
                     <p className="text-lg text-indigo-100 font-medium leading-tight">
                         Mira la pantalla del profesor. El juego está a punto de empezar...
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
+    if (gameStatus === "paused") {
+        return (
+            <div className="h-screen w-screen overflow-hidden bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-gray-800 to-black flex flex-col items-center justify-center p-6 text-center relative z-50">
+                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+                <div className="bg-amber-500/10 backdrop-blur-xl border-4 border-amber-500/50 p-10 sm:p-14 rounded-[3.5rem] shadow-[0_0_80px_rgba(245,158,11,0.2)] w-full max-w-sm flex flex-col items-center animate-pulse">
+                    <span className="text-8xl mb-6 shadow-black">⏸️</span>
+                    <h1 className="text-3xl sm:text-4xl font-black text-amber-400 mb-4 uppercase tracking-widest drop-shadow-md">
+                        ¡Tiempo Pausado!
+                    </h1>
+                    <p className="text-amber-100 font-medium leading-relaxed text-lg">
+                        El profesor ha detenido el tiempo. Respira profundo mientras esperas instrucciones...
                     </p>
                 </div>
             </div>

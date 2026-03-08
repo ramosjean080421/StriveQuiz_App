@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 
@@ -16,7 +16,21 @@ export default function Home() {
   const [playerName, setPlayerName] = useState("");
   const [selectedGif, setSelectedGif] = useState(MEME_GIFS[0]);
 
+  // Si envíamos el link a un alumno ?pin=ABCDEF
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlPin = urlParams.get('pin');
+      if (urlPin) {
+        setPin(urlPin.toUpperCase());
+        setActiveTab("student");
+      }
+    }
+  }, []);
+
   // --- Teacher State ---
+  const [identifier, setIdentifier] = useState("");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -66,15 +80,32 @@ export default function Home() {
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        let authEmail = identifier.trim();
+
+        // Si no tiene '@', asumimos que es un nombre de usuario y buscamos el correo real
+        if (!authEmail.includes("@")) {
+          const { data: profile, error: profileError } = await supabase
+            .from("teacher_profiles")
+            .select("email")
+            .eq("username", authEmail.toLowerCase())
+            .single();
+
+          if (profileError || !profile) {
+            throw new Error("Usuario no encontrado.");
+          }
+          authEmail = profile.email;
+        }
+
+        const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password });
         if (error) throw error;
       } else {
         const { error } = await supabase.auth.signUp({
-          email,
+          email: email.trim(),
           password,
           options: {
             data: {
-              full_name: fullName
+              full_name: fullName,
+              username: username.toLowerCase().trim()
             }
           }
         });
@@ -233,32 +264,47 @@ export default function Home() {
 
                 <form onSubmit={handleTeacherAuth} className="space-y-4">
                   {!isLogin && (
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">
-                        Nombre Completo
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        className="block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm shadow-inner"
-                        placeholder="Tu nombre y apellido"
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                      />
-                    </div>
+                    <>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">
+                          Nombre Completo
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          className="block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm shadow-inner"
+                          placeholder="Tu nombre y apellido"
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">
+                          Nombre de Usuario
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          className="block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm shadow-inner lowercase"
+                          placeholder="profesor_pro123"
+                          value={username}
+                          onChange={(e) => setUsername(e.target.value)}
+                        />
+                      </div>
+                    </>
                   )}
 
                   <div>
                     <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">
-                      Correo Electrónico
+                      {isLogin ? "Usuario o Correo" : "Correo Electrónico"}
                     </label>
                     <input
-                      type="email"
+                      type={isLogin ? "text" : "email"}
                       required
                       className="block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm shadow-inner"
-                      placeholder="tu@correo.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder={isLogin ? "profesor / correo@ejemplo.com" : "tu@correo.com"}
+                      value={isLogin ? identifier : email}
+                      onChange={(e) => isLogin ? setIdentifier(e.target.value) : setEmail(e.target.value)}
                     />
                   </div>
 

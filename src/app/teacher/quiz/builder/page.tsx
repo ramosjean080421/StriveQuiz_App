@@ -2,16 +2,20 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { Suspense } from "react";
 
 interface Coordinate {
     x: number;
     y: number;
 }
 
-export default function QuizBuilder() {
+function QuizBuilderContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const editId = searchParams.get("editId");
+
     const [title, setTitle] = useState("");
     const [localMaps, setLocalMaps] = useState<{ id: number, name: string, url: string }[]>([]);
     const [selectedMap, setSelectedMap] = useState<any>(null);
@@ -19,26 +23,39 @@ export default function QuizBuilder() {
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
-        const fetchMaps = async () => {
+        const fetchMapsAndData = async () => {
             try {
                 const res = await fetch("/api/maps");
                 const data = await res.json();
 
+                let formattedMaps: any[] = [];
                 if (data.maps && data.maps.length > 0) {
-                    const formattedMaps = data.maps.map((fileName: string, index: number) => ({
+                    formattedMaps = data.maps.map((fileName: string, index: number) => ({
                         id: index + 1,
                         name: fileName,
                         url: `/maps/${fileName}`,
                     }));
                     setLocalMaps(formattedMaps);
-                    setSelectedMap(formattedMaps[0]);
+                    setSelectedMap(formattedMaps[0]); // Default map
+                }
+
+                if (editId) {
+                    const { data: qData } = await supabase.from("quizzes").select("*").eq("id", editId).single();
+                    if (qData) {
+                        setTitle(qData.title);
+                        setBoardPath(qData.board_path || []);
+                        if (formattedMaps.length > 0 && qData.board_image_url) {
+                            const mapFound = formattedMaps.find(m => m.url === qData.board_image_url);
+                            if (mapFound) setSelectedMap(mapFound);
+                        }
+                    }
                 }
             } catch (error) {
-                console.error("Error cargando mapas locales", error);
+                console.error("Error cargando mapas/datos", error);
             }
         };
-        fetchMaps();
-    }, []);
+        fetchMapsAndData();
+    }, [editId]);
 
     const handleImageClick = (e: React.MouseEvent<HTMLImageElement>) => {
         const rect = e.currentTarget.getBoundingClientRect();
@@ -77,21 +94,30 @@ export default function QuizBuilder() {
             const { data: userData } = await supabase.auth.getUser();
             if (!userData.user) throw new Error("No autenticado");
 
-            const { data, error } = await supabase
-                .from("quizzes")
-                .insert([
-                    {
-                        teacher_id: userData.user.id,
-                        title,
-                        board_image_url: selectedMap.url,
-                        board_path: boardPath,
-                    },
-                ])
-                .select()
-                .single();
+            const payload = {
+                title,
+                board_image_url: selectedMap.url,
+                board_path: boardPath,
+            };
 
-            if (error) throw error;
-            router.push(`/teacher/quiz/${data.id}/questions`);
+            let returnedId = editId;
+
+            if (editId) {
+                // Update
+                const { error } = await supabase.from("quizzes").update(payload).eq("id", editId);
+                if (error) throw error;
+            } else {
+                // Insert
+                const { data, error } = await supabase
+                    .from("quizzes")
+                    .insert([{ teacher_id: userData.user.id, ...payload }])
+                    .select()
+                    .single();
+                if (error) throw error;
+                returnedId = data.id;
+            }
+
+            router.push(`/teacher/quiz/${returnedId}/questions`);
 
         } catch (err: any) {
             alert("Error al guardar: " + err.message);
@@ -324,5 +350,13 @@ export default function QuizBuilder() {
                 }
             `}</style>
         </div>
+    );
+}
+
+export default function QuizBuilderPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-900 text-indigo-400 font-bold text-xl">Iniciando Forja...</div>}>
+            <QuizBuilderContent />
+        </Suspense>
     );
 }

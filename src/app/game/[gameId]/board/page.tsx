@@ -4,13 +4,15 @@
 import { useEffect, useState, use } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import GameBoard from "@/components/GameBoard";
+import Link from "next/link";
 
 export default function GameRoomBoard({ params }: { params: Promise<{ gameId: string }> }) {
     const { gameId } = use(params);
     const [pin, setPin] = useState("");
-    const [gameStatus, setGameStatus] = useState("waiting"); // 'waiting', 'active', 'finished'
+    const [gameStatus, setGameStatus] = useState("waiting"); // 'waiting', 'active', 'paused', 'finished'
     const [loading, setLoading] = useState(true);
     const [podium, setPodium] = useState<any[]>([]);
+    const [playerCount, setPlayerCount] = useState(0);
 
     useEffect(() => {
         const fetchGame = async () => {
@@ -28,11 +30,18 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
         };
         fetchGame();
 
-        // Escuchar cambios de estado globales en tiempo real
         const channel = supabase.channel(`game_room_status_${gameId}`)
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
                 (payload) => setGameStatus(payload.new.status)
+            )
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'game_players', filter: `game_id=eq.${gameId}` },
+                () => setPlayerCount(prev => prev + 1)
             ).subscribe();
+
+        // Obtener el conteo inicial
+        supabase.from('game_players').select('*', { count: 'exact', head: true }).eq('game_id', gameId).then(({ count }) => {
+            if (count) setPlayerCount(count);
+        });
 
         return () => { supabase.removeChannel(channel); };
 
@@ -102,32 +111,74 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                             <span className="text-green-400 font-bold uppercase tracking-widest text-sm">Esperando Jugadores...</span>
                         </div>
                     )}
+                    {gameStatus === "waiting" && (
+                        <div className="hidden lg:flex items-center gap-2 bg-white/10 px-4 py-2 rounded-xl text-white font-black border border-white/20 shadow-inner">
+                            <span>👤</span>
+                            {playerCount} Conectados
+                        </div>
+                    )}
                 </div>
 
                 {/* Controles del Profesor */}
                 <div className="flex items-center space-x-3 sm:space-x-4">
                     {gameStatus === "waiting" && (
-                        <button
-                            onClick={startGame}
-                            className="group relative px-6 sm:px-10 py-4 sm:py-5 bg-green-500 hover:bg-green-600 rounded-2xl font-black shadow-md hover:shadow-lg text-xl transition-all hover:scale-105 active:scale-95 border-2 border-green-400 overflow-hidden"
-                        >
-                            <div className="absolute inset-0 bg-white/20 skew-x-12 -translate-x-full group-hover:animate-[shimmer_1s_forwards]"></div>
-                            <span className="relative z-10 flex items-center gap-3">
-                                <span className="text-3xl">🚀</span> INICIAR PARTIDA
-                            </span>
-                        </button>
+                        <>
+                            <button
+                                onClick={() => {
+                                    const url = `${window.location.origin}/?pin=${pin}`;
+                                    navigator.clipboard.writeText(url);
+                                    alert("El enlace directo ha sido copiado a tu portapapeles. ¡Pégalo donde prefieras!");
+                                }}
+                                className="px-5 py-4 bg-indigo-600 hover:bg-indigo-700 rounded-2xl font-bold shadow-[0_0_20px_rgba(79,70,229,0.4)] text-sm transition-all text-white border-2 border-indigo-400 flex items-center gap-2 transform hover:scale-105 active:scale-95"
+                                title="Copiar enlace directo de ingreso para estudiantes"
+                            >
+                                <span className="text-xl">🔗</span> COPIAR LINK
+                            </button>
+
+                            <button
+                                onClick={startGame}
+                                className="group relative px-6 sm:px-10 py-4 sm:py-5 bg-green-500 hover:bg-green-600 rounded-2xl font-black shadow-[0_0_30px_rgba(34,197,94,0.4)] hover:shadow-lg text-xl transition-all hover:scale-[1.03] active:scale-95 border-2 border-green-400 overflow-hidden"
+                            >
+                                <div className="absolute inset-0 bg-white/20 skew-x-12 -translate-x-full group-hover:animate-[shimmer_1s_forwards]"></div>
+                                <span className="relative z-10 flex items-center gap-3">
+                                    <span className="text-3xl drop-shadow-md">🚀</span> INICIAR PARTIDA
+                                </span>
+                            </button>
+                        </>
                     )}
-                    {gameStatus === "active" && (
-                        <button
-                            onClick={finishGame}
-                            className="px-6 sm:px-8 py-4 bg-red-600 hover:bg-red-700 rounded-2xl font-black shadow-md hover:shadow-lg text-lg transition-transform transform hover:scale-105 active:scale-95 border border-red-500 flex items-center gap-2"
-                        >
-                            <span>⏹️</span> TERMINAR JUEGO
-                        </button>
+
+                    {(gameStatus === "active" || gameStatus === "paused") && (
+                        <>
+                            <button
+                                onClick={async () => {
+                                    const newStatus = gameStatus === "active" ? "paused" : "active";
+                                    await supabase.from("games").update({ status: newStatus }).eq("id", gameId);
+                                    setGameStatus(newStatus);
+                                }}
+                                className={`px-6 sm:px-8 py-4 rounded-2xl font-black shadow-md hover:shadow-lg text-lg transition-transform transform hover:scale-105 active:scale-95 border flex items-center gap-2 ${gameStatus === "active" ? 'bg-amber-500 hover:bg-amber-600 border-amber-400 text-white' : 'bg-emerald-500 hover:bg-emerald-600 border-emerald-400 text-white'}`}
+                            >
+                                <span>{gameStatus === "active" ? "⏸️ PAUSAR" : "▶️ CONTINUAR"}</span>
+                            </button>
+
+                            <button
+                                onClick={finishGame}
+                                className="px-6 sm:px-8 py-4 bg-red-600 hover:bg-red-700 rounded-2xl font-black shadow-md hover:shadow-lg text-lg transition-transform transform hover:scale-105 active:scale-95 border border-red-500 flex items-center gap-2"
+                            >
+                                <span>⏹️ TERMINAR JUEGO</span>
+                            </button>
+                        </>
                     )}
                     {gameStatus === "finished" && (
-                        <div className="px-6 sm:px-10 py-4 sm:py-5 bg-amber-500/20 text-amber-400 border-2 border-amber-500/50 rounded-2xl font-black text-2xl flex items-center gap-3 shadow-[0_0_30px_rgba(245,158,11,0.2)]">
-                            <span className="animate-bounce">🏆</span> PARTIDA FINALIZADA
+                        <div className="flex items-center gap-3">
+                            <div className="px-6 sm:px-10 py-4 sm:py-5 bg-amber-500/20 text-amber-400 border-2 border-amber-500/50 rounded-2xl font-black text-2xl flex items-center gap-3 shadow-[0_0_30px_rgba(245,158,11,0.2)]">
+                                <span className="animate-bounce">🏆</span> PARTIDA FINALIZADA
+                            </div>
+                            <Link
+                                href="/teacher/dashboard"
+                                className="px-5 py-4 sm:py-5 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl shadow-md transition-all hover:scale-105 active:scale-95 border-2 border-indigo-400 flex items-center gap-2"
+                            >
+                                <span>⬅️ VOLVER AL PANEL</span>
+                            </Link>
                         </div>
                     )}
                 </div>
