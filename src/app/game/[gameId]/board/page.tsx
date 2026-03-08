@@ -25,6 +25,19 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
             if (game) {
                 setPin(game.pin);
                 setGameStatus(game.status);
+
+                // Si la partida ya estaba finalizada, cargar el podio de inmediato
+                if (game.status === "finished") {
+                    const { data: topPlayers } = await supabase
+                        .from("game_players")
+                        .select("player_name, avatar_gif_url, score, current_position")
+                        .eq("game_id", gameId)
+                        .order("current_position", { ascending: false })
+                        .order("score", { ascending: false })
+                        .limit(3);
+
+                    if (topPlayers) setPodium(topPlayers);
+                }
             }
             setLoading(false);
         };
@@ -71,7 +84,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
         // Obtener ganadores para el podio
         const { data: topPlayers } = await supabase
             .from("game_players")
-            .select("name, avatar_url, score, current_position")
+            .select("player_name, avatar_gif_url, score, current_position")
             .eq("game_id", gameId)
             .order("current_position", { ascending: false })
             .order("score", { ascending: false })
@@ -198,10 +211,10 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                             {/* Segundo Lugar */}
                             {podium[1] && (
                                 <div className="flex flex-col items-center justify-end h-[80%] animate-slide-up animation-delay-300">
-                                    <img src={podium[1].avatar_url} className="w-20 h-20 rounded-full border-4 border-gray-300 shadow-xl z-20 -mb-6 bg-white object-cover" />
-                                    <div className="w-32 bg-gradient-to-b from-gray-300 to-gray-400 h-full rounded-t-xl flex flex-col items-centerpt-8 relative shadow-2xl border-t-4 border-gray-100 p-2 text-center">
+                                    <img src={podium[1].avatar_gif_url} className="w-20 h-20 rounded-full border-4 border-gray-300 shadow-xl z-20 -mb-6 bg-white object-cover" />
+                                    <div className="w-32 bg-gradient-to-b from-gray-300 to-gray-400 h-full rounded-t-xl flex flex-col items-center pt-8 relative shadow-2xl border-t-4 border-gray-100 p-2 text-center">
                                         <span className="text-4xl font-black text-white drop-shadow-md text-center w-full mt-6">2°</span>
-                                        <p className="font-bold text-gray-800 text-sm mt-2">{podium[1].name}</p>
+                                        <p className="font-bold text-gray-800 text-sm mt-2">{podium[1].player_name}</p>
                                         <p className="text-xs text-gray-700 font-bold">{podium[1].score} pts</p>
                                     </div>
                                 </div>
@@ -211,10 +224,10 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                             {podium[0] && (
                                 <div className="flex flex-col items-center justify-end h-full animate-slide-up z-10 shadow-2xl">
                                     <div className="absolute -top-10 text-6xl animate-bounce z-30">👑</div>
-                                    <img src={podium[0].avatar_url} className="w-28 h-28 rounded-full border-4 border-yellow-400 shadow-[0_0_30px_rgba(250,204,21,0.6)] z-20 -mb-8 bg-white object-cover" />
+                                    <img src={podium[0].avatar_gif_url} className="w-28 h-28 rounded-full border-4 border-yellow-400 shadow-[0_0_30px_rgba(250,204,21,0.6)] z-20 -mb-8 bg-white object-cover" />
                                     <div className="w-40 bg-gradient-to-b from-yellow-400 to-amber-600 h-full rounded-t-xl flex flex-col items-center pt-10 relative shadow-2xl border-t-4 border-yellow-200 p-2 text-center">
                                         <span className="text-6xl font-black text-white drop-shadow-md mt-6">1°</span>
-                                        <p className="font-bold text-yellow-900 text-lg mt-2 truncate w-full">{podium[0].name}</p>
+                                        <p className="font-bold text-yellow-900 text-lg mt-2 truncate w-full">{podium[0].player_name}</p>
                                         <p className="text-sm text-yellow-800 font-black">{podium[0].score} pts</p>
                                     </div>
                                 </div>
@@ -223,10 +236,10 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                             {/* Tercer Lugar */}
                             {podium[2] && (
                                 <div className="flex flex-col items-center justify-end h-[60%] animate-slide-up animation-delay-600">
-                                    <img src={podium[2].avatar_url} className="w-16 h-16 rounded-full border-4 border-orange-400 shadow-xl z-20 -mb-4 bg-white object-cover" />
+                                    <img src={podium[2].avatar_gif_url} className="w-16 h-16 rounded-full border-4 border-orange-400 shadow-xl z-20 -mb-4 bg-white object-cover" />
                                     <div className="w-32 bg-gradient-to-b from-orange-400 to-rose-500 h-full rounded-t-xl flex flex-col items-center pt-6 relative shadow-2xl border-t-4 border-orange-200 p-2 text-center">
                                         <span className="text-3xl font-black text-white drop-shadow-md mt-4">3°</span>
-                                        <p className="font-bold text-rose-900 text-sm mt-2 truncate w-full">{podium[2].name}</p>
+                                        <p className="font-bold text-rose-900 text-sm mt-2 truncate w-full">{podium[2].player_name}</p>
                                         <p className="text-xs text-rose-800 font-bold">{podium[2].score} pts</p>
                                     </div>
                                 </div>
