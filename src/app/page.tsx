@@ -103,6 +103,7 @@ export default function Home() {
           email: email.trim(),
           password,
           options: {
+            emailRedirectTo: `${window.location.origin}/teacher/dashboard`,
             data: {
               full_name: fullName,
               username: username.toLowerCase().trim()
@@ -110,7 +111,8 @@ export default function Home() {
           }
         });
         if (error) throw error;
-        alert("¡Registro exitoso! Por favor verifica tu correo para continuar.");
+        alert("¡Registro exitoso! Por favor verifica tu correo para continuar. Recuerda revisar la carpeta de Spam.");
+        return; // Detener flujo para no redirigir ni refrescar
       }
 
       router.push("/teacher/dashboard");
