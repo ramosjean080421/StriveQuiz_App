@@ -1,0 +1,321 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+
+interface Coordinate {
+    x: number;
+    y: number;
+}
+
+export default function QuizBuilder() {
+    const router = useRouter();
+    const [title, setTitle] = useState("");
+    const [localMaps, setLocalMaps] = useState<{ id: number, name: string, url: string }[]>([]);
+    const [selectedMap, setSelectedMap] = useState<any>(null);
+    const [boardPath, setBoardPath] = useState<Coordinate[]>([]);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        const fetchMaps = async () => {
+            try {
+                const res = await fetch("/api/maps");
+                const data = await res.json();
+
+                if (data.maps && data.maps.length > 0) {
+                    const formattedMaps = data.maps.map((fileName: string, index: number) => ({
+                        id: index + 1,
+                        name: fileName,
+                        url: `/maps/${fileName}`,
+                    }));
+                    setLocalMaps(formattedMaps);
+                    setSelectedMap(formattedMaps[0]);
+                }
+            } catch (error) {
+                console.error("Error cargando mapas locales", error);
+            }
+        };
+        fetchMaps();
+    }, []);
+
+    const handleImageClick = (e: React.MouseEvent<HTMLImageElement>) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const xPositionsPercent = ((e.clientX - rect.left) / rect.width) * 100;
+        const yPositionsPercent = ((e.clientY - rect.top) / rect.height) * 100;
+
+        setBoardPath([...boardPath, { x: xPositionsPercent, y: yPositionsPercent }]);
+    };
+
+    const handleUndo = () => {
+        setBoardPath(boardPath.slice(0, -1));
+    };
+
+    const handleClear = () => {
+        if (confirm("¿Seguro que deseas borrar toda la ruta?")) {
+            setBoardPath([]);
+        }
+    };
+
+    const handleSaveQuiz = async () => {
+        if (!title) {
+            alert("Por favor ingresa un título para la aventura.");
+            return;
+        }
+        if (boardPath.length < 2) {
+            alert("Por favor traza al menos 2 casillas en el tablero.");
+            return;
+        }
+        if (!selectedMap) {
+            alert("Por favor selecciona un escenario.");
+            return;
+        }
+
+        setSaving(true);
+        try {
+            const { data: userData } = await supabase.auth.getUser();
+            if (!userData.user) throw new Error("No autenticado");
+
+            const { data, error } = await supabase
+                .from("quizzes")
+                .insert([
+                    {
+                        teacher_id: userData.user.id,
+                        title,
+                        board_image_url: selectedMap.url,
+                        board_path: boardPath,
+                    },
+                ])
+                .select()
+                .single();
+
+            if (error) throw error;
+            router.push(`/teacher/quiz/${data.id}/questions`);
+
+        } catch (err: any) {
+            alert("Error al guardar: " + err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="flex flex-col lg:flex-row h-[100dvh] w-screen overflow-hidden bg-gray-900 font-sans">
+
+            {/* Panel Izquierdo - Herramientas y Configuraciones */}
+            <div className="w-full lg:w-[380px] h-full bg-white flex flex-col shadow-[10px_0_30px_rgba(0,0,0,0.2)] z-20 flex-shrink-0 border-r border-gray-200">
+
+                {/* Cabecera del Panel */}
+                <div className="p-5 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-white flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <Link href="/teacher/dashboard" className="w-10 h-10 flex items-center justify-center bg-white shadow-sm rounded-full text-indigo-600 hover:bg-indigo-600 hover:text-white transition-colors" title="Volver al Panel">
+                            <span className="text-xl">&larr;</span>
+                        </Link>
+                        <h1 className="text-xl font-black tracking-tight text-gray-900">Forja de Tableros</h1>
+                    </div>
+                </div>
+
+                {/* Contenido Scrolleable del Panel */}
+                <div className="flex-1 overflow-y-auto p-5 scrollbar-thin scrollbar-thumb-indigo-200">
+
+                    {/* Sección 1: Título */}
+                    <div className="mb-6 bg-white p-4 rounded-2xl border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
+                        <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
+                            <span className="text-lg">📝</span> Nombre de la Aventura
+                        </label>
+                        <input
+                            type="text"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            placeholder="Ej. Bosque de Matemáticas"
+                            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-inner"
+                        />
+                    </div>
+
+                    {/* Sección 2: Selector de Mapa (Escenario) */}
+                    <div className="mb-6 bg-white p-4 rounded-2xl border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
+                        <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
+                            <span className="text-lg">🗺️</span> Elige un Escenario
+                        </label>
+
+                        {localMaps.length === 0 ? (
+                            <div className="text-xs text-red-500 bg-red-50 p-3 rounded-lg border border-red-100 font-medium">
+                                No se encontraron imágenes. Sube mapas a <code className="font-bold">public/maps/</code>.
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 gap-3 max-h-48 overflow-y-auto pr-1">
+                                {localMaps.map((map) => (
+                                    <div
+                                        key={map.id}
+                                        onClick={() => setSelectedMap(map)}
+                                        className={`group relative cursor-pointer rounded-xl overflow-hidden aspect-video border-2 transition-all bg-gray-100 shadow-sm ${selectedMap?.id === map.id
+                                            ? "border-indigo-600 ring-2 ring-indigo-200 shadow-md transform scale-[1.03]"
+                                            : "border-transparent hover:border-gray-300 hover:shadow"
+                                            }`}
+                                    >
+                                        <img
+                                            src={map.url}
+                                            alt={map.name}
+                                            className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                                        />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <p className="text-white text-[10px] font-bold truncate leading-tight w-full text-center drop-shadow-md">{map.name}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Sección 3: Instrucciones / Controles de Ruta */}
+                    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-4 rounded-2xl border border-indigo-100/50 shadow-inner">
+                        <h3 className="font-bold text-indigo-900 text-sm mb-3 flex items-center gap-2">
+                            <span className="text-lg">⚙️</span> Trazar Ruta
+                        </h3>
+                        {boardPath.length === 0 ? (
+                            <p className="text-xs text-indigo-700/80 leading-relaxed font-medium bg-white/50 p-3 rounded-xl border border-indigo-100">
+                                Haz clic en la gran previsualización de la derecha para trazar los pasos que los jugadores deberán recorrer. <strong>¡Tu primer clic será la casilla de inicio!</strong>
+                            </p>
+                        ) : (
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between text-xs font-bold text-indigo-800 bg-white/60 px-3 py-2 rounded-xl border border-indigo-100 shadow-sm">
+                                    <span>Casillas Plasmadas:</span>
+                                    <span className="text-sm bg-indigo-600 text-white px-2.5 py-0.5 rounded-full">{boardPath.length}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 mt-2">
+                                    <button
+                                        onClick={handleUndo}
+                                        className="flex flex-col items-center justify-center p-2 text-[11px] font-bold rounded-xl border transition-all text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100 hover:border-amber-400 focus:ring-2 focus:ring-amber-200 shadow-sm"
+                                        title="Borrar último punto transado"
+                                    >
+                                        <span className="text-xl mb-1 mt-0.5">↩️</span>
+                                        Deshacer
+                                    </button>
+                                    <button
+                                        onClick={handleClear}
+                                        className="flex flex-col items-center justify-center p-2 text-[11px] font-bold rounded-xl border transition-all text-red-600 bg-red-50 border-red-200 hover:bg-red-100 hover:border-red-400 focus:ring-2 focus:ring-red-200 shadow-sm"
+                                        title="Borrar absolutamente todos los puntos"
+                                    >
+                                        <span className="text-xl mb-1 mt-0.5">🧨</span>
+                                        Limpiar Todo
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Pie del Panel - Guardar */}
+                <div className="flex-shrink-0 p-5 border-t border-gray-100 bg-white sticky bottom-0 z-30 shadow-[0_-5px_20px_rgba(0,0,0,0.03)]">
+                    <button
+                        onClick={handleSaveQuiz}
+                        disabled={saving || !title || !selectedMap || boardPath.length < 2}
+                        className="w-full flex items-center justify-center gap-2 py-4 px-4 text-base font-bold rounded-2xl text-white bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 shadow-[0_4px_15px_rgba(16,185,129,0.3)] hover:shadow-[0_6px_20px_rgba(16,185,129,0.4)] disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5 active:scale-95 transition-all"
+                    >
+                        {saving ? (
+                            <span className="animate-pulse">Guardando Magia...</span>
+                        ) : (
+                            <><span>✅</span> Publicar Aventura</>
+                        )}
+                    </button>
+                </div>
+            </div>
+
+            {/* Panel Derecho - Lienzo Principal (Scroll interno solo para imagen grande) */}
+            <div className="flex-1 relative bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-gray-800 via-gray-900 to-black overflow-y-auto overflow-x-hidden p-4 sm:p-8 custom-scrollbar scroll-smooth">
+
+                {/* Patrón de Fondo de Puntos Estrellado */}
+                <div className="absolute inset-0 opacity-[0.04] pointer-events-none z-0" style={{ backgroundImage: 'radial-gradient(white 2px, transparent 2px)', backgroundSize: '30px 30px' }}></div>
+
+                {selectedMap ? (
+                    <div className="relative z-10 w-full max-w-6xl mx-auto rounded-[2rem] shadow-[0_0_50px_rgba(0,0,0,0.4)] border border-indigo-500/20 overflow-hidden group hover:border-indigo-400/40 transition-colors duration-500">
+
+                        {/* El lienzo invisible para cliquear encima de la imagen */}
+                        <div className="relative w-full cursor-crosshair select-none bg-gray-900">
+                            <img
+                                src={selectedMap.url}
+                                alt="Previsualización de mapa"
+                                onClick={handleImageClick}
+                                draggable={false}
+                                className="w-full h-auto block opacity-95 group-hover:opacity-100 transition-opacity duration-500"
+                            />
+
+                            {/* SVG para dibujar líneas (Ruta) */}
+                            <svg className="absolute top-0 left-0 w-full h-full pointer-events-none z-10 overflow-visible">
+                                <filter id="glow">
+                                    <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+                                    <feMerge>
+                                        <feMergeNode in="coloredBlur" />
+                                        <feMergeNode in="SourceGraphic" />
+                                    </feMerge>
+                                </filter>
+                                {boardPath.map((coord, i) => {
+                                    if (i === 0) return null;
+                                    const prev = boardPath[i - 1];
+                                    return (
+                                        <line
+                                            key={`line-${i}`}
+                                            x1={`${prev.x}%`}
+                                            y1={`${prev.y}%`}
+                                            x2={`${coord.x}%`}
+                                            y2={`${coord.y}%`}
+                                            stroke="rgba(255, 255, 255, 0.9)"
+                                            strokeWidth="6"
+                                            strokeDasharray="12,12"
+                                            filter="url(#glow)"
+                                            className="drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] opacity-80"
+                                        />
+                                    );
+                                })}
+                            </svg>
+
+                            {/* Casillas Renderizadas (Puntos) */}
+                            {boardPath.map((coord, index) => (
+                                <div
+                                    key={`node-${index}`}
+                                    className={`absolute flex items-center justify-center font-black text-white shadow-[0_5px_15px_rgba(0,0,0,0.5)] transition-all duration-300 cursor-default select-none
+                                        ${index === 0
+                                            ? "w-14 h-14 -ml-7 -mt-7 rounded-2xl bg-gradient-to-br from-emerald-400 to-green-600 border-[3px] border-white z-20 text-lg rotate-3"
+                                            : index === boardPath.length - 1
+                                                ? "w-12 h-12 -ml-6 -mt-6 rounded-full bg-gradient-to-br from-rose-400 to-red-600 border-[3px] border-white ring-4 ring-rose-300/50 z-20 animate-pulse text-base"
+                                                : "w-10 h-10 -ml-5 -mt-5 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 border-2 border-white z-10 text-sm hover:scale-110 hover:z-30 shadow-indigo-500/50"
+                                        }`}
+                                    style={{ left: `${coord.x}%`, top: `${coord.y}%` }}
+                                >
+                                    {index === 0 ? "🏁" : index}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex items-center justify-center h-full w-full z-10 relative">
+                        <div className="flex flex-col items-center bg-gray-900/40 p-12 rounded-[2rem] border-2 border-dashed border-gray-600/50 backdrop-blur-md max-w-md text-center shadow-2xl">
+                            <span className="text-7xl mb-6 filter drop-shadow-md">🗺️</span>
+                            <h3 className="text-2xl font-black text-white mb-2">Lienzo Vacío</h3>
+                            <p className="text-gray-400 text-base">Escoge un escenario del panel izquierdo para empezar a forjar el camino de tu aventura en Prisma Quiz.</p>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            <style jsx global>{`
+                /* Scrollbar mágico súper sutil */
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 8px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: rgba(0,0,0,0.1);
+                    border-radius: 10px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: linear-gradient(to bottom, rgba(99, 102, 241, 0.4), rgba(168, 85, 247, 0.4));
+                    border-radius: 10px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: linear-gradient(to bottom, rgba(99, 102, 241, 0.8), rgba(168, 85, 247, 0.8));
+                }
+            `}</style>
+        </div>
+    );
+}

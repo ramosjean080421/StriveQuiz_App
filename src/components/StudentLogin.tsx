@@ -1,0 +1,148 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
+
+// Galería predefinida de GIFs de memes para que el estudiante elija
+const MEME_GIFS = [
+    "https://media.giphy.com/media/ICOgUNjpvO0PC/giphy.gif", // Cat typing
+    "https://media.giphy.com/media/13HgwGsXF0aiGY/giphy.gif", // Doge
+    "https://media.giphy.com/media/VbnUQpnihPSIgIXuZv/giphy.gif", // Roll safe
+    "https://media.giphy.com/media/3o7TKSjRrfIPjeiVyM/giphy.gif", // Thinking
+    "https://media.giphy.com/media/YRtLgsajXrz1FNJ6oy/giphy.gif", // Pepe dance
+    "https://media.giphy.com/media/l41lFw057lAJQMwg0/giphy.gif"  // Spongebob rainbow
+];
+
+export default function StudentLogin() {
+    const router = useRouter();
+    const [pin, setPin] = useState("");
+    const [playerName, setPlayerName] = useState("");
+    const [selectedGif, setSelectedGif] = useState(MEME_GIFS[0]);
+    const [error, setError] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
+
+    const handleJoinGame = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError("");
+        setIsLoading(true);
+
+        try {
+            // 1. Buscar si la partida existe y está en modo 'waiting' o 'active' usando el PIN
+            const { data: game, error: gameError } = await supabase
+                .from("games")
+                .select("id, status")
+                .eq("pin", pin.toUpperCase())
+                .single();
+
+            if (gameError || !game) {
+                throw new Error("PIN de sala no válido o partida no encontrada.");
+            }
+            if (game.status === "finished") {
+                throw new Error("La partida ya ha finalizado.");
+            }
+
+            // 2. Registrar al estudiante en la tabla 'game_players'
+            const { data: player, error: playerError } = await supabase
+                .from("game_players")
+                .insert([
+                    {
+                        game_id: game.id,
+                        player_name: playerName,
+                        avatar_gif_url: selectedGif,
+                        current_position: 0,
+                        score: 0
+                    }
+                ])
+                .select()
+                .single();
+
+            if (playerError) throw playerError;
+
+            // 3. Guardar en el dispositivo la ID del jugador (para interactuar en partida)
+            localStorage.setItem("currentPlayerId", player.id);
+
+            // 4. Redirigir al lobby de espera o directo al tablero del juego
+            router.push(`/game/${game.id}/board`);
+
+        } catch (err: any) {
+            setError(err.message || "Error al intentar entrar a la sala.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-4">
+            <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full animate-fade-in-up">
+
+                <div className="text-center mb-8">
+                    <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600">
+                        GameQuiz!
+                    </h1>
+                    <p className="text-gray-500 mt-2">¡Ingresa el PIN, elige tu meme y juega!</p>
+                </div>
+
+                <form onSubmit={handleJoinGame} className="space-y-6">
+                    {error && (
+                        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-3 rounded">
+                            <p className="text-sm font-semibold">{error}</p>
+                        </div>
+                    )}
+
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-2">PIN de la Sala</label>
+                        <input
+                            type="text"
+                            required
+                            maxLength={6}
+                            value={pin}
+                            onChange={(e) => setPin(e.target.value.toUpperCase())}
+                            placeholder="Ej. A1B2C3"
+                            className="w-full px-4 py-3 text-center text-xl font-mono tracking-widest border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-purple-200 focus:border-purple-500 transition-all uppercase"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-2">Tu Apodo</label>
+                        <input
+                            type="text"
+                            required
+                            maxLength={15}
+                            value={playerName}
+                            onChange={(e) => setPlayerName(e.target.value)}
+                            placeholder="Ej. ProGamer99"
+                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-purple-200 focus:border-purple-500 transition-all font-semibold"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-3">Elige tu Avatar de Meme</label>
+                        <div className="grid grid-cols-3 gap-3">
+                            {MEME_GIFS.map((gif, index) => (
+                                <div
+                                    key={index}
+                                    onClick={() => setSelectedGif(gif)}
+                                    className={`cursor-pointer rounded-xl overflow-hidden border-4 transition-transform duration-200 aspect-square ${selectedGif === gif
+                                            ? "border-green-400 scale-105 shadow-lg shadow-green-200"
+                                            : "border-transparent hover:scale-105"
+                                        }`}
+                                >
+                                    <img src={gif} alt={`Meme ${index}`} className="w-full h-full object-cover" />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <button
+                        type="submit"
+                        disabled={isLoading || !pin || !playerName}
+                        className="w-full py-4 rounded-xl text-white font-bold text-lg shadow-lg shadow-purple-300 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 transform hover:-translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                    >
+                        {isLoading ? "Conectando..." : "¡ENTRAR AL JUEGO!"}
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
+}
