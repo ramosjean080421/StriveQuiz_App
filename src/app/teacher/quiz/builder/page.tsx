@@ -36,14 +36,20 @@ function QuizBuilderContent() {
                         url: `/maps/${fileName}`,
                     }));
                     setLocalMaps(formattedMaps);
-                    setSelectedMap(formattedMaps[0]); // Default map
-                }
+                    // Set default map ONLY if not editing
+                    if (formattedMaps.length > 0 && !editId) {
+                        setSelectedMap(formattedMaps[0]);
+                    }
+
+                } // Close if (data.maps && data.maps.length > 0)
 
                 if (editId) {
                     const { data: qData } = await supabase.from("quizzes").select("*").eq("id", editId).single();
                     if (qData) {
                         setTitle(qData.title);
                         setBoardPath(qData.board_path || []);
+
+                        // Select the map the quiz has
                         if (formattedMaps.length > 0 && qData.board_image_url) {
                             const mapFound = formattedMaps.find(m => m.url === qData.board_image_url);
                             if (mapFound) setSelectedMap(mapFound);
