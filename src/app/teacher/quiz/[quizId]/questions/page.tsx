@@ -43,30 +43,67 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
         setOpts(newOpts);
     };
 
-    // Función mágica para extraer preguntas y opciones al hacer Control+V
-    const handlePaste = (e: React.ClipboardEvent) => {
+    // Función mágica para extraer y guardar MÚLTIPLES preguntas al hacer Control+V
+    const handlePaste = async (e: React.ClipboardEvent) => {
         const pasteData = e.clipboardData.getData('text');
         if (!pasteData) return;
 
-        // Detectar si el texto copiado tiene múltiples líneas (formato Word/Bloc de notas)
+        // Limpiar líneas vacías
         const lines = pasteData.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
 
-        if (lines.length >= 2) {
-            e.preventDefault(); // Evitamos que se pegue de golpe en el título
+        // Si son 5 o más líneas, podríamos estar pegando múltiples preguntas
+        if (lines.length >= 5) {
+            e.preventDefault();
 
-            // La primera línea suele ser la pregunta
-            setNewText(lines[0]);
+            if (!confirm(`Parece que estás intentando pegar hasta ${Math.floor(lines.length / 5)} preguntas a la vez. ¿Quieres procesarlas e insertarlas automáticamente?`)) {
+                return;
+            }
 
-            // Las siguientes líneas (hasta 4) son las opciones
+            setSaving(true);
+            const newQuestions = [];
+
+            // Leemos bloques de 5 líneas (1 pregunta + 4 opciones)
+            for (let i = 0; i < lines.length; i += 5) {
+                if (i + 4 < lines.length) {
+                    const questionText = lines[i].replace(/^\d+[\.\-\)]\s*/, ''); // Quitar número inicial ej. "1."
+                    const optionTexts = [
+                        lines[i + 1].replace(/^([A-D]\)|[a-d]\)|[1-4]\.|\-|\*)\s*/, ''),
+                        lines[i + 2].replace(/^([A-D]\)|[a-d]\)|[1-4]\.|\-|\*)\s*/, ''),
+                        lines[i + 3].replace(/^([A-D]\)|[a-d]\)|[1-4]\.|\-|\*)\s*/, ''),
+                        lines[i + 4].replace(/^([A-D]\)|[a-d]\)|[1-4]\.|\-|\*)\s*/, '')
+                    ];
+
+                    newQuestions.push({
+                        quiz_id: quizId,
+                        question_text: questionText,
+                        options: optionTexts,
+                        correct_option_index: 0 // Por defecto la A, el profesor debe ajustarla luego si desea
+                    });
+                }
+            }
+
+            if (newQuestions.length > 0) {
+                const { data, error } = await supabase.from("questions").insert(newQuestions).select();
+                if (!error && data) {
+                    setQuestions(prev => [...prev, ...data]);
+                    alert(`¡${data.length} preguntas añadidas con éxito! Recuerda revisar cuál es la opción correcta en cada una.`);
+                } else {
+                    alert("Hubo un error al insertar el bloque: " + error?.message);
+                }
+            }
+            setSaving(false);
+
+        } else if (lines.length >= 2) {
+            // Comportamiento original para 1 sola pregunta
+            e.preventDefault();
+            setNewText(lines[0].replace(/^\d+[\.\-\)]\s*/, ''));
+
             const extractedOptions = lines.slice(1, 5);
             const newOpts = [...opts];
-
             extractedOptions.forEach((opt, idx) => {
-                // Eliminar viñetas comunes como "A)", "1.", "-", etc, al inicio
                 const cleanOpt = opt.replace(/^([A-D]\)|[a-d]\)|[1-4]\.|\-|\*)\s*/, '');
                 if (idx < 4) newOpts[idx] = cleanOpt;
             });
-
             setOpts(newOpts);
         }
     };
@@ -102,6 +139,17 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
         if (!confirm("¿Eliminar esta pregunta para siempre?")) return;
         setQuestions(questions.filter(q => q.id !== id));
         await supabase.from("questions").delete().eq("id", id);
+    };
+
+    const handleChangeCorrectOption = async (qId: string, newIdx: number) => {
+        // Update local state first (optimistic UI)
+        setQuestions(questions.map(q => q.id === qId ? { ...q, correct_option_index: newIdx } : q));
+
+        // Update database
+        const { error } = await supabase.from("questions").update({ correct_option_index: newIdx }).eq("id", qId);
+        if (error) {
+            alert("Error al actualizar la opción correcta: " + error.message);
+        }
     };
 
     const optionColors = [
@@ -169,10 +217,15 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                                             <span className="w-8 h-8 shrink-0 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-black text-sm">{idx + 1}</span>
                                             <div>
                                                 <h4 className="text-lg font-bold text-gray-900 mb-3">{q.question_text}</h4>
-                                                <div className="grid grid-cols-2 gap-2">
+                                                <div className="grid grid-cols-2 gap-2 mt-2">
                                                     {q.options.map((opt, i) => (
-                                                        <div key={i} className={`px-3 py-2 text-xs font-bold rounded-lg border ${i === q.correct_option_index ? 'bg-emerald-50 border-emerald-500 text-emerald-700 ring-2 ring-emerald-200' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
-                                                            {i === q.correct_option_index && <span className="mr-1">✅</span>}
+                                                        <div
+                                                            key={i}
+                                                            onClick={() => handleChangeCorrectOption(q.id, i)}
+                                                            className={`px-3 py-2.5 text-xs font-bold rounded-lg border cursor-pointer transition-all ${i === q.correct_option_index ? 'bg-emerald-50 border-emerald-500 text-emerald-700 ring-2 ring-emerald-200 shadow-sm' : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-emerald-300 hover:bg-white hover:shadow-sm'}`}
+                                                            title="Haz clic para marcar esta opción como correcta"
+                                                        >
+                                                            {i === q.correct_option_index && <span className="mr-1 inline-block animate-bounce-short">✅</span>}
                                                             {opt}
                                                         </div>
                                                     ))}
@@ -211,8 +264,8 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
 
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-3">Opciones y Respuesta Correcta</label>
-                                    <p className="text-xs text-gray-500 mb-4 bg-yellow-50 p-2 rounded-lg border border-yellow-200">
-                                        💡 Escribe las 4 opciones y selecciona el circulito de la que será la respuesta <strong>Correcta</strong>.
+                                    <p className="text-xs text-gray-500 mb-4 bg-indigo-50 p-3 rounded-xl border border-indigo-100/50 leading-relaxed font-medium">
+                                        💡 <strong>Truco:</strong> Puedes copiar 20 preguntas seguidas desde Word (Ej. 1 pregunta seguida de 4 líneas de opciones) y pegarlas en el recuadro de arriba. ¡El sistema las añadirá todas en bloque mágicamente!
                                     </p>
 
                                     <div className="space-y-3">

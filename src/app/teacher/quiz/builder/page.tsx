@@ -144,24 +144,31 @@ export default function QuizBuilder() {
                                 No se encontraron imágenes. Sube mapas a <code className="font-bold">public/maps/</code>.
                             </div>
                         ) : (
-                            <div className="grid grid-cols-2 gap-3 max-h-48 overflow-y-auto pr-1">
+                            <div className="flex flex-col gap-4 max-h-[350px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-indigo-200">
                                 {localMaps.map((map) => (
                                     <div
                                         key={map.id}
                                         onClick={() => setSelectedMap(map)}
-                                        className={`group relative cursor-pointer rounded-xl overflow-hidden aspect-video border-2 transition-all bg-gray-100 shadow-sm ${selectedMap?.id === map.id
-                                            ? "border-indigo-600 ring-2 ring-indigo-200 shadow-md transform scale-[1.03]"
-                                            : "border-transparent hover:border-gray-300 hover:shadow"
+                                        className={`group relative cursor-pointer rounded-2xl overflow-hidden aspect-[21/9] transition-all bg-gray-900 border-4 shadow-sm hover:shadow-md ${selectedMap?.id === map.id
+                                            ? "border-indigo-500 transform scale-102 z-10 shadow-indigo-200/50"
+                                            : "border-transparent opacity-85 hover:opacity-100"
                                             }`}
                                     >
                                         <img
                                             src={map.url}
                                             alt={map.name}
-                                            className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                                         />
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <p className="text-white text-[10px] font-bold truncate leading-tight w-full text-center drop-shadow-md">{map.name}</p>
+                                        <div className={`absolute inset-0 flex items-center justify-center transition-colors duration-300 ${selectedMap?.id === map.id ? 'bg-black/20' : 'bg-black/50 group-hover:bg-black/30'}`}>
+                                            <span className={`px-4 py-1.5 font-bold tracking-wider uppercase rounded-xl backdrop-blur-md transition-all text-sm shadow-sm ${selectedMap?.id === map.id ? 'bg-indigo-600 text-white shadow-lg scale-110' : 'bg-white text-gray-900 group-hover:scale-105'}`}>
+                                                {map.name.replace('.png', '')}
+                                            </span>
                                         </div>
+                                        {selectedMap?.id === map.id && (
+                                            <div className="absolute top-2 right-2 bg-indigo-500 text-white rounded-full p-1 shadow-md">
+                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7"></path></svg>
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -211,7 +218,7 @@ export default function QuizBuilder() {
                     <button
                         onClick={handleSaveQuiz}
                         disabled={saving || !title || !selectedMap || boardPath.length < 2}
-                        className="w-full flex items-center justify-center gap-2 py-4 px-4 text-base font-bold rounded-2xl text-white bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 shadow-[0_4px_15px_rgba(16,185,129,0.3)] hover:shadow-[0_6px_20px_rgba(16,185,129,0.4)] disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5 active:scale-95 transition-all"
+                        className="w-full flex items-center justify-center gap-2 py-4 px-4 text-base font-bold rounded-2xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5 active:scale-95 transition-all outline-none"
                     >
                         {saving ? (
                             <span className="animate-pulse">Guardando Magia...</span>

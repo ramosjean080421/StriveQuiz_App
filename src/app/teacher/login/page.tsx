@@ -9,6 +9,7 @@ export default function TeacherLogin() {
     const router = useRouter();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [fullName, setFullName] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [isLogin, setIsLogin] = useState(true);
     const [loading, setLoading] = useState(false);
@@ -24,7 +25,15 @@ export default function TeacherLogin() {
                 const { error } = await supabase.auth.signInWithPassword({ email, password });
                 if (error) throw error;
             } else {
-                const { error } = await supabase.auth.signUp({ email, password });
+                const { error } = await supabase.auth.signUp({
+                    email,
+                    password,
+                    options: {
+                        data: {
+                            full_name: fullName
+                        }
+                    }
+                });
                 if (error) throw error;
                 alert("¡Registro exitoso! Por favor verifica tu correo para continuar.");
             }
@@ -102,6 +111,21 @@ export default function TeacherLogin() {
                         )}
 
                         <div className="space-y-5">
+                            {!isLogin && (
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-1 pointer-events-none">
+                                        Nombre Completo
+                                    </label>
+                                    <input
+                                        type="text"
+                                        required
+                                        className="block w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all sm:text-sm shadow-inner"
+                                        placeholder="Tu nombre y apellido"
+                                        value={fullName}
+                                        onChange={(e) => setFullName(e.target.value)}
+                                    />
+                                </div>
+                            )}
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-1 pointer-events-none">
                                     Correo Electrónico

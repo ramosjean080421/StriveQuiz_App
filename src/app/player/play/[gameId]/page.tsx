@@ -20,8 +20,61 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
     const [loading, setLoading] = useState(true);
     const [answering, setAnswering] = useState(false);
-    const [feedback, setFeedback] = useState<"correct" | "incorrect" | null>(null);
-    const [hasFinishedAll, setHasFinishedAll] = useState(false); // Nuevo estado para manejo de finalización
+    const [feedback, setFeedback] = useState<"correct" | "incorrect" | "timeout" | null>(null);
+    const [hasFinishedAll, setHasFinishedAll] = useState(false);
+    const [timeLeft, setTimeLeft] = useState(20);
+
+    // Reproductor de efectos integrados
+    const playSound = (type: "correct" | "incorrect" | "timeout") => {
+        try {
+            const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+            if (!AudioContext) return;
+            const audioCtx = new AudioContext();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'correct') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            } else {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(80, audioCtx.currentTime + 0.4);
+                gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            }
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.4);
+        } catch (e) { }
+    };
+
+    // Cronómetro visual
+    useEffect(() => {
+        if (gameStatus === "waiting" || gameStatus === "finished" || hasFinishedAll || answering || questions.length === 0) return;
+
+        const timer = setInterval(() => {
+            setTimeLeft(prev => {
+                if (prev <= 1) {
+                    clearInterval(timer);
+                    handleAnswerSubmit(-1); // -1 significa que se acabó el tiempo
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [currentQuestionIdx, gameStatus, hasFinishedAll, answering, questions.length]);
+
+    // Reiniciar cronómetro en nueva pregunta
+    useEffect(() => {
+        setTimeLeft(20);
+    }, [currentQuestionIdx]);
 
     useEffect(() => {
         // 1. Recuperar la ID del Jugador del localStorage
@@ -66,7 +119,15 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         const question = questions[currentQuestionIdx];
         const isCorrect = selectedIndex === question.correct_option_index;
 
-        setFeedback(isCorrect ? "correct" : "incorrect");
+        let fbType: "correct" | "incorrect" | "timeout" = isCorrect ? "correct" : "incorrect";
+        if (selectedIndex === -1) fbType = "timeout";
+        setFeedback(fbType);
+
+        // Hardware Feedback
+        if (typeof navigator !== "undefined" && navigator.vibrate) {
+            navigator.vibrate(isCorrect ? [100, 50, 100] : [300]);
+        }
+        playSound(fbType);
 
         if (isCorrect && playerId) {
             // Actualizar: avanzar 1 posición y sumar puntos
@@ -161,20 +222,31 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         <div className="h-screen w-screen flex flex-col bg-gray-100 overflow-hidden relative font-sans">
 
             {/* Header Mini - Progreso */}
-            <div className="bg-white shadow-[0_2px_15px_rgba(0,0,0,0.05)] px-4 py-3 flex justify-between items-center z-10 sticky top-0">
-                <div className="font-black text-xl text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 tracking-tight">Prisma Quiz</div>
+            <div className="bg-white shadow-[0_2px_15px_rgba(0,0,0,0.05)] px-4 py-3 flex justify-between items-center z-10 sticky top-0 border-b border-gray-100">
+                <div className="font-black text-xl text-transparent bg-clip-text bg-indigo-600 tracking-tight">Prisma Quiz</div>
                 <div className="flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100">
                     <span className="text-xs font-bold text-indigo-800 uppercase tracking-widest">Pregunta</span>
-                    <span className="bg-indigo-600 text-white text-sm font-black w-6 h-6 flex items-center justify-center rounded-md">{currentQuestionIdx + 1}/{questions.length}</span>
+                    <span className="bg-indigo-600 text-white text-sm font-black w-7 h-7 flex items-center justify-center rounded-lg shadow-inner">{currentQuestionIdx + 1}/{questions.length}</span>
                 </div>
             </div>
 
+            {/* Cronómetro Barra */}
+            <div className="w-full bg-gray-200 h-2">
+                <div
+                    className="h-full transition-all duration-1000 linear"
+                    style={{
+                        width: `${(timeLeft / 20) * 100}%`,
+                        backgroundColor: timeLeft > 10 ? '#10B981' : timeLeft > 5 ? '#F59E0B' : '#EF4444'
+                    }}
+                ></div>
+            </div>
+
             {/* Tarjeta de Pregunta Central */}
-            <div className="shrink-0 flex items-center justify-center p-4 py-6 sm:py-10">
-                <div className="w-full max-w-3xl bg-white rounded-3xl shadow-xl p-6 sm:p-10 border-b-8 border-indigo-500 text-center relative overflow-hidden">
-                    {/* Detalle decorativo */}
-                    <div className="absolute -top-4 -right-4 w-12 h-12 bg-indigo-100 rounded-full blur-xl opacity-60"></div>
-                    <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-gray-900 leading-tight break-words relative z-10">
+            <div className="flex items-center justify-center px-4 py-4 sm:py-8">
+                <div className="w-full max-w-3xl bg-white rounded-3xl shadow-lg p-6 sm:p-10 border-b-8 border-indigo-500 text-center relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-4 font-black text-3xl opacity-10">⏳ {timeLeft}</div>
+                    <div className="absolute -top-4 -left-4 w-16 h-16 bg-indigo-100 rounded-full blur-xl opacity-60"></div>
+                    <h2 className="text-2xl sm:text-3xl md:text-3xl font-extrabold text-gray-900 leading-snug break-words relative z-10 mt-2">
                         {currentQ.question_text}
                     </h2>
                 </div>
@@ -212,12 +284,16 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
             {/* Pantalla Interpuesta de Feedback Rápido (Correcto/Incorrecto) */}
             {feedback && (
-                <div className={`absolute inset-0 z-50 flex flex-col items-center justify-center backdrop-blur-md transition-all duration-500 ${feedback === 'correct' ? 'bg-emerald-500/90' : 'bg-rose-600/90'
+                <div className={`absolute inset-0 z-50 flex flex-col items-center justify-center backdrop-blur-md transition-all duration-500 ${feedback === 'correct' ? 'bg-emerald-500/90' : feedback === 'timeout' ? 'bg-amber-500/90' : 'bg-rose-600/90'
                     }`}>
                     <div className="transform animate-bounce mb-4">
                         {feedback === 'correct' ? (
                             <div className="w-40 h-40 bg-white rounded-full flex items-center justify-center shadow-[0_0_50px_rgba(255,255,255,0.5)]">
                                 <span className="text-8xl">🥇</span>
+                            </div>
+                        ) : feedback === 'timeout' ? (
+                            <div className="w-40 h-40 bg-black/20 rounded-full flex items-center justify-center border-8 border-white border-dashed">
+                                <span className="text-8xl">⏳</span>
                             </div>
                         ) : (
                             <div className="w-40 h-40 bg-black/20 rounded-full flex items-center justify-center border-8 border-white border-dashed">
@@ -225,8 +301,8 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                             </div>
                         )}
                     </div>
-                    <h2 className="text-5xl font-black text-white uppercase tracking-widest drop-shadow-lg">
-                        {feedback === 'correct' ? '!Genial!' : '¡Fallaste!'}
+                    <h2 className="text-5xl font-black text-white uppercase tracking-widest drop-shadow-lg text-center px-4">
+                        {feedback === 'correct' ? '¡Genial!' : feedback === 'timeout' ? '¡Tiempo!' : '¡Fallaste!'}
                     </h2>
                 </div>
             )}

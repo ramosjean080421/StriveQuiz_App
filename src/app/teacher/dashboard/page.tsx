@@ -84,16 +84,16 @@ export default function TeacherDashboard() {
                 </div>
 
                 <div className="flex items-center space-x-6">
-                    <div className="flex flex-col text-right hidden md:block">
-                        <span className="text-sm font-bold text-gray-800">Profesor</span>
-                        <span className="text-xs text-gray-500">{user?.email}</span>
+                    <div className="flex-col text-right hidden md:flex justify-center">
+                        <span className="text-sm font-bold text-gray-800">Profesor(a)</span>
+                        <span className="text-xs text-gray-500 mt-0.5">{user?.user_metadata?.full_name || user?.email}</span>
                     </div>
                     <button
                         onClick={handleLogout}
-                        className="flex items-center gap-2 text-sm font-bold text-red-600 hover:text-white bg-red-50 hover:bg-red-500 px-5 py-2.5 rounded-xl transition-all shadow-sm hover:shadow-md border border-red-100 hover:border-transparent group"
+                        className="flex items-center gap-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 px-5 py-2.5 rounded-xl transition-all shadow-sm hover:shadow-md border border-transparent"
                     >
                         <span>Cerrar Sesión</span>
-                        <span className="bg-red-100 group-hover:bg-red-600 px-1.5 rounded text-red-600 group-hover:text-white transition-colors">🚪</span>
+                        <span className="bg-red-700/50 px-1.5 rounded text-white font-normal">🚪</span>
                     </button>
                 </div>
             </header>
@@ -112,7 +112,7 @@ export default function TeacherDashboard() {
                     </div>
                     <Link
                         href="/teacher/quiz/builder"
-                        className="mt-4 md:mt-0 inline-flex items-center gap-2 px-8 py-3.5 text-base font-bold rounded-2xl shadow-[0_8px_20px_rgba(79,70,229,0.3)] hover:shadow-[0_8px_25px_rgba(79,70,229,0.45)] text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 transition-all transform hover:-translate-y-1 active:scale-95"
+                        className="mt-4 md:mt-0 inline-flex items-center gap-2 px-8 py-3.5 text-base font-bold rounded-2xl shadow-md hover:shadow-lg text-white bg-indigo-600 hover:bg-indigo-700 transition-all transform hover:-translate-y-1 active:scale-95"
                     >
                         <span className="text-xl leading-none">+</span> Crear Nuevo Tablero
                     </Link>
@@ -149,14 +149,14 @@ export default function TeacherDashboard() {
                                     <div className="bg-gray-50/50 p-4 border-t border-gray-100 flex items-center gap-2">
                                         <Link
                                             href={`/teacher/game/new?quizId=${quiz.id}`}
-                                            className="flex-1 flex items-center justify-center gap-1.5 bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-white font-bold py-2.5 px-3 text-sm rounded-xl transition-all shadow-md shadow-emerald-200/50 hover:shadow-lg hover:shadow-emerald-200 transform active:scale-95"
+                                            className="flex-1 flex items-center justify-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 px-3 text-sm rounded-xl transition-all shadow-sm hover:shadow-md transform active:scale-95"
                                         >
                                             <span className="text-base">▶️</span> Lanzar
                                         </Link>
 
                                         <Link
                                             href={`/teacher/quiz/${quiz.id}/questions`}
-                                            className="flex items-center justify-center px-4 py-2.5 bg-white hover:bg-indigo-50 text-indigo-600 font-bold text-sm rounded-xl transition-all border border-indigo-100 hover:border-indigo-300 shadow-sm"
+                                            className="flex items-center justify-center px-4 py-2.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-bold text-sm rounded-xl transition-all shadow-sm"
                                             title="Editar Preguntas"
                                         >
                                             ⚙️ Preguntas
@@ -164,7 +164,7 @@ export default function TeacherDashboard() {
 
                                         <button
                                             onClick={() => handleDeleteQuiz(quiz.id)}
-                                            className="flex items-center justify-center w-11 h-11 bg-red-50 hover:bg-red-600 text-red-500 hover:text-white rounded-xl transition-all border border-red-100 hover:border-transparent group shadow-sm flex-shrink-0"
+                                            className="flex items-center justify-center w-11 h-11 bg-red-100 hover:bg-red-600 text-red-600 hover:text-white rounded-xl transition-all group shadow-sm flex-shrink-0"
                                             title="Eliminar Tablero permanentemente"
                                         >
                                             <span className="text-base group-hover:scale-110 transition-transform">🗑️</span>

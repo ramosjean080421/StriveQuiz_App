@@ -10,6 +10,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
     const [pin, setPin] = useState("");
     const [gameStatus, setGameStatus] = useState("waiting"); // 'waiting', 'active', 'finished'
     const [loading, setLoading] = useState(true);
+    const [podium, setPodium] = useState<any[]>([]);
 
     useEffect(() => {
         const fetchGame = async () => {
@@ -41,12 +42,33 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
         const newStatus = "active";
         await supabase.from("games").update({ status: newStatus }).eq("id", gameId);
         setGameStatus(newStatus);
+
+        // Intentar reproducir música
+        const audio = document.getElementById('bg-music') as HTMLAudioElement;
+        if (audio) {
+            audio.volume = 0.4;
+            audio.play().catch(e => console.log("Autoplay bloquedo:", e));
+        }
     };
 
     const finishGame = async () => {
         const newStatus = "finished";
         await supabase.from("games").update({ status: newStatus }).eq("id", gameId);
         setGameStatus(newStatus);
+
+        const audio = document.getElementById('bg-music') as HTMLAudioElement;
+        if (audio) audio.pause();
+
+        // Obtener ganadores para el podio
+        const { data: topPlayers } = await supabase
+            .from("game_players")
+            .select("name, avatar_url, score, current_position")
+            .eq("game_id", gameId)
+            .order("current_position", { ascending: false })
+            .order("score", { ascending: false })
+            .limit(3);
+
+        if (topPlayers) setPodium(topPlayers);
     };
 
     if (loading) return (
@@ -87,7 +109,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                     {gameStatus === "waiting" && (
                         <button
                             onClick={startGame}
-                            className="group relative px-6 sm:px-10 py-4 sm:py-5 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 rounded-2xl font-black shadow-[0_0_30px_rgba(16,185,129,0.3)] hover:shadow-[0_0_50px_rgba(16,185,129,0.6)] text-xl transition-all hover:scale-105 active:scale-95 border-2 border-green-400/50 overflow-hidden"
+                            className="group relative px-6 sm:px-10 py-4 sm:py-5 bg-green-500 hover:bg-green-600 rounded-2xl font-black shadow-md hover:shadow-lg text-xl transition-all hover:scale-105 active:scale-95 border-2 border-green-400 overflow-hidden"
                         >
                             <div className="absolute inset-0 bg-white/20 skew-x-12 -translate-x-full group-hover:animate-[shimmer_1s_forwards]"></div>
                             <span className="relative z-10 flex items-center gap-3">
@@ -98,7 +120,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                     {gameStatus === "active" && (
                         <button
                             onClick={finishGame}
-                            className="px-6 sm:px-8 py-4 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 rounded-2xl font-black shadow-[0_0_30px_rgba(225,29,72,0.4)] hover:shadow-[0_0_40px_rgba(225,29,72,0.6)] text-lg transition-transform transform hover:scale-105 active:scale-95 border border-red-500/50 flex items-center gap-2"
+                            className="px-6 sm:px-8 py-4 bg-red-600 hover:bg-red-700 rounded-2xl font-black shadow-md hover:shadow-lg text-lg transition-transform transform hover:scale-105 active:scale-95 border border-red-500 flex items-center gap-2"
                         >
                             <span>⏹️</span> TERMINAR JUEGO
                         </button>
@@ -111,10 +133,62 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                 </div>
             </header>
 
-            {/* Contenedor del Mapa Central (Ocupa el resto de la pantalla) */}
+            {/* Contenedor del Mapa Central o Podio (Ocupa el resto de la pantalla) */}
             <main className="flex-1 relative z-10 p-4 sm:p-8 flex items-center justify-center overflow-hidden">
-                <GameBoard gameId={gameId} />
+                {gameStatus === "finished" ? (
+                    <div className="flex flex-col items-center justify-center w-full h-full animate-fade-in relative">
+                        {/* Confeti Sencillo CSS */}
+                        <div className="absolute inset-0 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 animate-pulse"></div>
+                        <h2 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-600 mb-12 drop-shadow-xl uppercase tracking-widest text-center">
+                            ¡Podio de Ganadores!
+                        </h2>
+
+                        <div className="flex items-end justify-center gap-4 sm:gap-8 h-80">
+                            {/* Segundo Lugar */}
+                            {podium[1] && (
+                                <div className="flex flex-col items-center justify-end h-[80%] animate-slide-up animation-delay-300">
+                                    <img src={podium[1].avatar_url} className="w-20 h-20 rounded-full border-4 border-gray-300 shadow-xl z-20 -mb-6 bg-white object-cover" />
+                                    <div className="w-32 bg-gradient-to-b from-gray-300 to-gray-400 h-full rounded-t-xl flex flex-col items-centerpt-8 relative shadow-2xl border-t-4 border-gray-100 p-2 text-center">
+                                        <span className="text-4xl font-black text-white drop-shadow-md text-center w-full mt-6">2°</span>
+                                        <p className="font-bold text-gray-800 text-sm mt-2">{podium[1].name}</p>
+                                        <p className="text-xs text-gray-700 font-bold">{podium[1].score} pts</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Primer Lugar */}
+                            {podium[0] && (
+                                <div className="flex flex-col items-center justify-end h-full animate-slide-up z-10 shadow-2xl">
+                                    <div className="absolute -top-10 text-6xl animate-bounce z-30">👑</div>
+                                    <img src={podium[0].avatar_url} className="w-28 h-28 rounded-full border-4 border-yellow-400 shadow-[0_0_30px_rgba(250,204,21,0.6)] z-20 -mb-8 bg-white object-cover" />
+                                    <div className="w-40 bg-gradient-to-b from-yellow-400 to-amber-600 h-full rounded-t-xl flex flex-col items-center pt-10 relative shadow-2xl border-t-4 border-yellow-200 p-2 text-center">
+                                        <span className="text-6xl font-black text-white drop-shadow-md mt-6">1°</span>
+                                        <p className="font-bold text-yellow-900 text-lg mt-2 truncate w-full">{podium[0].name}</p>
+                                        <p className="text-sm text-yellow-800 font-black">{podium[0].score} pts</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Tercer Lugar */}
+                            {podium[2] && (
+                                <div className="flex flex-col items-center justify-end h-[60%] animate-slide-up animation-delay-600">
+                                    <img src={podium[2].avatar_url} className="w-16 h-16 rounded-full border-4 border-orange-400 shadow-xl z-20 -mb-4 bg-white object-cover" />
+                                    <div className="w-32 bg-gradient-to-b from-orange-400 to-rose-500 h-full rounded-t-xl flex flex-col items-center pt-6 relative shadow-2xl border-t-4 border-orange-200 p-2 text-center">
+                                        <span className="text-3xl font-black text-white drop-shadow-md mt-4">3°</span>
+                                        <p className="font-bold text-rose-900 text-sm mt-2 truncate w-full">{podium[2].name}</p>
+                                        <p className="text-xs text-rose-800 font-bold">{podium[2].score} pts</p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                ) : (
+                    <GameBoard gameId={gameId} />
+                )}
             </main>
+
+            {/* Música de Juego */}
+            <audio id="bg-music" loop src="https://cdns-preview-f.dzcdn.net/stream/c-f458e0aae13fa26ea7f2c69bb128deba-3.mp3"></audio>
 
         </div>
     );

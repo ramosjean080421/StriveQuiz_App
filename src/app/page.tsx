@@ -19,6 +19,7 @@ export default function Home() {
   // --- Teacher State ---
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
 
@@ -68,7 +69,15 @@ export default function Home() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: fullName
+            }
+          }
+        });
         if (error) throw error;
         alert("¡Registro exitoso! Por favor verifica tu correo para continuar.");
       }
@@ -202,7 +211,7 @@ export default function Home() {
                 <button
                   type="submit"
                   disabled={loading || !pin || !playerName}
-                  className="w-full flex justify-center py-4 px-4 mt-2 border border-transparent text-sm font-black rounded-xl text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 disabled:opacity-50 transition-all duration-300 shadow-[0_8px_20px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 active:scale-95 uppercase tracking-wider"
+                  className="w-full flex justify-center py-4 px-4 mt-2 border border-transparent text-sm font-black rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-all duration-300 shadow-[0_8px_20px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 active:scale-95 uppercase tracking-wider"
                 >
                   {loading ? "Conectando..." : "¡ENTRAR AL JUEGO!"}
                 </button>
@@ -223,6 +232,22 @@ export default function Home() {
                 </p>
 
                 <form onSubmit={handleTeacherAuth} className="space-y-4">
+                  {!isLogin && (
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">
+                        Nombre Completo
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        className="block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm shadow-inner"
+                        placeholder="Tu nombre y apellido"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                      />
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">
                       Correo Electrónico
