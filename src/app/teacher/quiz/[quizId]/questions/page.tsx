@@ -193,8 +193,15 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
             {/* Cabecera Clásica Prisma */}
             <header className="flex-shrink-0 bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex justify-between items-center z-20">
                 <div className="flex items-center gap-4">
-                    <Link href="/teacher/dashboard" className="w-10 h-10 flex items-center justify-center bg-gray-50 hover:bg-gray-100 rounded-full text-gray-400 hover:text-indigo-600 transition-colors" title="Volver al Dashboard">
-                        <span className="text-xl">&larr;</span>
+                    <Link
+                        href="/teacher/dashboard"
+                        className="group flex items-center gap-2 px-3 sm:px-4 py-2 bg-white hover:bg-gray-50 rounded-xl text-gray-500 hover:text-indigo-600 transition-all border border-gray-200 shadow-sm"
+                        title="Volver al Dashboard"
+                    >
+                        <svg className="w-5 h-5 transform group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        <span className="font-bold text-sm hidden sm:block">Volver</span>
                     </Link>
                     <div>
                         <h1 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">
@@ -204,8 +211,8 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                     </div>
                 </div>
                 <div>
-                    <Link href="/teacher/dashboard" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-xl transition-colors shadow-sm shadow-indigo-200">
-                        Terminar y Volver
+                    <Link href="/teacher/dashboard" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-xl transition-colors shadow-[0_5px_15px_rgba(79,70,229,0.3)] hover:shadow-lg hover:-translate-y-0.5 active:scale-95 inline-flex">
+                        ✅ Terminar y Volver
                     </Link>
                 </div>
             </header>

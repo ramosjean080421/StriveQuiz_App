@@ -193,9 +193,12 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                             </div>
                             <Link
                                 href="/teacher/dashboard"
-                                className="px-5 py-4 sm:py-5 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl shadow-md transition-all hover:scale-105 active:scale-95 border-2 border-indigo-400 flex items-center gap-2"
+                                className="group px-6 sm:px-8 py-4 sm:py-5 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl shadow-md transition-all hover:scale-105 active:scale-95 border-2 border-indigo-400 flex items-center gap-2"
                             >
-                                <span>⬅️ VOLVER AL PANEL</span>
+                                <svg className="w-6 h-6 transform group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                                </svg>
+                                <span>VOLVER AL PANEL</span>
                             </Link>
                         </div>
                     )}

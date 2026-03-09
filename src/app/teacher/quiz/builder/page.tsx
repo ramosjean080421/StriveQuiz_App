@@ -156,8 +156,15 @@ function QuizBuilderContent() {
                 {/* Cabecera del Panel */}
                 <div className="p-5 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-white flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <Link href="/teacher/dashboard" className="w-10 h-10 flex items-center justify-center bg-white shadow-sm rounded-full text-indigo-600 hover:bg-indigo-600 hover:text-white transition-colors" title="Volver al Panel">
-                            <span className="text-xl">&larr;</span>
+                        <Link
+                            href="/teacher/dashboard"
+                            className="group flex items-center gap-2 px-3 sm:px-4 py-2 bg-white hover:bg-gray-50 rounded-xl text-gray-500 hover:text-indigo-600 transition-all border border-gray-200 shadow-sm"
+                            title="Volver al Panel"
+                        >
+                            <svg className="w-5 h-5 transform group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                            </svg>
+                            <span className="font-bold text-sm hidden sm:block">Volver</span>
                         </Link>
                         <h1 className="text-xl font-black tracking-tight text-gray-900">Forja de Tableros</h1>
                     </div>
