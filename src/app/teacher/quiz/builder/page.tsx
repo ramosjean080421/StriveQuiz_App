@@ -35,11 +35,12 @@ function QuizBuilderContent() {
 
                 let formattedMaps: any[] = [];
                 if (data.maps && data.maps.length > 0) {
-                    formattedMaps = data.maps.map((fileName: string, index: number) => ({
-                        id: index + 1,
-                        name: fileName,
-                        url: `/maps/${fileName}`,
-                    }));
+                    formattedMaps = data.maps
+                        .map((fileName: string, index: number) => ({
+                            id: index + 1,
+                            name: fileName,
+                            url: `/maps/${fileName}`,
+                        }));
                     setLocalMaps(formattedMaps);
                     // Set default map ONLY if not editing
                     if (formattedMaps.length > 0 && !editId) {
@@ -54,7 +55,6 @@ function QuizBuilderContent() {
                         setTitle(qData.title);
                         setBoardPath(qData.board_path || []);
 
-                        // Select the map the quiz has
                         if (formattedMaps.length > 0 && qData.board_image_url) {
                             const mapFound = formattedMaps.find(m => m.url === qData.board_image_url);
                             if (mapFound) setSelectedMap(mapFound);
@@ -110,12 +110,13 @@ function QuizBuilderContent() {
         setSaving(true);
         try {
             const { data: userData } = await supabase.auth.getUser();
-            if (!userData.user) throw new Error("No autenticado");
+            const user = userData?.user;
+            if (!user) throw new Error("No autenticado");
 
             const payload = {
                 title,
                 board_image_url: selectedMap.url,
-                board_path: boardPath,
+                board_path: boardPath, // Always save boardPath
                 rewards_enabled: rewardsEnabled,
                 reward_criteria: rewardCriteria,
                 reward_text: rewardText
@@ -131,7 +132,7 @@ function QuizBuilderContent() {
                 // Insert
                 const { data, error } = await supabase
                     .from("quizzes")
-                    .insert([{ teacher_id: userData.user.id, ...payload }])
+                    .insert([{ teacher_id: user.id, ...payload }])
                     .select()
                     .single();
                 if (error) throw error;
@@ -228,7 +229,6 @@ function QuizBuilderContent() {
                             </div>
                         )}
                     </div>
-
                     {/* Sección 2.5: Sistema de Recompensas */}
                     <div className="mb-6 bg-white p-4 rounded-2xl border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
                         <div className="flex items-center justify-between mb-3">
@@ -268,7 +268,7 @@ function QuizBuilderContent() {
                     </div>
 
                     {/* Sección 3: Instrucciones / Controles de Ruta */}
-                    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-4 rounded-2xl border border-indigo-100/50 shadow-inner">
+                    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-4 rounded-2xl border border-indigo-100/50 shadow-inner mt-6">
                         <h3 className="font-bold text-indigo-900 text-sm mb-3 flex items-center gap-2">
                             <span className="text-lg">⚙️</span> Trazar Ruta
                         </h3>
@@ -309,7 +309,7 @@ function QuizBuilderContent() {
                 <div className="flex-shrink-0 p-5 border-t border-gray-100 bg-white sticky bottom-0 z-30 shadow-[0_-5px_20px_rgba(0,0,0,0.03)]">
                     <button
                         onClick={handleSaveQuiz}
-                        disabled={saving || !title || !selectedMap || boardPath.length < 2}
+                        disabled={saving || !title || (!selectedMap || boardPath.length < 2)}
                         className="w-full flex items-center justify-center gap-2 py-4 px-4 text-base font-bold rounded-2xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5 active:scale-95 transition-all outline-none"
                     >
                         {saving ? (

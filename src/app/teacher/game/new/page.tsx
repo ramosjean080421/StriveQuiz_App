@@ -13,14 +13,14 @@ function StartGameContent() {
     const [loading, setLoading] = useState(false);
     const [quizName, setQuizName] = useState("");
 
-    // Configuración del Modo de Juego
-    const [gameMode, setGameMode] = useState<"classic" | "boss">("classic");
-    const [bossHp, setBossHp] = useState<number>(1000);
-
     useEffect(() => {
         if (quizId) {
-            supabase.from("quizzes").select("title").eq("id", quizId).single()
-                .then(({ data }) => { if (data) setQuizName(data.title) });
+            supabase.from("quizzes").select("title, board_image_url").eq("id", quizId).single()
+                .then(({ data }) => {
+                    if (data) {
+                        setQuizName(data.title);
+                    }
+                });
         }
     }, [quizId]);
 
@@ -39,10 +39,7 @@ function StartGameContent() {
                     {
                         quiz_id: quizId,
                         pin: pin,
-                        status: "waiting",
-                        game_mode: gameMode,
-                        boss_hp: gameMode === "boss" ? bossHp : 0,
-                        boss_max_hp: gameMode === "boss" ? bossHp : 0
+                        status: "waiting"
                     }
                 ])
                 .select()
@@ -84,50 +81,7 @@ function StartGameContent() {
                     </strong>
                 </p>
 
-                {/* Selector de Modo de Juego */}
-                <div className="mb-8 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <button
-                            onClick={() => setGameMode("classic")}
-                            className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${gameMode === 'classic' ? 'bg-indigo-600/20 border-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.3)]' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
-                        >
-                            <span className="text-3xl">🏃‍♂️</span>
-                            <span className="text-white font-black text-sm">Clásico</span>
-                            <span className="text-[10px] text-gray-400 leading-tight">Carrera normal<br />por el tablero</span>
-                        </button>
 
-                        <button
-                            onClick={() => setGameMode("boss")}
-                            className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${gameMode === 'boss' ? 'bg-rose-600/20 border-rose-400 shadow-[0_0_20px_rgba(225,29,72,0.3)]' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
-                        >
-                            <span className="text-3xl">🐲</span>
-                            <span className="text-white font-black text-sm">Modo Jefe</span>
-                            <span className="text-[10px] text-gray-400 leading-tight">Trabajo en equipo<br />vs Monstruo</span>
-                        </button>
-                    </div>
-
-                    {/* Configurador de Jefe (Solo visible si es modo Boss) */}
-                    {gameMode === "boss" && (
-                        <div className="bg-black/30 p-5 rounded-2xl border border-rose-500/30 animate-fade-in mt-4 text-left">
-                            <label className="text-rose-300 text-xs font-black uppercase tracking-widest flex items-center justify-between mb-3">
-                                <span>❤️ Vida del Monstruo</span>
-                                <span className="text-xl text-white font-black bg-rose-600 px-3 py-1 rounded-lg">{bossHp} HP</span>
-                            </label>
-                            <input
-                                type="range"
-                                min="100"
-                                max="10000"
-                                step="100"
-                                value={bossHp}
-                                onChange={(e) => setBossHp(Number(e.target.value))}
-                                className="w-full accent-rose-500 mb-2 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-                            />
-                            <p className="text-[11px] text-gray-400 font-medium">
-                                Recomendación: {bossHp < 1000 ? "Fácil (Para pocas preguntas o pocos alumnos)" : bossHp < 5000 ? "Normal" : "Difícil (¡Guerra total!)"}
-                            </p>
-                        </div>
-                    )}
-                </div>
 
                 <button
                     onClick={handleStartGame}

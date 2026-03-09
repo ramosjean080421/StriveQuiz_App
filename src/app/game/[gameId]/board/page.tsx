@@ -186,6 +186,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                             </button>
                         </>
                     )}
+
                     {gameStatus === "finished" && (
                         <div className="flex items-center gap-3">
                             <div className="px-6 sm:px-10 py-4 sm:py-5 bg-amber-500/20 text-amber-400 border-2 border-amber-500/50 rounded-2xl font-black text-2xl flex items-center gap-3 shadow-[0_0_30px_rgba(245,158,11,0.2)]">

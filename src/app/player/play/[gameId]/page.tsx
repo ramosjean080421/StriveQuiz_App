@@ -190,8 +190,9 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         playSound(fbType);
 
         if (playerId) {
-            // Actualizar: avanzar/retroceder posición, sumar puntos y rachas
+            // Actualizar: avanzar/retroceder posición, sumar puntos y rachas, y vida del Jefe si aplica
             const { data: pData } = await supabase.from("game_players").select("current_position, score, correct_answers, incorrect_answers, current_streak").eq("id", playerId).single();
+            const { data: gData } = await supabase.from("games").select("game_mode, boss_hp").eq("id", gameId).single();
 
             if (pData) {
                 let nextPos = pData.current_position;
@@ -200,8 +201,17 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 let newIncorrect = pData.incorrect_answers || 0;
                 let newStreak = pData.current_streak || 0;
 
+                const mode = gData?.game_mode || "classic";
+                let currentBossHp = gData?.boss_hp || 0;
+                let newBossHp = currentBossHp;
+
                 if (isCorrect) {
-                    nextPos += 1;
+                    if (mode === "classic") {
+                        nextPos += 1;
+                    } else if (mode === "boss") {
+                        newBossHp = Math.max(0, currentBossHp - 10);
+                    }
+
                     newScore += 100 + timeLeft * 10;
                     newCorrect += 1;
                     newStreak += 1;
@@ -212,21 +222,41 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                         playSound("correct"); // Sonido extra
                     }
                 } else {
-                    // Retrocede una posición si se equivoca, mínimo en 0
-                    nextPos = Math.max(0, nextPos - 1);
+                    if (mode === "classic") {
+                        // Retrocede una posición si se equivoca, mínimo en 0
+                        nextPos = Math.max(0, nextPos - 1);
+                    } else if (mode === "boss") {
+                        newBossHp = currentBossHp + 5;
+                    }
+
                     newIncorrect += 1;
                     newStreak = 0;
                 }
 
-                await supabase.from("game_players")
-                    .update({
-                        current_position: nextPos,
-                        score: newScore,
-                        correct_answers: newCorrect,
-                        incorrect_answers: newIncorrect,
-                        current_streak: newStreak
-                    })
-                    .eq("id", playerId);
+                // Guardar actualizaciones concurrentemente
+                const promises = [];
+
+                promises.push(
+                    supabase.from("game_players")
+                        .update({
+                            current_position: nextPos,
+                            score: newScore,
+                            correct_answers: newCorrect,
+                            incorrect_answers: newIncorrect,
+                            current_streak: newStreak
+                        })
+                        .eq("id", playerId)
+                );
+
+                if (mode === "boss" && newBossHp !== currentBossHp) {
+                    promises.push(
+                        supabase.from("games")
+                            .update({ boss_hp: newBossHp })
+                            .eq("id", gameId)
+                    );
+                }
+
+                await Promise.all(promises);
             }
         }
 
