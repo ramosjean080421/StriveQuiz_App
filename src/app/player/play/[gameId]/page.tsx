@@ -6,9 +6,12 @@ import { supabase } from "@/lib/supabaseClient";
 
 interface Question {
     id: string;
+    type?: 'multiple_choice' | 'true_false' | 'fill_in_the_blank' | 'matching';
     question_text: string;
     options: string[];
     correct_option_index: number;
+    correct_answer?: string;
+    matching_pairs?: { left: string; right: string }[];
 }
 
 export default function StudentPlayArea({ params }: { params: Promise<{ gameId: string }> }) {
@@ -23,6 +26,11 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     const [feedback, setFeedback] = useState<"correct" | "incorrect" | "timeout" | null>(null);
     const [hasFinishedAll, setHasFinishedAll] = useState(false);
     const [timeLeft, setTimeLeft] = useState(20);
+
+    // Respuestas para nuevos tipos de preguntas
+    const [blankAnswer, setBlankAnswer] = useState("");
+    const [userMatches, setUserMatches] = useState<Record<string, string>>({});
+    const [shuffledMatchRight, setShuffledMatchRight] = useState<string[]>([]);
 
     // Configuraciones de recompensa del quiz
     const [rewardConfig, setRewardConfig] = useState({ enabled: false, criteria: 5, text: "" });
@@ -75,10 +83,17 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         return () => clearInterval(timer);
     }, [currentQuestionIdx, gameStatus, hasFinishedAll, answering, questions.length]);
 
-    // Reiniciar cronómetro en nueva pregunta
+    // Reiniciar inputs en nueva pregunta
     useEffect(() => {
         setTimeLeft(20);
-    }, [currentQuestionIdx]);
+        setBlankAnswer("");
+        setUserMatches({});
+
+        if (questions.length > 0 && questions[currentQuestionIdx]?.type === 'matching' && questions[currentQuestionIdx]?.matching_pairs) {
+            const rights = questions[currentQuestionIdx].matching_pairs!.map(p => p.right);
+            setShuffledMatchRight(rights.sort(() => Math.random() - 0.5));
+        }
+    }, [currentQuestionIdx, questions]);
 
     useEffect(() => {
         // 1. Recuperar la ID del Jugador del localStorage
@@ -144,15 +159,28 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         }
     }, [gameStatus, questions.length, gameId]);
 
-    const handleAnswerSubmit = async (selectedIndex: number) => {
+    const handleAnswerSubmit = async (answerPayload: any) => {
         if (answering) return;
         setAnswering(true);
 
         const question = questions[currentQuestionIdx];
-        const isCorrect = selectedIndex === question.correct_option_index;
+        let isCorrect = false;
+
+        if (answerPayload === -1) {
+            // timeout
+            isCorrect = false;
+        } else if (!question.type || question.type === 'multiple_choice' || question.type === 'true_false') {
+            isCorrect = answerPayload === question.correct_option_index;
+        } else if (question.type === 'fill_in_the_blank') {
+            isCorrect = String(answerPayload).trim().toLowerCase() === String(question.correct_answer || "").trim().toLowerCase();
+        } else if (question.type === 'matching') {
+            if (question.matching_pairs) {
+                isCorrect = question.matching_pairs.every(p => answerPayload[p.left] === p.right);
+            }
+        }
 
         let fbType: "correct" | "incorrect" | "timeout" = isCorrect ? "correct" : "incorrect";
-        if (selectedIndex === -1) fbType = "timeout";
+        if (answerPayload === -1) fbType = "timeout";
         setFeedback(fbType);
 
         // Hardware Feedback
@@ -340,34 +368,89 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 </div>
             </div>
 
-            {/* Botones de Opciones (Grid) - Ocupan todo el espacio restante */}
-            <div className="flex-1 p-3 pb-6 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 max-w-5xl mx-auto w-full">
-                {currentQ.options.map((opt, i) => {
+            {/* Botones de Opciones (Grid) o Inputs según tipo */}
+            <div className="flex-1 p-3 pb-6 sm:p-6 max-w-5xl mx-auto w-full flex flex-col justify-center">
+                {(!currentQ.type || currentQ.type === 'multiple_choice' || currentQ.type === 'true_false') && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full h-full">
+                        {currentQ.options.map((opt, i) => {
 
-                    // Lógica para opacar botones post-respuesta
-                    let opacityClass = "opacity-100";
-                    if (feedback && i !== currentQ.correct_option_index) {
-                        opacityClass = "opacity-25 grayscale scale-95";
-                    } else if (feedback && i === currentQ.correct_option_index) {
-                        opacityClass = "scale-[1.03] ring-8 ring-white/50 z-10"; // Highlight correcto
-                    }
+                            let opacityClass = "opacity-100";
+                            if (feedback && i !== currentQ.correct_option_index) {
+                                opacityClass = "opacity-25 grayscale scale-95";
+                            } else if (feedback && i === currentQ.correct_option_index) {
+                                opacityClass = "scale-[1.03] ring-8 ring-white/50 z-10"; // Highlight correcto
+                            }
 
-                    return (
-                        <button
-                            key={i}
+                            return (
+                                <button
+                                    key={i}
+                                    disabled={answering}
+                                    onClick={() => handleAnswerSubmit(i)}
+                                    className={`relative focus:outline-none rounded-2xl sm:rounded-3xl font-black text-xl sm:text-2xl transition-all duration-300 flex flex-col items-center justify-center p-6 text-white shadow-[0_8px_0_0_rgba(0,0,0,0.15)] active:shadow-none active:translate-y-2 transform hover:scale-[1.02] ${currentQ.type === 'true_false' ? (i === 0 ? 'bg-emerald-500' : 'bg-rose-500') : optionColors[i % 4]} ${opacityClass}`}
+                                >
+                                    <span className="absolute top-4 left-5 text-3xl opacity-50 drop-shadow-md">
+                                        {currentQ.type === 'true_false' ? (i === 0 ? '✅' : '❌') : optionIcons[i % 4]}
+                                    </span>
+                                    <span className="mt-4 break-words w-full px-4 drop-shadow-md">
+                                        {opt}
+                                    </span>
+                                </button>
+                            )
+                        })}
+                    </div>
+                )}
+
+                {currentQ.type === 'fill_in_the_blank' && (
+                    <div className="flex flex-col items-center justify-center h-full w-full max-w-xl mx-auto space-y-6 bg-white/50 p-8 rounded-3xl backdrop-blur-sm border border-white">
+                        <input
+                            type="text"
                             disabled={answering}
-                            onClick={() => handleAnswerSubmit(i)}
-                            className={`relative focus:outline-none rounded-2xl sm:rounded-3xl font-black text-xl sm:text-2xl transition-all duration-300 flex flex-col items-center justify-center p-6 text-white shadow-[0_8px_0_0_rgba(0,0,0,0.15)] active:shadow-none active:translate-y-2 transform hover:scale-[1.02] ${optionColors[i % 4]} ${opacityClass}`}
+                            value={blankAnswer}
+                            onChange={(e) => setBlankAnswer(e.target.value)}
+                            placeholder="Escribe tu respuesta aquí..."
+                            className="w-full text-center px-6 py-5 rounded-2xl text-2xl font-black text-indigo-900 bg-white border-4 border-indigo-200 focus:border-indigo-500 outline-none shadow-inner transition-all uppercase placeholder-indigo-300"
+                        />
+                        <button
+                            disabled={answering || !blankAnswer.trim()}
+                            onClick={() => handleAnswerSubmit(blankAnswer)}
+                            className="w-full py-5 rounded-2xl bg-indigo-600 text-white font-black text-2xl shadow-[0_8px_0_0_rgba(79,70,229,0.5)] active:shadow-none active:translate-y-2 transform hover:scale-[1.02] transition-all disabled:opacity-50 disabled:active:shadow-[0_8px_0_0_rgba(79,70,229,0.5)] disabled:active:translate-y-0"
                         >
-                            <span className="absolute top-4 left-5 text-3xl opacity-50 drop-shadow-md">
-                                {optionIcons[i % 4]}
-                            </span>
-                            <span className="mt-4 break-words w-full px-4 drop-shadow-md">
-                                {opt}
-                            </span>
+                            ENVIAR RESPUESTA
                         </button>
-                    )
-                })}
+                    </div>
+                )}
+
+                {currentQ.type === 'matching' && currentQ.matching_pairs && (
+                    <div className="flex flex-col w-full max-w-2xl mx-auto bg-white/50 p-4 sm:p-8 rounded-3xl backdrop-blur-sm border border-white shadow-sm space-y-4">
+                        <div className="text-center text-sm font-bold text-indigo-600 mb-2 uppercase tracking-widest">Une los conceptos correctos</div>
+                        {currentQ.matching_pairs.map((p, i) => (
+                            <div key={i} className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 w-full">
+                                <div className="w-full sm:w-1/2 p-4 rounded-xl bg-indigo-600 text-white font-bold text-center shadow-sm">
+                                    {p.left}
+                                </div>
+                                <span className="text-2xl rotate-90 sm:rotate-0 text-indigo-300 font-bold">↔️</span>
+                                <select
+                                    className="w-full sm:w-1/2 p-4 rounded-xl bg-amber-100 text-amber-900 border-2 border-amber-300 font-bold cursor-pointer outline-none focus:border-amber-500 appearance-none text-center"
+                                    disabled={answering}
+                                    value={userMatches[p.left] || ""}
+                                    onChange={(e) => setUserMatches({ ...userMatches, [p.left]: e.target.value })}
+                                >
+                                    <option value="" disabled>-- Selecciona --</option>
+                                    {shuffledMatchRight.map((r, j) => (
+                                        <option key={j} value={r}>{r}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        ))}
+                        <button
+                            disabled={answering || Object.keys(userMatches).length < currentQ.matching_pairs.length || Object.values(userMatches).some(v => !v)}
+                            onClick={() => handleAnswerSubmit(userMatches)}
+                            className="mt-6 w-full py-5 rounded-2xl bg-emerald-500 text-white font-black text-2xl shadow-[0_8px_0_0_rgba(16,185,129,0.5)] active:shadow-none active:translate-y-2 transform hover:scale-[1.02] transition-all disabled:opacity-50 disabled:active:shadow-[0_8px_0_0_rgba(16,185,129,0.5)] disabled:active:translate-y-0"
+                        >
+                            COMPROBAR PAREJAS
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Pantalla Interpuesta de Feedback Rápido (Correcto/Incorrecto) */}

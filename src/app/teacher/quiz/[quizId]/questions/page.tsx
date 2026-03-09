@@ -7,9 +7,12 @@ import Link from "next/link";
 
 interface Question {
     id: string;
+    type?: 'multiple_choice' | 'true_false' | 'fill_in_the_blank' | 'matching';
     question_text: string;
     options: string[];
     correct_option_index: number;
+    correct_answer?: string;
+    matching_pairs?: { left: string; right: string }[];
 }
 
 export default function QuizQuestionsManager({ params }: { params: Promise<{ quizId: string }> }) {
@@ -19,8 +22,11 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
     const [loading, setLoading] = useState(true);
 
     const [newText, setNewText] = useState("");
+    const [qType, setQType] = useState<'multiple_choice' | 'true_false' | 'fill_in_the_blank' | 'matching'>('multiple_choice');
     const [opts, setOpts] = useState(["", "", "", ""]);
     const [correctIdx, setCorrectIdx] = useState(0);
+    const [correctAnswerText, setCorrectAnswerText] = useState("");
+    const [matchingPairs, setMatchingPairs] = useState([{ left: "", right: "" }, { left: "", right: "" }]);
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
@@ -110,17 +116,31 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
 
     const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newText || opts.some(o => !o.trim())) {
-            alert("Por favor llena la pregunta y asegúrate de que todas las opciones tengan texto.");
+
+        if (!newText) {
+            alert("Por favor llena la pregunta.");
             return;
         }
 
+        if (qType === 'multiple_choice' && opts.some(o => !o.trim())) {
+            alert("Para Opción Múltiple, todas las opciones deben tener texto."); return;
+        }
+        if (qType === 'fill_in_the_blank' && !correctAnswerText.trim()) {
+            alert("Para Para Llenar, ingresa la respuesta correcta exacta."); return;
+        }
+        if (qType === 'matching' && matchingPairs.some(p => !p.left.trim() || !p.right.trim())) {
+            alert("Para Pareo, todos los pares de izquierda y derecha deben estar llenos."); return;
+        }
+
         setSaving(true);
-        const newQ = {
+        const newQ: any = {
             quiz_id: quizId,
             question_text: newText,
-            options: opts,
-            correct_option_index: correctIdx
+            type: qType,
+            options: qType === 'multiple_choice' ? opts : (qType === 'true_false' ? ["Verdadero", "Falso"] : []),
+            correct_option_index: (qType === 'multiple_choice' || qType === 'true_false') ? correctIdx : 0,
+            correct_answer: qType === 'fill_in_the_blank' ? correctAnswerText.trim() : null,
+            matching_pairs: qType === 'matching' ? matchingPairs : null
         };
 
         const { data, error } = await supabase.from("questions").insert([newQ]).select().single();
@@ -129,6 +149,8 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
             setNewText("");
             setOpts(["", "", "", ""]);
             setCorrectIdx(0);
+            setCorrectAnswerText("");
+            setMatchingPairs([{ left: "", right: "" }, { left: "", right: "" }]);
         } else {
             alert("Error al guardar: " + error?.message);
         }
@@ -215,21 +237,50 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                                         </div>
                                         <div className="flex items-start gap-4 pr-8">
                                             <span className="w-8 h-8 shrink-0 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-black text-sm">{idx + 1}</span>
-                                            <div>
-                                                <h4 className="text-lg font-bold text-gray-900 mb-3">{q.question_text}</h4>
-                                                <div className="grid grid-cols-2 gap-2 mt-2">
-                                                    {q.options.map((opt, i) => (
-                                                        <div
-                                                            key={i}
-                                                            onClick={() => handleChangeCorrectOption(q.id, i)}
-                                                            className={`px-3 py-2.5 text-xs font-bold rounded-lg border cursor-pointer transition-all ${i === q.correct_option_index ? 'bg-emerald-50 border-emerald-500 text-emerald-700 ring-2 ring-emerald-200 shadow-sm' : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-emerald-300 hover:bg-white hover:shadow-sm'}`}
-                                                            title="Haz clic para marcar esta opción como correcta"
-                                                        >
-                                                            {i === q.correct_option_index && <span className="mr-1 inline-block animate-bounce-short">✅</span>}
-                                                            {opt}
-                                                        </div>
-                                                    ))}
+                                            <div className="flex-1 w-full">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <span className="bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border border-indigo-200">
+                                                        {q.type === 'true_false' ? 'Verdadero o Falso' :
+                                                            q.type === 'fill_in_the_blank' ? 'Para Llenar' :
+                                                                q.type === 'matching' ? 'Pareo' : 'Opción Múltiple'}
+                                                    </span>
                                                 </div>
+                                                <h4 className="text-lg font-bold text-gray-900 mb-3 leading-tight">{q.question_text}</h4>
+
+                                                {(q.type === 'multiple_choice' || !q.type || q.type === 'true_false') && (
+                                                    <div className={`grid ${q.type === 'true_false' ? 'grid-cols-2' : 'grid-cols-2'} gap-2 mt-2`}>
+                                                        {q.options.map((opt, i) => (
+                                                            <div
+                                                                key={i}
+                                                                onClick={() => handleChangeCorrectOption(q.id, i)}
+                                                                className={`px-3 py-2.5 text-xs font-bold rounded-lg border cursor-pointer transition-all ${i === q.correct_option_index ? 'bg-emerald-50 border-emerald-500 text-emerald-700 ring-2 ring-emerald-200 shadow-sm' : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-emerald-300 hover:bg-white hover:shadow-sm'}`}
+                                                                title="Haz clic para marcar esta opción como correcta"
+                                                            >
+                                                                {i === q.correct_option_index && <span className="mr-1 inline-block animate-bounce-short">✅</span>}
+                                                                {opt}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+
+                                                {q.type === 'fill_in_the_blank' && (
+                                                    <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl mt-2">
+                                                        <span className="text-xs font-bold text-emerald-700 block mb-1">Respuesta Exacta Guardada:</span>
+                                                        <span className="font-black text-emerald-900 border-b-2 border-emerald-300 pb-0.5 inline-block">{q.correct_answer}</span>
+                                                    </div>
+                                                )}
+
+                                                {q.type === 'matching' && q.matching_pairs && (
+                                                    <div className="bg-gray-50 border border-gray-200 p-3 rounded-xl mt-2 grid grid-cols-1 gap-2">
+                                                        {q.matching_pairs.map((pair, pidx) => (
+                                                            <div key={pidx} className="flex items-center gap-3 text-sm font-bold bg-white p-2 rounded-lg border border-gray-100 shadow-sm">
+                                                                <div className="flex-1 text-center bg-indigo-50 text-indigo-800 py-1 px-2 rounded">{pair.left}</div>
+                                                                <span className="text-gray-400">↔️</span>
+                                                                <div className="flex-1 text-center bg-amber-50 text-amber-800 py-1 px-2 rounded">{pair.right}</div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -250,51 +301,140 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
 
                             <form onSubmit={handleAdd} className="space-y-6">
                                 <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">Tipo de Pregunta</label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {[
+                                            { id: 'multiple_choice', icon: '📝', label: 'Opción Múltiple' },
+                                            { id: 'true_false', icon: '⚖️', label: 'V o F' },
+                                            { id: 'fill_in_the_blank', icon: '✍️', label: 'Para Llenar' },
+                                            { id: 'matching', icon: '🔗', label: 'Pareo / Unión' },
+                                        ].map(t => (
+                                            <button
+                                                key={t.id} type="button" onClick={() => setQType(t.id as any)}
+                                                className={`p-2.5 rounded-xl border-2 text-xs font-bold flex flex-col items-center gap-1 transition-all ${qType === t.id ? 'border-indigo-600 bg-indigo-50 text-indigo-800 fill-indigo-500 ring-2 ring-indigo-200' : 'border-gray-200 bg-white text-gray-500 hover:border-indigo-300 hover:bg-gray-50'}`}
+                                            >
+                                                <span className="text-xl">{t.icon}</span> {t.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-2">La Pregunta o Reto</label>
                                     <textarea
                                         required
                                         value={newText}
                                         onChange={e => setNewText(e.target.value)}
-                                        onPaste={handlePaste}
+                                        onPaste={qType === 'multiple_choice' ? handlePaste : undefined}
                                         rows={3}
                                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 font-medium focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all resize-none shadow-inner"
-                                        placeholder="Ej. ¿Cuál es la capital secreta del imperio? (También puedes pegar desde Word/Bloc aquí)"
+                                        placeholder="Ej. ¿Cuál es la capital secreta del imperio?"
                                     />
                                 </div>
 
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-3">Opciones y Respuesta Correcta</label>
-                                    <p className="text-xs text-gray-500 mb-4 bg-indigo-50 p-3 rounded-xl border border-indigo-100/50 leading-relaxed font-medium">
-                                        💡 <strong>Truco:</strong> Puedes copiar 20 preguntas seguidas desde Word (Ej. 1 pregunta seguida de 4 líneas de opciones) y pegarlas en el recuadro de arriba. ¡El sistema las añadirá todas en bloque mágicamente!
-                                    </p>
+                                {qType === 'multiple_choice' && (
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-3">Opciones y Respuesta Correcta</label>
+                                        <p className="text-xs text-gray-500 mb-4 bg-indigo-50 p-3 rounded-xl border border-indigo-100/50 leading-relaxed font-medium">
+                                            💡 <strong>Truco:</strong> Puedes copiar 20 preguntas seguidas desde Word (Ej. 1 pregunta seguida de 4 líneas de opciones) y pegarlas en la caja de arriba para importarlas.
+                                        </p>
 
-                                    <div className="space-y-3">
-                                        {opts.map((opt, i) => (
-                                            <div key={i} className={`flex items-center gap-3 p-2 pr-3 rounded-xl border-2 transition-all ${correctIdx === i ? 'border-emerald-500 bg-emerald-50/30' : 'border-gray-200 bg-white'}`}>
-
-                                                <div
-                                                    onClick={() => setCorrectIdx(i)}
-                                                    className={`w-6 h-6 ml-2 rounded-full border-2 flex-shrink-0 cursor-pointer flex items-center justify-center transition-all ${correctIdx === i ? 'border-emerald-500 bg-emerald-500' : 'border-gray-300'}`}
-                                                >
-                                                    {correctIdx === i && <span className="text-white text-xs">✓</span>}
+                                        <div className="space-y-3">
+                                            {opts.map((opt, i) => (
+                                                <div key={i} className={`flex items-center gap-3 p-2 pr-3 rounded-xl border-2 transition-all ${correctIdx === i ? 'border-emerald-500 bg-emerald-50/30' : 'border-gray-200 bg-white'}`}>
+                                                    <div
+                                                        onClick={() => setCorrectIdx(i)}
+                                                        className={`w-6 h-6 ml-2 rounded-full border-2 flex-shrink-0 cursor-pointer flex items-center justify-center transition-all ${correctIdx === i ? 'border-emerald-500 bg-emerald-500' : 'border-gray-300'}`}
+                                                    >
+                                                        {correctIdx === i && <span className="text-white text-xs">✓</span>}
+                                                    </div>
+                                                    <input
+                                                        required
+                                                        type="text"
+                                                        value={opt}
+                                                        onChange={e => handleUpdateOption(i, e.target.value)}
+                                                        className={`flex-1 bg-transparent border-0 focus:ring-0 text-sm font-bold px-2 py-2 ${correctIdx === i ? 'text-emerald-900' : 'text-gray-700'}`}
+                                                        placeholder={`Opción ${i + 1}`}
+                                                    />
+                                                    <div className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-black ${optionColors[i]}`}>
+                                                        {['A', 'B', 'C', 'D'][i]}
+                                                    </div>
                                                 </div>
-
-                                                <input
-                                                    required
-                                                    type="text"
-                                                    value={opt}
-                                                    onChange={e => handleUpdateOption(i, e.target.value)}
-                                                    className={`flex-1 bg-transparent border-0 focus:ring-0 text-sm font-bold px-2 py-2 ${correctIdx === i ? 'text-emerald-900' : 'text-gray-700'}`}
-                                                    placeholder={`Opción ${i + 1}`}
-                                                />
-
-                                                <div className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-black ${optionColors[i]}`}>
-                                                    {['A', 'B', 'C', 'D'][i]}
-                                                </div>
-                                            </div>
-                                        ))}
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
+                                )}
+
+                                {qType === 'true_false' && (
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-3">¿Cuál es la correcta?</label>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div onClick={() => setCorrectIdx(0)} className={`p-4 rounded-xl border-2 cursor-pointer flex flex-col items-center justify-center gap-2 font-black transition-all ${correctIdx === 0 ? 'bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm' : 'bg-white border-gray-200 text-gray-500 hover:border-emerald-300'}`}>
+                                                <span className="text-3xl">✅</span> VERDADERO
+                                            </div>
+                                            <div onClick={() => setCorrectIdx(1)} className={`p-4 rounded-xl border-2 cursor-pointer flex flex-col items-center justify-center gap-2 font-black transition-all ${correctIdx === 1 ? 'bg-red-50 border-red-500 text-red-700 shadow-sm' : 'bg-white border-gray-200 text-gray-500 hover:border-red-300'}`}>
+                                                <span className="text-3xl">❌</span> FALSO
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {qType === 'fill_in_the_blank' && (
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-2">Respuesta Correcta Exacta</label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={correctAnswerText}
+                                            onChange={(e) => setCorrectAnswerText(e.target.value)}
+                                            className="w-full px-4 py-3 bg-white border-2 border-emerald-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 rounded-xl text-emerald-900 font-extrabold transition-all shadow-inner"
+                                            placeholder="Ej. Napoleón"
+                                        />
+                                        <p className="text-xs text-gray-400 mt-2 italic">*El estudiante deberá escribir exactamente esta palabra (ignorando mayúsculas).</p>
+                                    </div>
+                                )}
+
+                                {qType === 'matching' && (
+                                    <div>
+                                        <div className="flex justify-between items-end mb-3">
+                                            <label className="block text-sm font-bold text-gray-700">Pares Correctos</label>
+                                            <button
+                                                type="button"
+                                                onClick={() => setMatchingPairs([...matchingPairs, { left: "", right: "" }])}
+                                                className="text-xs font-bold text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded"
+                                            >+ Añadir Par</button>
+                                        </div>
+                                        <div className="space-y-3">
+                                            {matchingPairs.map((pair, pIdx) => (
+                                                <div key={pIdx} className="flex items-center gap-2 group">
+                                                    <input
+                                                        required type="text" placeholder="Categoría A" value={pair.left}
+                                                        onChange={(e) => {
+                                                            const np = [...matchingPairs]; np[pIdx].left = e.target.value; setMatchingPairs(np);
+                                                        }}
+                                                        className="w-full px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-lg text-sm font-bold text-indigo-900"
+                                                    />
+                                                    <span className="text-xl">↔️</span>
+                                                    <input
+                                                        required type="text" placeholder="Concepto B" value={pair.right}
+                                                        onChange={(e) => {
+                                                            const np = [...matchingPairs]; np[pIdx].right = e.target.value; setMatchingPairs(np);
+                                                        }}
+                                                        className="w-full px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-sm font-bold text-amber-900"
+                                                    />
+                                                    {matchingPairs.length > 2 && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setMatchingPairs(matchingPairs.filter((_, i) => i !== pIdx))}
+                                                            className="text-red-400 hover:text-red-600 font-black opacity-0 group-hover:opacity-100"
+                                                        >×</button>
+                                                    )}
+                                                </div>
+                                            ))}
+                                            <p className="text-xs text-gray-400 mt-3 italic">*La app mezclará automáticamente el lado derecho cuando el estudiante juegue.</p>
+                                        </div>
+                                    </div>
+                                )}
 
                                 <button
                                     type="submit"

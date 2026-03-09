@@ -10,6 +10,8 @@ interface Quiz {
     title: string;
     board_image_url: string;
     created_at: string;
+    teacher_id: string;
+    shared_with_emails?: string[];
 }
 
 export default function TeacherDashboard() {
@@ -27,11 +29,11 @@ export default function TeacherDashboard() {
             }
             setUser(authData.user);
 
-            // Fetch Quizzes del profesor
+            // Fetch Quizzes del profesor y los compartidos con el
             const { data: quizzesData, error } = await supabase
                 .from("quizzes")
                 .select("*")
-                .eq("teacher_id", authData.user.id)
+                .or(`teacher_id.eq.${authData.user.id},shared_with_emails.cs.{${authData.user.email}}`)
                 .order("created_at", { ascending: false });
 
             if (quizzesData) {
@@ -97,6 +99,29 @@ export default function TeacherDashboard() {
             alert("¡Tablero duplicado con éxito!");
         } catch (err: any) {
             alert("Error al duplicar: " + err.message);
+        }
+    };
+
+    const handleShareQuiz = async (quizId: string, currentShared: string[] | null) => {
+        const emailToShare = prompt("Ingresa el correo del profesor con quien deseas compartir este tablero:\n(Ellos podrán verlo en su panel y usarlo/editarlo)", "");
+        if (!emailToShare || !emailToShare.trim()) return;
+
+        if (!emailToShare.includes("@")) {
+            alert("Por favor ingresa un correo válido.");
+            return;
+        }
+
+        try {
+            const emailClean = emailToShare.trim().toLowerCase();
+            const newShared = currentShared && Array.isArray(currentShared) ? [...currentShared, emailClean] : [emailClean];
+
+            const { error } = await supabase.from("quizzes").update({ shared_with_emails: newShared }).eq("id", quizId);
+            if (error) throw error;
+
+            alert(`¡Tablero compartido exitosamente con ${emailClean}!`);
+            setQuizzes(quizzes.map(q => q.id === quizId ? { ...q, shared_with_emails: newShared } : q));
+        } catch (err: any) {
+            alert("Error al compartir: " + err.message);
         }
     };
 
@@ -204,7 +229,7 @@ export default function TeacherDashboard() {
                                         <div className="relative z-10">
                                             <div className="flex justify-between items-start mb-3">
                                                 <div className="bg-indigo-100/90 backdrop-blur-sm text-indigo-700 w-max px-3 py-1.5 rounded-lg text-xs font-black shadow-sm border border-indigo-200/50">
-                                                    Tablero Activo
+                                                    {quiz.teacher_id === user?.id ? "Mio" : "Compartido"}
                                                 </div>
                                                 {quiz.board_image_url && (
                                                     <div className="bg-amber-100/90 backdrop-blur-sm text-amber-800 px-3 py-1.5 rounded-lg text-xs font-black shadow-sm border border-amber-200/50 flex items-center gap-1.5" title="Escenario Seleccionado">
@@ -231,7 +256,7 @@ export default function TeacherDashboard() {
                                             <span className="text-base">▶️</span> Lanzar Partida
                                         </Link>
 
-                                        <div className="grid grid-cols-2 gap-2">
+                                        <div className="grid grid-cols-3 gap-2">
                                             <Link
                                                 href={`/teacher/quiz/builder?editId=${quiz.id}`}
                                                 className="flex flex-col items-center justify-center py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 font-bold text-[11px] rounded-xl transition-all shadow-sm text-center"
@@ -250,15 +275,23 @@ export default function TeacherDashboard() {
 
                                             <button
                                                 onClick={() => handleDuplicateQuiz(quiz.id)}
-                                                className="flex flex-col items-center justify-center py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold text-[11px] rounded-xl transition-all shadow-sm group text-center"
+                                                className="flex flex-col items-center justify-center py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold text-[11px] rounded-xl transition-all shadow-sm group text-center"
                                                 title="Duplicar Tablero para otra aula"
                                             >
                                                 <span className="text-lg mb-0.5 group-hover:scale-110 transition-transform">📋</span> Duplicar
                                             </button>
 
                                             <button
+                                                onClick={() => handleShareQuiz(quiz.id, quiz.shared_with_emails || [])}
+                                                className="col-span-1 flex flex-col items-center justify-center py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold text-[11px] rounded-xl transition-all shadow-sm group text-center border border-blue-200"
+                                                title="Compartir Tablero con otros profesores"
+                                            >
+                                                <span className="text-lg mb-0.5 group-hover:scale-110 transition-transform">🤝</span> Compartir
+                                            </button>
+
+                                            <button
                                                 onClick={() => handleDeleteQuiz(quiz.id)}
-                                                className="flex flex-col items-center justify-center py-2 bg-red-100 hover:bg-red-600 text-red-600 hover:text-white font-bold text-[11px] rounded-xl transition-all group shadow-sm text-center"
+                                                className="col-span-2 flex flex-col items-center justify-center py-2 bg-red-100 hover:bg-red-600 text-red-600 hover:text-white font-bold text-[11px] rounded-xl transition-all group shadow-sm text-center"
                                                 title="Eliminar Tablero Permanentemente"
                                             >
                                                 <span className="text-lg mb-0.5 group-hover:scale-110 transition-transform">🗑️</span> Borrar
