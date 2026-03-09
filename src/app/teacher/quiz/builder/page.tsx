@@ -21,6 +21,13 @@ function QuizBuilderContent() {
     const [selectedMap, setSelectedMap] = useState<any>(null);
     const [boardPath, setBoardPath] = useState<Coordinate[]>([]);
     const [saving, setSaving] = useState(false);
+    const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean, title: string, message: string, onConfirm: () => void, isDestructive?: boolean } | null>(null);
+    const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+
+    const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3500);
+    };
 
     // Configuración de recompensas
     const [rewardsEnabled, setRewardsEnabled] = useState(false);
@@ -88,22 +95,30 @@ function QuizBuilderContent() {
     };
 
     const handleClear = () => {
-        if (confirm("¿Seguro que deseas borrar toda la ruta?")) {
-            setBoardPath([]);
-        }
+        setConfirmModal({
+            isOpen: true,
+            title: "Limpiar Tablero",
+            message: "¿Estás seguro de que quieres borrar toda la ruta trazada? Esta acción no se puede deshacer.",
+            isDestructive: true,
+            onConfirm: () => {
+                setBoardPath([]);
+                setConfirmModal(null);
+                showToast("Ruta limpiada exitosamente.");
+            }
+        });
     };
 
     const handleSaveQuiz = async () => {
         if (!title) {
-            alert("Por favor ingresa un título para la aventura.");
+            showToast("Por favor ingresa un título para la aventura.", "error");
             return;
         }
         if (boardPath.length < 2) {
-            alert("Por favor traza al menos 2 casillas en el tablero.");
+            showToast("Por favor traza al menos 2 casillas en el tablero.", "error");
             return;
         }
         if (!selectedMap) {
-            alert("Por favor selecciona un escenario.");
+            showToast("Por favor selecciona un escenario.", "error");
             return;
         }
 
@@ -142,7 +157,7 @@ function QuizBuilderContent() {
             router.push(`/teacher/quiz/${returnedId}/questions`);
 
         } catch (err: any) {
-            alert("Error al guardar: " + err.message);
+            showToast("Error al guardar: " + err.message, "error");
         } finally {
             setSaving(false);
         }
@@ -410,6 +425,37 @@ function QuizBuilderContent() {
                     </div>
                 )}
             </div>
+
+            {/* TOAST FLOTANTE */}
+            {toast && (
+                <div className={`fixed bottom-6 right-6 z-[150] px-6 py-4 rounded-2xl shadow-2xl font-bold flex items-center gap-3 animate-slide-up border ${toast.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-red-50 text-red-800 border-red-200'
+                    }`}>
+                    <span className="text-xl">{toast.type === 'success' ? '✅' : '🚨'}</span>
+                    {toast.message}
+                </div>
+            )}
+
+            {/* MODAL CONFIRMACION */}
+            {confirmModal && confirmModal.isOpen && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
+                    <div className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] transform transition-all animate-bounce-short text-center border border-white/20">
+                        <div className={`w-20 h-20 mx-auto rounded-3xl flex items-center justify-center mb-6 rotate-3 shadow-lg ${confirmModal.isDestructive ? 'bg-red-100 text-red-500 shadow-red-100' : 'bg-indigo-100 text-indigo-500 shadow-indigo-100'}`}>
+                            <span className="text-4xl">{confirmModal.isDestructive ? '🧨' : '📋'}</span>
+                        </div>
+                        <h3 className="text-2xl font-black text-gray-900 mb-3 tracking-tight">{confirmModal.title}</h3>
+                        <p className="text-gray-500 font-medium leading-relaxed mb-8">{confirmModal.message}</p>
+                        <div className="flex gap-4">
+                            <button onClick={() => setConfirmModal(null)} className="flex-1 py-4 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-2xl transition-all active:scale-95">
+                                Cancelar
+                            </button>
+                            <button onClick={confirmModal.onConfirm} className={`flex-1 py-4 px-4 font-black rounded-2xl text-white shadow-lg transition-all active:scale-95 ${confirmModal.isDestructive ? 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 shadow-red-200' : 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 shadow-indigo-200'}`}>
+                                Confirmar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
 
             <style jsx global>{`
                 /* Scrollbar mágico súper sutil */

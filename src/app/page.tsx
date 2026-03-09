@@ -4,9 +4,6 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 
-// Lista de memes populares hospedados de forma segura en nuestro propio servidor
-const MEME_GIFS = Array.from({ length: 30 }, (_, i) => `/avatars/meme${i + 1}.gif`);
-
 export default function Home() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"student" | "teacher">("student");
@@ -14,7 +11,25 @@ export default function Home() {
   // --- Student State ---
   const [pin, setPin] = useState("");
   const [playerName, setPlayerName] = useState("");
-  const [selectedGif, setSelectedGif] = useState(MEME_GIFS[0]);
+  const [shuffledMemes, setShuffledMemes] = useState<string[]>([]);
+  const [selectedGif, setSelectedGif] = useState("");
+
+  useEffect(() => {
+    const loadAvatars = async () => {
+      try {
+        const res = await fetch("/api/avatars");
+        const data = await res.json();
+        if (data.avatars && data.avatars.length > 0) {
+          const shuffled = [...data.avatars].sort(() => Math.random() - 0.5);
+          setShuffledMemes(shuffled);
+          setSelectedGif(shuffled[0]);
+        }
+      } catch (err) {
+        console.error("Error loading avatars:", err);
+      }
+    };
+    loadAvatars();
+  }, []);
 
   // Si envíamos el link a un alumno ?pin=ABCDEF
   useEffect(() => {
@@ -40,6 +55,7 @@ export default function Home() {
   // --- Shared State ---
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successModal, setSuccessModal] = useState<{ isOpen: boolean, title: string, message: string } | null>(null);
 
   const handleStudentJoin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,7 +143,11 @@ export default function Home() {
           }
         });
         if (error) throw error;
-        alert("¡Registro exitoso! Por favor verifica tu correo para continuar. Recuerda revisar la carpeta de Spam.");
+        setSuccessModal({
+          isOpen: true,
+          title: "¡Registro Exitoso! 📧",
+          message: "Hemos enviado un enlace de verificación a tu correo. Por favor, revísalo (y mira en Spam si no lo ves) para activar tu cuenta de profesor."
+        });
         return; // Detener flujo para no redirigir ni refrescar
       }
 
@@ -258,7 +278,7 @@ export default function Home() {
                   </label>
                   {/* Grid Scrolleable Mágico para Avatares */}
                   <div className="grid grid-cols-5 sm:grid-cols-6 gap-2 pr-2 p-1 max-h-36 overflow-y-auto custom-scrollbar-avatar bg-gray-50/50 rounded-xl border border-gray-200">
-                    {MEME_GIFS.map((gif, index) => (
+                    {shuffledMemes.map((gif, index) => (
                       <div
                         key={index}
                         onClick={() => setSelectedGif(gif)}
@@ -420,6 +440,37 @@ export default function Home() {
             border-radius: 10px;
         }
       `}</style>
+
+      {/* MODAL DE ÉXITO PREMIUM */}
+      {successModal && successModal.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
+          <div className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] transform transition-all animate-bounce-short text-center border border-white/20 relative overflow-hidden">
+            {/* Decoración de fondo del modal */}
+            <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-50 rounded-full blur-3xl opacity-50 -mr-10 -mt-10"></div>
+
+            <div className="relative z-10">
+              <div className="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mb-6 rotate-3 shadow-lg shadow-indigo-200">
+                <span className="text-4xl text-white">📮</span>
+              </div>
+
+              <h3 className="text-2xl font-black text-gray-900 mb-3 tracking-tight">
+                {successModal.title}
+              </h3>
+
+              <p className="text-gray-500 font-medium leading-relaxed mb-8">
+                {successModal.message}
+              </p>
+
+              <button
+                onClick={() => setSuccessModal(null)}
+                className="w-full py-4 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black rounded-2xl shadow-lg shadow-indigo-200 transition-all active:scale-95 uppercase tracking-widest text-sm"
+              >
+                Entendido, lo revisaré
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

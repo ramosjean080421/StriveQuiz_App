@@ -15,6 +15,20 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
     const [allPlayers, setAllPlayers] = useState<any[]>([]);
     const [playerCount, setPlayerCount] = useState(0);
 
+    const fetchWinners = async () => {
+        const { data: allP } = await supabase
+            .from("game_players")
+            .select("player_name, avatar_gif_url, score, current_position, correct_answers, incorrect_answers")
+            .eq("game_id", gameId)
+            .order("current_position", { ascending: false })
+            .order("score", { ascending: false });
+
+        if (allP) {
+            setPodium(allP.slice(0, 3));
+            setAllPlayers(allP);
+        }
+    };
+
     useEffect(() => {
         const fetchGame = async () => {
             const { data: game } = await supabase
@@ -29,17 +43,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
 
                 // Si la partida ya estaba finalizada, cargar el podio de inmediato
                 if (game.status === "finished") {
-                    const { data: allP } = await supabase
-                        .from("game_players")
-                        .select("player_name, avatar_gif_url, score, current_position, correct_answers, incorrect_answers")
-                        .eq("game_id", gameId)
-                        .order("current_position", { ascending: false })
-                        .order("score", { ascending: false });
-
-                    if (allP) {
-                        setPodium(allP.slice(0, 3));
-                        setAllPlayers(allP);
-                    }
+                    fetchWinners();
                 }
             }
             setLoading(false);
@@ -48,7 +52,12 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
 
         const channel = supabase.channel(`game_room_status_${gameId}`)
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
-                (payload) => setGameStatus(payload.new.status)
+                (payload) => {
+                    setGameStatus(payload.new.status);
+                    if (payload.new.status === "finished") {
+                        fetchWinners();
+                    }
+                }
             )
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'game_players', filter: `game_id=eq.${gameId}` },
                 () => setPlayerCount(prev => prev + 1)
@@ -84,18 +93,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
         const audio = document.getElementById('bg-music') as HTMLAudioElement;
         if (audio) audio.pause();
 
-        // Obtener ganadores para el podio
-        const { data: allP } = await supabase
-            .from("game_players")
-            .select("player_name, avatar_gif_url, score, current_position, correct_answers, incorrect_answers")
-            .eq("game_id", gameId)
-            .order("current_position", { ascending: false })
-            .order("score", { ascending: false });
-
-        if (allP) {
-            setPodium(allP.slice(0, 3));
-            setAllPlayers(allP);
-        }
+        fetchWinners();
     };
 
     if (loading) return (

@@ -12,6 +12,7 @@ interface Quiz {
     created_at: string;
     teacher_id: string;
     shared_with_emails?: string[];
+    editors_emails?: string[];
 }
 
 export default function TeacherDashboard() {
@@ -23,8 +24,9 @@ export default function TeacherDashboard() {
     // Estados para Modales Personalizados
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
     const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean, title: string, message: string, onConfirm: () => void, isDestructive?: boolean } | null>(null);
-    const [shareModal, setShareModal] = useState<{ isOpen: boolean, quizId: string, title: string, sharedEmails: string[] } | null>(null);
+    const [shareModal, setShareModal] = useState<{ isOpen: boolean, quizId: string, title: string, sharedEmails: string[], editorEmails: string[] } | null>(null);
     const [shareInput, setShareInput] = useState("");
+    const [shareRole, setShareRole] = useState<"viewer" | "editor">("viewer");
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
         setToast({ message, type });
@@ -41,11 +43,21 @@ export default function TeacherDashboard() {
             setUser(authData.user);
 
             // Fetch Quizzes del profesor y los compartidos con el
+            const userEmail = authData.user.email?.toLowerCase();
+            if (!userEmail) {
+                setLoading(false);
+                return;
+            }
+
             const { data: quizzesData, error } = await supabase
                 .from("quizzes")
                 .select("*")
-                .or(`teacher_id.eq.${authData.user.id},shared_with_emails.cs.{${authData.user.email}}`)
+                .or(`teacher_id.eq.${authData.user.id},shared_with_emails.cs.{"${userEmail}"}`)
                 .order("created_at", { ascending: false });
+
+            if (error) {
+                console.error("Error al cargar tableros:", error);
+            }
 
             if (quizzesData) {
                 setQuizzes(quizzesData);
@@ -99,7 +111,9 @@ export default function TeacherDashboard() {
 
                     const { data: newQuiz, error: errInsert } = await supabase.from("quizzes").insert({
                         ...quizData,
-                        title: newTitle
+                        title: newTitle,
+                        teacher_id: user.id, // El nuevo dueño es quien duplica
+                        shared_with_emails: [] // Empieza sin compartir para ser independiente
                     }).select().single();
                     if (errInsert || !newQuiz) throw new Error("Error creando el nuevo tablero.");
 
@@ -127,14 +141,16 @@ export default function TeacherDashboard() {
         });
     };
 
-    const handleOpenShareModal = (quizId: string, currentShared: string[] | null) => {
+    const handleOpenShareModal = (quizId: string, currentShared: string[] | null, currentEditors: string[] | null) => {
         setShareModal({
             isOpen: true,
             quizId,
             title: "Gestionar Accesos a Colegas",
-            sharedEmails: currentShared || []
+            sharedEmails: currentShared || [],
+            editorEmails: currentEditors || []
         });
         setShareInput("");
+        setShareRole("viewer");
     };
 
     const handleAddShare = async () => {
@@ -146,34 +162,33 @@ export default function TeacherDashboard() {
             return;
         }
 
-        // evitar compartir con uno mismo si fuera el caso, pero por ahora solo validar duplicados
         if (shareModal.sharedEmails.includes(emailToShare)) {
-            showToast("Este correo ya tiene acceso a este tablero.", "error");
+            showToast("Este correo ya tiene acceso a este tablero. Puedes removerlo y volverlo a agregar con otro rol si lo deseas.", "error");
             return;
         }
 
         try {
-            // VALIDACIÓN DE USUARIO (Requiere Función RPC check_user_exists)
-            const { data: userExists, error: rpcError } = await supabase.rpc('check_user_exists', { lookup_email: emailToShare });
-
-            if (rpcError) {
-                console.error("RPC Error:", rpcError);
-                showToast("Advertencia: No se pudo verificar si el profesor existe.", "error");
-            }
-
+            const { data: userExists } = await supabase.rpc('check_user_exists', { lookup_email: emailToShare });
             if (userExists === false) {
-                showToast("Este correo NO pertenece a un profesor registrado en la plataforma.", "error");
+                showToast("Este correo NO pertenece a un profesor registrado.", "error");
                 return;
             }
 
             const newShared = [...shareModal.sharedEmails, emailToShare];
+            const newEditors = shareRole === "editor"
+                ? Array.from(new Set([...shareModal.editorEmails, emailToShare]))
+                : shareModal.editorEmails.filter(e => e !== emailToShare);
 
-            const { error } = await supabase.from("quizzes").update({ shared_with_emails: newShared }).eq("id", shareModal.quizId);
+            const { error } = await supabase.from("quizzes").update({
+                shared_with_emails: newShared,
+                editors_emails: newEditors
+            }).eq("id", shareModal.quizId);
+
             if (error) throw error;
 
-            showToast(`¡Compartido exitosamente con ${emailToShare}!`, "success");
-            setQuizzes(quizzes.map(q => q.id === shareModal.quizId ? { ...q, shared_with_emails: newShared } : q));
-            setShareModal({ ...shareModal, sharedEmails: newShared });
+            showToast(`¡Compartido como ${shareRole === 'editor' ? 'Editor' : 'Lector'}!`, "success");
+            setQuizzes(quizzes.map(q => q.id === shareModal.quizId ? { ...q, shared_with_emails: newShared, editors_emails: newEditors } : q));
+            setShareModal({ ...shareModal, sharedEmails: newShared, editorEmails: newEditors });
             setShareInput("");
         } catch (err: any) {
             showToast("Error al compartir: " + err.message, "error");
@@ -183,16 +198,43 @@ export default function TeacherDashboard() {
     const handleRemoveShare = async (emailToRemove: string) => {
         if (!shareModal) return;
         try {
-            const newShared = shareModal.sharedEmails.filter(e => e !== emailToRemove);
+            const newShared = shareModal.sharedEmails.filter(e => e.toLowerCase() !== emailToRemove.toLowerCase());
+            const newEditors = shareModal.editorEmails.filter(e => e.toLowerCase() !== emailToRemove.toLowerCase());
 
-            const { error } = await supabase.from("quizzes").update({ shared_with_emails: newShared }).eq("id", shareModal.quizId);
+            const { error } = await supabase.from("quizzes").update({
+                shared_with_emails: newShared,
+                editors_emails: newEditors
+            }).eq("id", shareModal.quizId);
+
             if (error) throw error;
 
-            showToast(`Se ha revocado el acceso a ${emailToRemove}`, "success");
-            setQuizzes(quizzes.map(q => q.id === shareModal.quizId ? { ...q, shared_with_emails: newShared } : q));
-            setShareModal({ ...shareModal, sharedEmails: newShared });
+            showToast(`Se ha revocado el acceso`, "success");
+            setQuizzes(quizzes.map(q => q.id === shareModal.quizId ? { ...q, shared_with_emails: newShared, editors_emails: newEditors } : q));
+            setShareModal({ ...shareModal, sharedEmails: newShared, editorEmails: newEditors });
         } catch (err: any) {
             showToast("Error al remover acceso: " + err.message, "error");
+        }
+    };
+
+    const handleToggleRole = async (email: string) => {
+        if (!shareModal) return;
+        try {
+            const isCurrentlyEditor = shareModal.editorEmails.some(e => e.toLowerCase() === email.toLowerCase());
+            const newEditors = isCurrentlyEditor
+                ? shareModal.editorEmails.filter(e => e.toLowerCase() !== email.toLowerCase())
+                : Array.from(new Set([...shareModal.editorEmails, email.toLowerCase()]));
+
+            const { error } = await supabase.from("quizzes").update({
+                editors_emails: newEditors
+            }).eq("id", shareModal.quizId);
+
+            if (error) throw error;
+
+            showToast(`Rol actualizado a ${isCurrentlyEditor ? 'Lector' : 'Editor'}`, "success");
+            setQuizzes(quizzes.map(q => q.id === shareModal.quizId ? { ...q, editors_emails: newEditors } : q));
+            setShareModal({ ...shareModal, editorEmails: newEditors });
+        } catch (err: any) {
+            showToast("Error al cambiar rol: " + err.message, "error");
         }
     };
 
@@ -259,40 +301,76 @@ export default function TeacherDashboard() {
                                     Nadie tiene acceso todavía.<br />¡Invita a tu primer colega!
                                 </div>
                             ) : (
-                                shareModal.sharedEmails.map((email, idx) => (
-                                    <div key={idx} className="flex justify-between items-center bg-gray-50 p-3 rounded-xl border border-gray-100">
-                                        <div className="font-bold text-gray-700 truncate mr-4">{email}</div>
-                                        <button
-                                            title="Revocar acceso"
-                                            onClick={() => handleRemoveShare(email)}
-                                            className="text-red-400 hover:text-red-600 bg-red-50 hover:bg-red-100 w-8 h-8 rounded-full flex items-center justify-center transition-colors shrink-0"
-                                        >
-                                            ✖
-                                        </button>
-                                    </div>
-                                ))
+                                shareModal.sharedEmails.map((email, idx) => {
+                                    const isEditor = shareModal.editorEmails.includes(email);
+                                    return (
+                                        <div key={idx} className="flex justify-between items-center bg-gray-50 p-3 rounded-xl border border-gray-100 group/item hover:bg-white transition-colors">
+                                            <div className="flex flex-col">
+                                                <div className="font-bold text-gray-700 truncate max-w-[200px]">{email}</div>
+                                                <div className={`text-[10px] font-black uppercase tracking-wider ${isEditor ? 'text-indigo-600' : 'text-emerald-600'}`}>
+                                                    {isEditor ? '✍️ Editor' : '👁️ Lector'}
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    title={isEditor ? "Cambiar a modo lectura" : "Permitir edición"}
+                                                    onClick={() => handleToggleRole(email)}
+                                                    className={`w-8 h-8 rounded-full flex items-center justify-center transition-all border ${isEditor
+                                                        ? 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100'
+                                                        : 'bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-100'
+                                                        }`}
+                                                >
+                                                    {isEditor ? '👁️' : '✍️'}
+                                                </button>
+                                                <button
+                                                    title="Revocar acceso"
+                                                    onClick={() => handleRemoveShare(email)}
+                                                    className="text-red-400 hover:text-red-600 bg-red-50 hover:bg-red-100 w-8 h-8 rounded-full flex items-center justify-center transition-colors shrink-0"
+                                                >
+                                                    ✖
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })
                             )}
                         </div>
 
                         {/* Area para agregar nuevos invitados */}
                         <div className="pt-4 border-t border-gray-100">
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 block">Invitar a alguien más</label>
-                            <div className="flex gap-2">
-                                <input
-                                    type="email"
-                                    value={shareInput}
-                                    onChange={(e) => setShareInput(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleAddShare()}
-                                    placeholder="profesor@colegio.edu"
-                                    className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 font-medium focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
-                                />
-                                <button
-                                    onClick={handleAddShare}
-                                    disabled={!shareInput.trim()}
-                                    className="px-6 py-3 font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-200 transition-all active:scale-95 disabled:opacity-50 disabled:shadow-none"
-                                >
-                                    Añadir
-                                </button>
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 block">Compartir con profesor</label>
+                            <div className="flex flex-col gap-3">
+                                <div className="flex gap-2">
+                                    <input
+                                        type="email"
+                                        value={shareInput}
+                                        onChange={(e) => setShareInput(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleAddShare()}
+                                        placeholder="correo@ejemplo.com"
+                                        className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 font-medium focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                                    />
+                                    <button
+                                        onClick={handleAddShare}
+                                        disabled={!shareInput.trim()}
+                                        className="px-6 py-3 font-black rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all active:scale-95 disabled:opacity-50"
+                                    >
+                                        Invitar
+                                    </button>
+                                </div>
+                                <div className="flex p-1 bg-gray-100 rounded-2xl w-full">
+                                    <button
+                                        onClick={() => setShareRole("viewer")}
+                                        className={`flex-1 py-1.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${shareRole === "viewer" ? "bg-white text-indigo-600 shadow-sm" : "text-gray-400 hover:text-gray-600"}`}
+                                    >
+                                        👁️ Solo Ver
+                                    </button>
+                                    <button
+                                        onClick={() => setShareRole("editor")}
+                                        className={`flex-1 py-1.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${shareRole === "editor" ? "bg-white text-indigo-600 shadow-sm" : "text-gray-400 hover:text-gray-600"}`}
+                                    >
+                                        ✍️ Puede Editar
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -427,6 +505,22 @@ export default function TeacherDashboard() {
 
                                                 {/* Controles de Tarjeta */}
                                                 <div className="bg-gray-50/50 p-4 border-t border-gray-100 flex flex-col gap-2 relative z-20">
+                                                    {/* SOLO EL DUEÑO PUEDE GESTIONAR ACCESOS */}
+                                                    {quiz.teacher_id === user?.id ? (
+                                                        <div className="mb-1">
+                                                            <button
+                                                                onClick={() => handleOpenShareModal(quiz.id, quiz.shared_with_emails || [], quiz.editors_emails || [])}
+                                                                className="w-full text-[10px] font-black uppercase text-indigo-600 bg-indigo-50 border border-indigo-100 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors flex items-center justify-center gap-1.5"
+                                                            >
+                                                                🤝 Gestionar Colaboradores
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="mb-1 py-1.5 text-center text-[9px] font-bold text-gray-400 bg-gray-100/50 rounded-lg border border-dashed border-gray-200 uppercase tracking-tighter">
+                                                            Colaboración restringida al dueño
+                                                        </div>
+                                                    )}
+
                                                     <Link
                                                         href={`/teacher/game/new?quizId=${quiz.id}`}
                                                         className="w-full flex items-center justify-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 px-3 text-sm rounded-xl transition-all shadow-sm hover:shadow-md transform active:scale-95"
@@ -435,53 +529,81 @@ export default function TeacherDashboard() {
                                                     </Link>
 
                                                     <div className="grid grid-cols-3 gap-2">
-                                                        <Link
-                                                            href={`/teacher/quiz/builder?editId=${quiz.id}`}
-                                                            className="flex flex-col items-center justify-center py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 font-bold text-[11px] rounded-xl transition-all shadow-sm text-center"
-                                                            title="Editar Mapa y Ruta"
-                                                        >
-                                                            <span className="text-lg mb-0.5">🗺️</span> Mapa
-                                                        </Link>
+                                                        {(() => {
+                                                            const userEmail = user?.email?.toLowerCase() || "";
+                                                            const isOwner = quiz.teacher_id === user?.id;
+                                                            const isEditor = quiz.editors_emails?.some(e => e.toLowerCase() === userEmail);
+                                                            const canEdit = isOwner || isEditor;
 
-                                                        <Link
-                                                            href={`/teacher/quiz/${quiz.id}/questions`}
-                                                            className="flex flex-col items-center justify-center py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-bold text-[11px] rounded-xl transition-all shadow-sm text-center"
-                                                            title="Editar Banco de Preguntas"
-                                                        >
-                                                            <span className="text-lg mb-0.5">📝</span> Preguntas
-                                                        </Link>
+                                                            return (
+                                                                <>
+                                                                    {canEdit ? (
+                                                                        <Link
+                                                                            href={`/teacher/quiz/builder?editId=${quiz.id}`}
+                                                                            className="flex flex-col items-center justify-center py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 font-bold text-[11px] rounded-xl transition-all shadow-sm text-center"
+                                                                            title="Editar Mapa e Itinerario"
+                                                                        >
+                                                                            <span className="text-lg mb-0.5">🗺️</span> Mapa
+                                                                        </Link>
+                                                                    ) : (
+                                                                        <div
+                                                                            className="flex flex-col items-center justify-center py-2 bg-gray-100 text-gray-400 font-bold text-[11px] rounded-xl cursor-not-allowed border border-gray-200 opacity-60"
+                                                                            title="Solo Lectura: Solicita permiso de editor al dueño"
+                                                                        >
+                                                                            <span className="text-lg mb-0.5 grayscale">🗺️</span> Mapa
+                                                                        </div>
+                                                                    )}
+
+                                                                    {canEdit ? (
+                                                                        <Link
+                                                                            href={`/teacher/quiz/${quiz.id}/questions`}
+                                                                            className="flex flex-col items-center justify-center py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-bold text-[11px] rounded-xl transition-all shadow-sm text-center"
+                                                                            title="Editar Banco de Preguntas"
+                                                                        >
+                                                                            <span className="text-lg mb-0.5">📝</span> Preguntas
+                                                                        </Link>
+                                                                    ) : (
+                                                                        <div
+                                                                            className="flex flex-col items-center justify-center py-2 bg-gray-100 text-gray-400 font-bold text-[11px] rounded-xl cursor-not-allowed border border-gray-200 opacity-60"
+                                                                            title="Solo Lectura: Solicita permiso de editor al dueño"
+                                                                        >
+                                                                            <span className="text-lg mb-0.5 grayscale">📝</span> Preguntas
+                                                                        </div>
+                                                                    )}
+                                                                </>
+                                                            );
+                                                        })()}
 
                                                         <button
                                                             onClick={() => handleDuplicateQuiz(quiz.id)}
                                                             className="flex flex-col items-center justify-center py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold text-[11px] rounded-xl transition-all shadow-sm group text-center"
-                                                            title="Duplicar Tablero para otra aula"
+                                                            title="Duplicar para tu propia cuenta"
                                                         >
-                                                            <span className="text-lg mb-0.5 group-hover:scale-110 transition-transform">📋</span> Duplicar
+                                                            <span className="text-lg mb-0.5 group-hover:scale-110 transition-transform">📋</span> Copiar
                                                         </button>
+                                                    </div>
 
-                                                        <button
-                                                            onClick={() => handleOpenShareModal(quiz.id, quiz.shared_with_emails || [])}
-                                                            className="col-span-1 flex flex-col items-center justify-center py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold text-[11px] rounded-xl transition-all shadow-sm group text-center border border-blue-200"
-                                                            title="Gestionar Profesores Invitados"
-                                                        >
-                                                            <span className="text-lg mb-0.5 group-hover:scale-110 transition-transform">🤝</span> Accesos
-                                                        </button>
-
+                                                    <div className="grid grid-cols-2 gap-2 mt-1">
                                                         <Link
                                                             href={`/teacher/quiz/${quiz.id}/reports`}
-                                                            className="col-span-1 flex flex-col items-center justify-center py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 font-bold text-[11px] rounded-xl transition-all shadow-sm group text-center"
-                                                            title="Ver Reportes de Partidas"
+                                                            className="flex items-center justify-center gap-2 py-2.5 bg-purple-100 hover:bg-purple-200 text-purple-700 font-black text-[10px] uppercase rounded-xl transition-all border border-purple-200"
                                                         >
-                                                            <span className="text-lg mb-0.5 group-hover:scale-110 transition-transform">📊</span> Reportes
+                                                            <span>📊</span> Reportes
                                                         </Link>
 
-                                                        <button
-                                                            onClick={() => handleDeleteQuiz(quiz.id)}
-                                                            className="col-span-1 flex flex-col items-center justify-center py-2 bg-red-100 hover:bg-red-600 text-red-600 hover:text-white font-bold text-[11px] rounded-xl transition-all group shadow-sm text-center"
-                                                            title="Eliminar Tablero Permanentemente"
-                                                        >
-                                                            <span className="text-lg mb-0.5 group-hover:scale-110 transition-transform">🗑️</span> Borrar
-                                                        </button>
+                                                        {/* SOLO EL DUEÑO PUEDE BORRAR */}
+                                                        {quiz.teacher_id === user?.id ? (
+                                                            <button
+                                                                onClick={() => handleDeleteQuiz(quiz.id)}
+                                                                className="flex items-center justify-center gap-2 py-2.5 bg-red-100 hover:bg-red-600 text-red-600 hover:text-white font-black text-[10px] uppercase rounded-xl transition-all"
+                                                            >
+                                                                <span>🗑️</span> Borrar
+                                                            </button>
+                                                        ) : (
+                                                            <div className="flex items-center justify-center bg-gray-50 text-gray-300 text-[9px] uppercase font-black rounded-xl border border-gray-100" title="Tablero compartido (Sujeto a dueño)">
+                                                                Protegido
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>

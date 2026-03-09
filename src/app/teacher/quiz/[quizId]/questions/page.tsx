@@ -20,6 +20,8 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
     const router = useRouter();
     const [questions, setQuestions] = useState<Question[]>([]);
     const [loading, setLoading] = useState(true);
+    const [canEdit, setCanEdit] = useState(false);
+    const [user, setUser] = useState<any>(null);
 
     const [newText, setNewText] = useState("");
     const [qType, setQType] = useState<'multiple_choice' | 'true_false' | 'fill_in_the_blank' | 'matching'>('multiple_choice');
@@ -39,7 +41,44 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
     };
 
     useEffect(() => {
-        const fetchQs = async () => {
+        const checkPermsAndFetch = async () => {
+            setLoading(true);
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+
+            if (!authUser) {
+                router.push("/teacher/login");
+                return;
+            }
+            setUser(authUser);
+
+            // 1. Verificar si el usuario tiene permiso sobre este quiz
+            const { data: quizData, error: quizError } = await supabase
+                .from("quizzes")
+                .select("teacher_id, editors_emails")
+                .eq("id", quizId)
+                .single();
+
+            if (quizError || !quizData) {
+                showToast("No se pudo encontrar este tablero o no tienes acceso.", "error");
+                setTimeout(() => router.push("/teacher/dashboard"), 2000);
+                return;
+            }
+
+            const userEmail = authUser.email?.toLowerCase();
+            const isOwner = quizData.teacher_id === authUser.id;
+            const isEditor = quizData.editors_emails?.includes(userEmail);
+
+            if (!isOwner && !isEditor) {
+                // Si es solo lector (está en shared_with_emails pero no en editors_emails o no es dueño)
+                setCanEdit(false);
+                showToast("Acceso denegado: Solo tienes permiso de lectura.", "error");
+                setTimeout(() => router.push("/teacher/dashboard"), 2000);
+                return;
+            }
+
+            setCanEdit(true);
+
+            // 2. Cargar preguntas solo si tiene permiso
             const { data } = await supabase
                 .from("questions")
                 .select("*")
@@ -49,8 +88,8 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
             if (data) setQuestions(data);
             setLoading(false);
         };
-        fetchQs();
-    }, [quizId]);
+        checkPermsAndFetch();
+    }, [quizId, router]);
 
     const handleUpdateOption = (index: number, value: string) => {
         const newOpts = [...opts];

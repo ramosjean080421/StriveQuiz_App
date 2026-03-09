@@ -160,7 +160,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     }, [gameStatus, questions.length, gameId]);
 
     const handleAnswerSubmit = async (answerPayload: any) => {
-        if (answering) return;
+        if (answering || gameStatus !== "active") return;
         setAnswering(true);
 
         const question = questions[currentQuestionIdx];

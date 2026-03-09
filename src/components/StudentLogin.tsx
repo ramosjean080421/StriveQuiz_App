@@ -1,26 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-
-// Galería predefinida de GIFs de memes para que el estudiante elija
-const MEME_GIFS = [
-    "https://media.giphy.com/media/ICOgUNjpvO0PC/giphy.gif", // Cat typing
-    "https://media.giphy.com/media/13HgwGsXF0aiGY/giphy.gif", // Doge
-    "https://media.giphy.com/media/VbnUQpnihPSIgIXuZv/giphy.gif", // Roll safe
-    "https://media.giphy.com/media/3o7TKSjRrfIPjeiVyM/giphy.gif", // Thinking
-    "https://media.giphy.com/media/YRtLgsajXrz1FNJ6oy/giphy.gif", // Pepe dance
-    "https://media.giphy.com/media/l41lFw057lAJQMwg0/giphy.gif"  // Spongebob rainbow
-];
 
 export default function StudentLogin() {
     const router = useRouter();
     const [pin, setPin] = useState("");
     const [playerName, setPlayerName] = useState("");
-    const [selectedGif, setSelectedGif] = useState(MEME_GIFS[0]);
+    const [shuffledMemes, setShuffledMemes] = useState<string[]>([]);
+    const [selectedGif, setSelectedGif] = useState("");
     const [error, setError] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        const loadAvatars = async () => {
+            try {
+                const res = await fetch("/api/avatars");
+                const data = await res.json();
+                if (data.avatars && data.avatars.length > 0) {
+                    const shuffled = [...data.avatars].sort(() => Math.random() - 0.5);
+                    setShuffledMemes(shuffled);
+                    setSelectedGif(shuffled[0]);
+                }
+            } catch (err) {
+                console.error("Error loading avatars:", err);
+            }
+        };
+        loadAvatars();
+    }, []);
 
     const handleJoinGame = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -118,14 +126,14 @@ export default function StudentLogin() {
 
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-3">Elige tu Avatar de Meme</label>
-                        <div className="grid grid-cols-3 gap-3">
-                            {MEME_GIFS.map((gif, index) => (
+                        <div className="grid grid-cols-3 gap-3 pr-2 max-h-48 overflow-y-auto">
+                            {shuffledMemes.map((gif, index) => (
                                 <div
                                     key={index}
                                     onClick={() => setSelectedGif(gif)}
                                     className={`cursor-pointer rounded-xl overflow-hidden border-4 transition-transform duration-200 aspect-square ${selectedGif === gif
-                                            ? "border-green-400 scale-105 shadow-lg shadow-green-200"
-                                            : "border-transparent hover:scale-105"
+                                        ? "border-green-400 scale-105 shadow-lg shadow-green-200"
+                                        : "border-transparent hover:scale-105"
                                         }`}
                                 >
                                     <img src={gif} alt={`Meme ${index}`} className="w-full h-full object-cover" />
