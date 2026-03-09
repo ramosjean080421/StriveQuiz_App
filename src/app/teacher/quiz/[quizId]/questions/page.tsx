@@ -29,6 +29,15 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
     const [matchingPairs, setMatchingPairs] = useState([{ left: "", right: "" }, { left: "", right: "" }]);
     const [saving, setSaving] = useState(false);
 
+    // Modales Personalizados
+    const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+    const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean, title: string, message: string, onConfirm: () => void, isDestructive?: boolean } | null>(null);
+
+    const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3500);
+    };
+
     useEffect(() => {
         const fetchQs = async () => {
             const { data } = await supabase
@@ -61,43 +70,49 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
         if (lines.length >= 5) {
             e.preventDefault();
 
-            if (!confirm(`Parece que estás intentando pegar hasta ${Math.floor(lines.length / 5)} preguntas a la vez. ¿Quieres procesarlas e insertarlas automáticamente?`)) {
-                return;
-            }
+            const processPastedQuestions = async () => {
+                setSaving(true);
+                const newQuestions = [];
 
-            setSaving(true);
-            const newQuestions = [];
+                // Leemos bloques de 5 líneas (1 pregunta + 4 opciones)
+                for (let i = 0; i < lines.length; i += 5) {
+                    if (i + 4 < lines.length) {
+                        const questionText = lines[i].replace(/^\d+[\.\-\)]\s*/, ''); // Quitar número inicial ej. "1."
+                        const optionTexts = [
+                            lines[i + 1].replace(/^([A-D]\)|[a-d]\)|[1-4]\.|\-|\*)\s*/, ''),
+                            lines[i + 2].replace(/^([A-D]\)|[a-d]\)|[1-4]\.|\-|\*)\s*/, ''),
+                            lines[i + 3].replace(/^([A-D]\)|[a-d]\)|[1-4]\.|\-|\*)\s*/, ''),
+                            lines[i + 4].replace(/^([A-D]\)|[a-d]\)|[1-4]\.|\-|\*)\s*/, '')
+                        ];
 
-            // Leemos bloques de 5 líneas (1 pregunta + 4 opciones)
-            for (let i = 0; i < lines.length; i += 5) {
-                if (i + 4 < lines.length) {
-                    const questionText = lines[i].replace(/^\d+[\.\-\)]\s*/, ''); // Quitar número inicial ej. "1."
-                    const optionTexts = [
-                        lines[i + 1].replace(/^([A-D]\)|[a-d]\)|[1-4]\.|\-|\*)\s*/, ''),
-                        lines[i + 2].replace(/^([A-D]\)|[a-d]\)|[1-4]\.|\-|\*)\s*/, ''),
-                        lines[i + 3].replace(/^([A-D]\)|[a-d]\)|[1-4]\.|\-|\*)\s*/, ''),
-                        lines[i + 4].replace(/^([A-D]\)|[a-d]\)|[1-4]\.|\-|\*)\s*/, '')
-                    ];
-
-                    newQuestions.push({
-                        quiz_id: quizId,
-                        question_text: questionText,
-                        options: optionTexts,
-                        correct_option_index: 0 // Por defecto la A, el profesor debe ajustarla luego si desea
-                    });
+                        newQuestions.push({
+                            quiz_id: quizId,
+                            question_text: questionText,
+                            options: optionTexts,
+                            correct_option_index: 0 // Por defecto la A, el profesor debe ajustarla luego si desea
+                        });
+                    }
                 }
-            }
 
-            if (newQuestions.length > 0) {
-                const { data, error } = await supabase.from("questions").insert(newQuestions).select();
-                if (!error && data) {
-                    setQuestions(prev => [...prev, ...data]);
-                    alert(`¡${data.length} preguntas añadidas con éxito! Recuerda revisar cuál es la opción correcta en cada una.`);
-                } else {
-                    alert("Hubo un error al insertar el bloque: " + error?.message);
+                if (newQuestions.length > 0) {
+                    const { data, error } = await supabase.from("questions").insert(newQuestions).select();
+                    if (!error && data) {
+                        setQuestions(prev => [...prev, ...data]);
+                        showToast(`¡${data.length} preguntas añadidas! Revisa la opción correcta de cada una.`, 'success');
+                    } else {
+                        showToast("Hubo un error al insertar el bloque: " + error?.message, 'error');
+                    }
                 }
-            }
-            setSaving(false);
+                setSaving(false);
+                setConfirmModal(null);
+            };
+
+            setConfirmModal({
+                isOpen: true,
+                title: "Importar Preguntas",
+                message: `Parece que estás intentando pegar hasta ${Math.floor(lines.length / 5)} preguntas a la vez. ¿Quieres procesarlas e insertarlas automáticamente?`,
+                onConfirm: processPastedQuestions
+            });
 
         } else if (lines.length >= 2) {
             // Comportamiento original para 1 sola pregunta
@@ -118,18 +133,18 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
         e.preventDefault();
 
         if (!newText) {
-            alert("Por favor llena la pregunta.");
+            showToast("Por favor llena la pregunta.", 'error');
             return;
         }
 
         if (qType === 'multiple_choice' && opts.some(o => !o.trim())) {
-            alert("Para Opción Múltiple, todas las opciones deben tener texto."); return;
+            showToast("Para Opción Múltiple, todas las opciones deben tener texto.", 'error'); return;
         }
         if (qType === 'fill_in_the_blank' && !correctAnswerText.trim()) {
-            alert("Para Para Llenar, ingresa la respuesta correcta exacta."); return;
+            showToast("Para Llenar, ingresa la respuesta correcta exacta.", 'error'); return;
         }
         if (qType === 'matching' && matchingPairs.some(p => !p.left.trim() || !p.right.trim())) {
-            alert("Para Pareo, todos los pares de izquierda y derecha deben estar llenos."); return;
+            showToast("Para Pareo, todos los pares deben estar llenos.", 'error'); return;
         }
 
         setSaving(true);
@@ -151,16 +166,26 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
             setCorrectIdx(0);
             setCorrectAnswerText("");
             setMatchingPairs([{ left: "", right: "" }, { left: "", right: "" }]);
+            showToast("Pregunta guardada exitosamente.", 'success');
         } else {
-            alert("Error al guardar: " + error?.message);
+            showToast("Error al guardar: " + error?.message, 'error');
         }
         setSaving(false);
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("¿Eliminar esta pregunta para siempre?")) return;
-        setQuestions(questions.filter(q => q.id !== id));
-        await supabase.from("questions").delete().eq("id", id);
+    const handleDelete = (id: string) => {
+        setConfirmModal({
+            isOpen: true,
+            title: "Eliminar Pregunta",
+            message: "¿Estás seguro de que deseas eliminar esta pregunta para siempre?",
+            isDestructive: true,
+            onConfirm: async () => {
+                setConfirmModal(null);
+                setQuestions(questions.filter(q => q.id !== id));
+                await supabase.from("questions").delete().eq("id", id);
+                showToast("Pregunta eliminada.", 'success');
+            }
+        });
     };
 
     const handleChangeCorrectOption = async (qId: string, newIdx: number) => {
@@ -170,7 +195,9 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
         // Update database
         const { error } = await supabase.from("questions").update({ correct_option_index: newIdx }).eq("id", qId);
         if (error) {
-            alert("Error al actualizar la opción correcta: " + error.message);
+            showToast("Error al actualizar la opción correcta: " + error.message, 'error');
+        } else {
+            showToast("Opción correcta actualizada.", 'success');
         }
     };
 
@@ -188,7 +215,37 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
     );
 
     return (
-        <div className="flex flex-col h-screen w-screen overflow-hidden bg-gray-50 font-sans">
+        <div className="flex flex-col h-screen w-screen overflow-hidden bg-gray-50 font-sans relative">
+
+            {/* TOAST FLOTANTE */}
+            {toast && (
+                <div className={`fixed bottom-6 right-6 z-50 px-6 py-4 rounded-2xl shadow-2xl font-bold flex items-center gap-3 animate-slide-up border ${toast.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-red-50 text-red-800 border-red-200'
+                    }`}>
+                    <span className="text-xl">{toast.type === 'success' ? '✅' : '🚨'}</span>
+                    {toast.message}
+                </div>
+            )}
+
+            {/* MODAL CONFIRMACION */}
+            {confirmModal && confirmModal.isOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+                    <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl transform transition-all animate-bounce-short text-center border border-gray-100">
+                        <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 ${confirmModal.isDestructive ? 'bg-red-100 text-red-500' : 'bg-indigo-100 text-indigo-500'}`}>
+                            <span className="text-3xl">{confirmModal.isDestructive ? '🗑️' : '📋'}</span>
+                        </div>
+                        <h3 className="text-2xl font-black text-gray-900 mb-2">{confirmModal.title}</h3>
+                        <p className="text-gray-500 font-medium leading-relaxed mb-6">{confirmModal.message}</p>
+                        <div className="flex gap-3">
+                            <button onClick={() => setConfirmModal(null)} className="flex-1 py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-colors">
+                                Cancelar
+                            </button>
+                            <button onClick={confirmModal.onConfirm} className={`flex-1 py-3 px-4 font-bold rounded-xl text-white shadow-md transition-all active:scale-95 ${confirmModal.isDestructive ? 'bg-red-500 hover:bg-red-600 shadow-red-200' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'}`}>
+                                Confirmar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Cabecera Clásica Prisma */}
             <header className="flex-shrink-0 bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex justify-between items-center z-20">

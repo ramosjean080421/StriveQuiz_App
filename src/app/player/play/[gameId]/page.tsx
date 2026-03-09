@@ -107,7 +107,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
         // 2. Obtener estado de la partida, preguntas y configuracion de recompensas
         const fetchGame = async () => {
-            const { data: game } = await supabase.from("games").select("status, quiz_id").eq("id", gameId).single();
+            const { data: game } = await supabase.from("games").select("status, quiz_id, auto_end").eq("id", gameId).single();
             if (game) {
                 setGameStatus(game.status);
 
@@ -133,7 +133,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
         fetchGame();
 
-        // 3. Escuchar cambios de estado de la partida (ej. el profe la inicia)
+        // 3. Escuchar cambios de estado de la partida (ej. el profe la inicia o la termina)
         const channel = supabase.channel(`game_status_${gameId}`)
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
                 (payload) => setGameStatus(payload.new.status)
@@ -190,9 +190,9 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         playSound(fbType);
 
         if (playerId) {
-            // Actualizar: avanzar/retroceder posición, sumar puntos y rachas, y vida del Jefe si aplica
+            // Actualizar: avanzar/retroceder posición, sumar puntos y rachas
             const { data: pData } = await supabase.from("game_players").select("current_position, score, correct_answers, incorrect_answers, current_streak").eq("id", playerId).single();
-            const { data: gData } = await supabase.from("games").select("game_mode, boss_hp").eq("id", gameId).single();
+            const { data: gData } = await supabase.from("games").select("game_mode, boss_hp, auto_end").eq("id", gameId).single();
 
             if (pData) {
                 let nextPos = pData.current_position;
@@ -257,6 +257,11 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 }
 
                 await Promise.all(promises);
+
+                // Si terminó todas las preguntas y el autoEnd está activo, cerramos el juego para todos
+                if (currentQuestionIdx >= questions.length - 1 && gData?.auto_end) {
+                    await supabase.from("games").update({ status: "finished" }).eq("id", gameId);
+                }
             }
         }
 

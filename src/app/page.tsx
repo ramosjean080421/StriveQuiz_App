@@ -44,6 +44,22 @@ export default function Home() {
   const handleStudentJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    // Validación de nombre y apellido
+    const trimmedName = playerName.trim();
+    if (trimmedName.split(/\s+/).length < 2) {
+      setError("Debes colocar al menos tu nombre y un apellido.");
+      return;
+    }
+
+    // Filtro básico anti-groserías
+    const BAD_WORDS = ["puta", "puto", "mierd", "pendej", "cabron", "cabrón", "coño", "zorra", "perra", "idiot", "estupid", "estúpid", "imbecil", "imbécil", "maricon", "maricón"];
+    const nameLower = trimmedName.toLowerCase();
+    if (BAD_WORDS.some(word => nameLower.includes(word))) {
+      setError("Por favor, usa un nombre apropiado y respetuoso.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -224,14 +240,14 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Tu Apodo</label>
+                  <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Tu Nombre</label>
                   <input
                     type="text"
                     required
-                    maxLength={15}
+                    maxLength={40}
                     value={playerName}
                     onChange={(e) => setPlayerName(e.target.value)}
-                    placeholder="Ej. ProGamer99"
+                    placeholder="Ej. Juan Pérez"
                     className="block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-inner text-sm"
                   />
                 </div>

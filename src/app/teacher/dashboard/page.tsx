@@ -375,97 +375,117 @@ export default function TeacherDashboard() {
                             <Link href="/teacher/quiz/builder" className="mt-8 text-indigo-600 font-bold hover:text-indigo-800 underline decoration-indigo-300 underline-offset-4 decoration-2">Quiero crear mi primer tablero &rarr;</Link>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                            {quizzes.map((quiz) => (
-                                <div key={quiz.id} className="bg-white/80 backdrop-blur-lg rounded-[2rem] border border-white shadow-[0_4px_15px_rgba(0,0,0,0.05)] hover:shadow-[0_10px_30px_rgba(99,102,241,0.15)] transition-all duration-300 group flex flex-col overflow-hidden transform hover:-translate-y-1">
-                                    {/* Cabecera de Tarjeta con Fondo de Mapa */}
-                                    <div className="px-6 py-8 flex-1 relative overflow-hidden">
-                                        {/* Imagen de Fondo Borrosa */}
-                                        {quiz.board_image_url && (
-                                            <div
-                                                className="absolute inset-0 z-0 opacity-20 group-hover:opacity-40 transition-opacity duration-500 blur-[2px] scale-110 group-hover:scale-125"
-                                                style={{
-                                                    backgroundImage: `url(${quiz.board_image_url})`,
-                                                    backgroundSize: 'cover',
-                                                    backgroundPosition: 'center'
-                                                }}
-                                            ></div>
-                                        )}
-                                        {/* Gradiente extra para legibilidad */}
-                                        <div className="absolute inset-0 bg-gradient-to-t from-white via-white/80 to-transparent z-0"></div>
+                        <div className="space-y-12">
+                            {[
+                                { title: "🏎️ Juegos de Carreras", items: quizzes.filter(q => q.board_image_url?.toLowerCase().includes("carrera")) },
+                                { title: "🗺️ Aventuras Clásicas", items: quizzes.filter(q => !q.board_image_url?.toLowerCase().includes("carrera")) }
+                            ].filter(cat => cat.items.length > 0).map((category, catIdx) => (
+                                <div key={catIdx}>
+                                    <h2 className="text-2xl font-black text-indigo-900 mb-6 drop-shadow-sm ml-2">
+                                        {category.title}
+                                    </h2>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                        {category.items.map((quiz) => (
+                                            <div key={quiz.id} className="bg-white/80 backdrop-blur-lg rounded-[2rem] border border-white shadow-[0_4px_15px_rgba(0,0,0,0.05)] hover:shadow-[0_10px_30px_rgba(99,102,241,0.15)] transition-all duration-300 group flex flex-col overflow-hidden transform hover:-translate-y-1">
+                                                {/* Cabecera de Tarjeta con Fondo de Mapa */}
+                                                <div className="px-6 py-8 flex-1 relative overflow-hidden">
+                                                    {/* Imagen de Fondo Borrosa */}
+                                                    {quiz.board_image_url && (
+                                                        <div
+                                                            className="absolute inset-0 z-0 opacity-20 group-hover:opacity-40 transition-opacity duration-500 blur-[2px] scale-110 group-hover:scale-125"
+                                                            style={{
+                                                                backgroundImage: `url(${quiz.board_image_url})`,
+                                                                backgroundSize: 'cover',
+                                                                backgroundPosition: 'center'
+                                                            }}
+                                                        ></div>
+                                                    )}
+                                                    {/* Gradiente extra para legibilidad */}
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-white via-white/80 to-transparent z-0"></div>
 
-                                        <div className="absolute -right-6 -top-6 w-24 h-24 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full opacity-50 group-hover:scale-150 transition-transform duration-500 ease-out z-0"></div>
-                                        <div className="relative z-10">
-                                            <div className="flex justify-between items-start mb-3">
-                                                <div className="bg-indigo-100/90 backdrop-blur-sm text-indigo-700 w-max px-3 py-1.5 rounded-lg text-xs font-black shadow-sm border border-indigo-200/50">
-                                                    {quiz.teacher_id === user?.id ? "Mio" : "Compartido"}
-                                                </div>
-                                                {quiz.board_image_url && (
-                                                    <div className="bg-amber-100/90 backdrop-blur-sm text-amber-800 px-3 py-1.5 rounded-lg text-xs font-black shadow-sm border border-amber-200/50 flex items-center gap-1.5" title="Escenario Seleccionado">
-                                                        <span className="text-sm">🗺️</span>
-                                                        <span className="capitalize">{quiz.board_image_url.split('/').pop()?.split('.')[0].replace(/-/g, ' ') || "Mapa"}</span>
+                                                    <div className="absolute -right-6 -top-6 w-24 h-24 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full opacity-50 group-hover:scale-150 transition-transform duration-500 ease-out z-0"></div>
+                                                    <div className="relative z-10">
+                                                        <div className="flex justify-between items-start mb-3">
+                                                            <div className="bg-indigo-100/90 backdrop-blur-sm text-indigo-700 w-max px-3 py-1.5 rounded-lg text-xs font-black shadow-sm border border-indigo-200/50">
+                                                                {quiz.teacher_id === user?.id ? "Mio" : "Compartido"}
+                                                            </div>
+                                                            {quiz.board_image_url && (
+                                                                <div className="bg-amber-100/90 backdrop-blur-sm text-amber-800 px-3 py-1.5 rounded-lg text-xs font-black shadow-sm border border-amber-200/50 flex items-center gap-1.5" title="Escenario Seleccionado">
+                                                                    <span className="text-sm">🗺️</span>
+                                                                    <span className="capitalize">{quiz.board_image_url.split('/').pop()?.split('.')[0].replace(/-/g, ' ') || "Mapa"}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <h3 className="text-xl font-bold text-gray-900 group-hover:text-indigo-800 transition-colors line-clamp-2 leading-tight drop-shadow-sm">
+                                                            {quiz.title}
+                                                        </h3>
+                                                        <p className="text-xs font-bold text-gray-500 mt-3 flex items-center gap-1.5 bg-white/60 w-max px-2 py-1 rounded-md">
+                                                            <span>📅</span> Creado el {new Date(quiz.created_at).toLocaleDateString()}
+                                                        </p>
                                                     </div>
-                                                )}
+                                                </div>
+
+                                                {/* Controles de Tarjeta */}
+                                                <div className="bg-gray-50/50 p-4 border-t border-gray-100 flex flex-col gap-2 relative z-20">
+                                                    <Link
+                                                        href={`/teacher/game/new?quizId=${quiz.id}`}
+                                                        className="w-full flex items-center justify-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 px-3 text-sm rounded-xl transition-all shadow-sm hover:shadow-md transform active:scale-95"
+                                                    >
+                                                        <span className="text-base">▶️</span> Lanzar Partida
+                                                    </Link>
+
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        <Link
+                                                            href={`/teacher/quiz/builder?editId=${quiz.id}`}
+                                                            className="flex flex-col items-center justify-center py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 font-bold text-[11px] rounded-xl transition-all shadow-sm text-center"
+                                                            title="Editar Mapa y Ruta"
+                                                        >
+                                                            <span className="text-lg mb-0.5">🗺️</span> Mapa
+                                                        </Link>
+
+                                                        <Link
+                                                            href={`/teacher/quiz/${quiz.id}/questions`}
+                                                            className="flex flex-col items-center justify-center py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-bold text-[11px] rounded-xl transition-all shadow-sm text-center"
+                                                            title="Editar Banco de Preguntas"
+                                                        >
+                                                            <span className="text-lg mb-0.5">📝</span> Preguntas
+                                                        </Link>
+
+                                                        <button
+                                                            onClick={() => handleDuplicateQuiz(quiz.id)}
+                                                            className="flex flex-col items-center justify-center py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold text-[11px] rounded-xl transition-all shadow-sm group text-center"
+                                                            title="Duplicar Tablero para otra aula"
+                                                        >
+                                                            <span className="text-lg mb-0.5 group-hover:scale-110 transition-transform">📋</span> Duplicar
+                                                        </button>
+
+                                                        <button
+                                                            onClick={() => handleOpenShareModal(quiz.id, quiz.shared_with_emails || [])}
+                                                            className="col-span-1 flex flex-col items-center justify-center py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold text-[11px] rounded-xl transition-all shadow-sm group text-center border border-blue-200"
+                                                            title="Gestionar Profesores Invitados"
+                                                        >
+                                                            <span className="text-lg mb-0.5 group-hover:scale-110 transition-transform">🤝</span> Accesos
+                                                        </button>
+
+                                                        <Link
+                                                            href={`/teacher/quiz/${quiz.id}/reports`}
+                                                            className="col-span-1 flex flex-col items-center justify-center py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 font-bold text-[11px] rounded-xl transition-all shadow-sm group text-center"
+                                                            title="Ver Reportes de Partidas"
+                                                        >
+                                                            <span className="text-lg mb-0.5 group-hover:scale-110 transition-transform">📊</span> Reportes
+                                                        </Link>
+
+                                                        <button
+                                                            onClick={() => handleDeleteQuiz(quiz.id)}
+                                                            className="col-span-1 flex flex-col items-center justify-center py-2 bg-red-100 hover:bg-red-600 text-red-600 hover:text-white font-bold text-[11px] rounded-xl transition-all group shadow-sm text-center"
+                                                            title="Eliminar Tablero Permanentemente"
+                                                        >
+                                                            <span className="text-lg mb-0.5 group-hover:scale-110 transition-transform">🗑️</span> Borrar
+                                                        </button>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <h3 className="text-xl font-bold text-gray-900 group-hover:text-indigo-800 transition-colors line-clamp-2 leading-tight drop-shadow-sm">
-                                                {quiz.title}
-                                            </h3>
-                                            <p className="text-xs font-bold text-gray-500 mt-3 flex items-center gap-1.5 bg-white/60 w-max px-2 py-1 rounded-md">
-                                                <span>📅</span> Creado el {new Date(quiz.created_at).toLocaleDateString()}
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    {/* Controles de Tarjeta */}
-                                    <div className="bg-gray-50/50 p-4 border-t border-gray-100 flex flex-col gap-2">
-                                        <Link
-                                            href={`/teacher/game/new?quizId=${quiz.id}`}
-                                            className="w-full flex items-center justify-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 px-3 text-sm rounded-xl transition-all shadow-sm hover:shadow-md transform active:scale-95"
-                                        >
-                                            <span className="text-base">▶️</span> Lanzar Partida
-                                        </Link>
-
-                                        <div className="grid grid-cols-3 gap-2">
-                                            <Link
-                                                href={`/teacher/quiz/builder?editId=${quiz.id}`}
-                                                className="flex flex-col items-center justify-center py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 font-bold text-[11px] rounded-xl transition-all shadow-sm text-center"
-                                                title="Editar Mapa y Ruta"
-                                            >
-                                                <span className="text-lg mb-0.5">🗺️</span> Mapa
-                                            </Link>
-
-                                            <Link
-                                                href={`/teacher/quiz/${quiz.id}/questions`}
-                                                className="flex flex-col items-center justify-center py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-bold text-[11px] rounded-xl transition-all shadow-sm text-center"
-                                                title="Editar Banco de Preguntas"
-                                            >
-                                                <span className="text-lg mb-0.5">📝</span> Preguntas
-                                            </Link>
-
-                                            <button
-                                                onClick={() => handleDuplicateQuiz(quiz.id)}
-                                                className="flex flex-col items-center justify-center py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold text-[11px] rounded-xl transition-all shadow-sm group text-center"
-                                                title="Duplicar Tablero para otra aula"
-                                            >
-                                                <span className="text-lg mb-0.5 group-hover:scale-110 transition-transform">📋</span> Duplicar
-                                            </button>
-
-                                            <button
-                                                onClick={() => handleOpenShareModal(quiz.id, quiz.shared_with_emails || [])}
-                                                className="col-span-1 flex flex-col items-center justify-center py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold text-[11px] rounded-xl transition-all shadow-sm group text-center border border-blue-200"
-                                                title="Gestionar Profesores Invitados"
-                                            >
-                                                <span className="text-lg mb-0.5 group-hover:scale-110 transition-transform">🤝</span> Accesos
-                                            </button>
-
-                                            <button
-                                                onClick={() => handleDeleteQuiz(quiz.id)}
-                                                className="col-span-2 flex flex-col items-center justify-center py-2 bg-red-100 hover:bg-red-600 text-red-600 hover:text-white font-bold text-[11px] rounded-xl transition-all group shadow-sm text-center"
-                                                title="Eliminar Tablero Permanentemente"
-                                            >
-                                                <span className="text-lg mb-0.5 group-hover:scale-110 transition-transform">🗑️</span> Borrar
-                                            </button>
-                                        </div>
+                                        ))}
                                     </div>
                                 </div>
                             ))}
