@@ -24,6 +24,10 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     const [hasFinishedAll, setHasFinishedAll] = useState(false);
     const [timeLeft, setTimeLeft] = useState(20);
 
+    // Configuraciones de recompensa del quiz
+    const [rewardConfig, setRewardConfig] = useState({ enabled: false, criteria: 5, text: "" });
+    const [earnedReward, setEarnedReward] = useState<string | null>(null);
+
     // Reproductor de efectos integrados
     const playSound = (type: "correct" | "incorrect" | "timeout") => {
         try {
@@ -86,16 +90,27 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         }
         setPlayerId(savedPlayerId);
 
-        // 2. Obtener estado de la partida y preguntas
+        // 2. Obtener estado de la partida, preguntas y configuracion de recompensas
         const fetchGame = async () => {
             const { data: game } = await supabase.from("games").select("status, quiz_id").eq("id", gameId).single();
             if (game) {
                 setGameStatus(game.status);
 
-                // Obtener preguntas
+                // Configuración de recompensa del quiz
+                const { data: quizData } = await supabase.from("quizzes").select("rewards_enabled, reward_criteria, reward_text").eq("id", game.quiz_id).single();
+                if (quizData) {
+                    setRewardConfig({
+                        enabled: quizData.rewards_enabled || false,
+                        criteria: quizData.reward_criteria || 5,
+                        text: quizData.reward_text || ""
+                    });
+                }
+
+                // Obtener preguntas y aleatorizarlas
                 const { data: qData } = await supabase.from("questions").select("*").eq("quiz_id", game.quiz_id);
                 if (qData) {
-                    setQuestions(qData);
+                    const shuffled = [...qData].sort(() => Math.random() - 0.5);
+                    setQuestions(shuffled);
                 }
             }
             setLoading(false);
@@ -120,7 +135,8 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 if (game) {
                     const { data: qData } = await supabase.from("questions").select("*").eq("quiz_id", game.quiz_id);
                     if (qData) {
-                        setQuestions(qData);
+                        const shuffled = [...qData].sort(() => Math.random() - 0.5);
+                        setQuestions(shuffled);
                     }
                 }
             };
@@ -145,14 +161,42 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         }
         playSound(fbType);
 
-        if (isCorrect && playerId) {
-            // Actualizar: avanzar 1 posición y sumar puntos
-            const { data: pData } = await supabase.from("game_players").select("current_position, score").eq("id", playerId).single();
+        if (playerId) {
+            // Actualizar: avanzar/retroceder posición, sumar puntos y rachas
+            const { data: pData } = await supabase.from("game_players").select("current_position, score, correct_answers, incorrect_answers, current_streak").eq("id", playerId).single();
+
             if (pData) {
+                let nextPos = pData.current_position;
+                let newScore = pData.score;
+                let newCorrect = pData.correct_answers || 0;
+                let newIncorrect = pData.incorrect_answers || 0;
+                let newStreak = pData.current_streak || 0;
+
+                if (isCorrect) {
+                    nextPos += 1;
+                    newScore += 100 + timeLeft * 10;
+                    newCorrect += 1;
+                    newStreak += 1;
+
+                    // Comprobar sistema de recompensas
+                    if (rewardConfig.enabled && newStreak > 0 && newStreak % rewardConfig.criteria === 0) {
+                        setEarnedReward(rewardConfig.text);
+                        playSound("correct"); // Sonido extra
+                    }
+                } else {
+                    // Retrocede una posición si se equivoca, mínimo en 0
+                    nextPos = Math.max(0, nextPos - 1);
+                    newIncorrect += 1;
+                    newStreak = 0;
+                }
+
                 await supabase.from("game_players")
                     .update({
-                        current_position: pData.current_position + 1,
-                        score: pData.score + 100
+                        current_position: nextPos,
+                        score: newScore,
+                        correct_answers: newCorrect,
+                        incorrect_answers: newIncorrect,
+                        current_streak: newStreak
                     })
                     .eq("id", playerId);
             }
@@ -161,6 +205,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         // Esperar feedback antes de la siguiente pregunta
         setTimeout(() => {
             setFeedback(null);
+            setEarnedReward(null);
             setAnswering(false);
 
             if (currentQuestionIdx < questions.length - 1) {
@@ -221,13 +266,23 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
             <div className="h-screen w-screen overflow-hidden bg-gray-900 flex flex-col items-center justify-center p-6 text-center relative">
                 {/* Fondo Estrellado / Celebración */}
                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20"></div>
+
+                {/* Recompensa masiva si es que la ganó al final */}
+                {earnedReward && (
+                    <div className="absolute top-10 w-full flex justify-center z-50 animate-bounce">
+                        <div className="bg-yellow-400 text-yellow-900 px-6 py-3 rounded-full font-black text-xl shadow-[0_0_30px_rgba(250,204,21,0.6)] border-4 border-yellow-200">
+                            🎁 ¡Premio Desbloqueado: {earnedReward}!
+                        </div>
+                    </div>
+                )}
+
                 <div className="relative z-10 bg-gradient-to-br from-gray-800 to-gray-900 border-2 border-indigo-500/50 p-10 rounded-[3rem] shadow-[0_0_60px_rgba(79,70,229,0.3)] max-w-sm w-full">
                     <span className="text-8xl mb-6 block transform hover:scale-110 transition-transform cursor-pointer">🏆</span>
                     <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 mb-4 drop-shadow-sm uppercase tracking-wider">
                         ¡Misión Cumplida!
                     </h1>
                     <p className="text-gray-300 font-medium text-lg leading-relaxed">
-                        Has completado todas las casillas. Mira el tablero principal para descubrir el podio ganador.
+                        Has completado todas las casillas. Mira el tablero principal para descubrir el podio ganador y tus estadísticas.
                     </p>
                 </div>
             </div>

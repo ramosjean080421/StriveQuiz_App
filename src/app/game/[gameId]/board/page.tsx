@@ -12,6 +12,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
     const [gameStatus, setGameStatus] = useState("waiting"); // 'waiting', 'active', 'paused', 'finished'
     const [loading, setLoading] = useState(true);
     const [podium, setPodium] = useState<any[]>([]);
+    const [allPlayers, setAllPlayers] = useState<any[]>([]);
     const [playerCount, setPlayerCount] = useState(0);
 
     useEffect(() => {
@@ -28,15 +29,17 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
 
                 // Si la partida ya estaba finalizada, cargar el podio de inmediato
                 if (game.status === "finished") {
-                    const { data: topPlayers } = await supabase
+                    const { data: allP } = await supabase
                         .from("game_players")
-                        .select("player_name, avatar_gif_url, score, current_position")
+                        .select("player_name, avatar_gif_url, score, current_position, correct_answers, incorrect_answers")
                         .eq("game_id", gameId)
                         .order("current_position", { ascending: false })
-                        .order("score", { ascending: false })
-                        .limit(3);
+                        .order("score", { ascending: false });
 
-                    if (topPlayers) setPodium(topPlayers);
+                    if (allP) {
+                        setPodium(allP.slice(0, 3));
+                        setAllPlayers(allP);
+                    }
                 }
             }
             setLoading(false);
@@ -82,15 +85,17 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
         if (audio) audio.pause();
 
         // Obtener ganadores para el podio
-        const { data: topPlayers } = await supabase
+        const { data: allP } = await supabase
             .from("game_players")
-            .select("player_name, avatar_gif_url, score, current_position")
+            .select("player_name, avatar_gif_url, score, current_position, correct_answers, incorrect_answers")
             .eq("game_id", gameId)
             .order("current_position", { ascending: false })
-            .order("score", { ascending: false })
-            .limit(3);
+            .order("score", { ascending: false });
 
-        if (topPlayers) setPodium(topPlayers);
+        if (allP) {
+            setPodium(allP.slice(0, 3));
+            setAllPlayers(allP);
+        }
     };
 
     if (loading) return (
@@ -198,12 +203,12 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
             </header>
 
             {/* Contenedor del Mapa Central o Podio (Ocupa el resto de la pantalla) */}
-            <main className="flex-1 relative z-10 p-4 sm:p-8 flex items-center justify-center overflow-hidden">
+            <main className={`flex-1 relative z-10 p-4 sm:p-8 flex ${gameStatus === "finished" ? "flex-col overflow-y-auto items-center justify-start h-full custom-scrollbar pt-10" : "items-center justify-center overflow-hidden"}`}>
                 {gameStatus === "finished" ? (
-                    <div className="flex flex-col items-center justify-center w-full h-full animate-fade-in relative">
+                    <div className="flex flex-col items-center justify-start w-full max-w-5xl animate-fade-in relative pb-20">
                         {/* Confeti Sencillo CSS */}
                         <div className="absolute inset-0 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 animate-pulse"></div>
-                        <h2 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-600 mb-12 drop-shadow-xl uppercase tracking-widest text-center">
+                        <h2 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-600 mb-12 drop-shadow-xl uppercase tracking-widest text-center mt-10">
                             ¡Podio de Ganadores!
                         </h2>
 
@@ -216,6 +221,10 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                                         <span className="text-4xl font-black text-white drop-shadow-md text-center w-full mt-6">2°</span>
                                         <p className="font-bold text-gray-800 text-sm mt-2">{podium[1].player_name}</p>
                                         <p className="text-xs text-gray-700 font-bold">{podium[1].score} pts</p>
+                                        <div className="flex gap-1 text-[10px] mt-1 opacity-80">
+                                            <span className="text-green-800">✅ {podium[1].correct_answers || 0}</span>
+                                            <span className="text-red-800">❌ {podium[1].incorrect_answers || 0}</span>
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -229,6 +238,10 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                                         <span className="text-6xl font-black text-white drop-shadow-md mt-6">1°</span>
                                         <p className="font-bold text-yellow-900 text-lg mt-2 truncate w-full">{podium[0].player_name}</p>
                                         <p className="text-sm text-yellow-800 font-black">{podium[0].score} pts</p>
+                                        <div className="flex gap-2 text-xs mt-1 bg-yellow-900/10 px-2 py-0.5 rounded-full shadow-inner font-bold">
+                                            <span className="text-green-800 drop-shadow-sm">✅ {podium[0].correct_answers || 0}</span>
+                                            <span className="text-red-800 drop-shadow-sm">❌ {podium[0].incorrect_answers || 0}</span>
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -241,9 +254,61 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                                         <span className="text-3xl font-black text-white drop-shadow-md mt-4">3°</span>
                                         <p className="font-bold text-rose-900 text-sm mt-2 truncate w-full">{podium[2].player_name}</p>
                                         <p className="text-xs text-rose-800 font-bold">{podium[2].score} pts</p>
+                                        <div className="flex gap-1 text-[10px] mt-1 opacity-80">
+                                            <span className="text-green-900 font-bold">✅ {podium[2].correct_answers || 0}</span>
+                                            <span className="text-red-900 font-bold">❌ {podium[2].incorrect_answers || 0}</span>
+                                        </div>
                                     </div>
                                 </div>
                             )}
+                        </div>
+
+                        {/* Tabla de Reporte Final de todos los jugadores */}
+                        <div className="w-full mt-16 bg-white/10 backdrop-blur-md border border-white/20 rounded-[2rem] p-6 sm:p-8 shadow-2xl z-20">
+                            <h3 className="text-2xl sm:text-3xl font-black text-indigo-300 mb-6 text-left flex items-center gap-2 drop-shadow-md">
+                                📊 Reporte Especial de Jugadores
+                            </h3>
+                            <div className="overflow-x-auto rounded-2xl border border-white/10 bg-black/40">
+                                <table className="w-full text-left text-white whitespace-nowrap">
+                                    <thead className="bg-indigo-900/40 text-xs uppercase tracking-wider text-indigo-200">
+                                        <tr>
+                                            <th className="p-4 font-black">Rank</th>
+                                            <th className="p-4 font-black">Estudiante</th>
+                                            <th className="p-4 font-black text-center">Correctas</th>
+                                            <th className="p-4 font-black text-center">Incorrectas</th>
+                                            <th className="p-4 font-black text-right">Puntaje</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {allPlayers.map((p, idx) => (
+                                            <tr key={idx} className="hover:bg-white/5 transition-colors group">
+                                                <td className="p-4 font-black text-xl text-indigo-400/80">#{idx + 1}</td>
+                                                <td className="p-4">
+                                                    <div className="flex items-center gap-4">
+                                                        <img src={p.avatar_gif_url} className="w-10 h-10 rounded-full border-2 border-indigo-400/50 group-hover:border-indigo-400 transition-colors shadow-lg object-cover" />
+                                                        <span className="font-bold text-lg drop-shadow-md">{p.player_name}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="p-4 text-center">
+                                                    <span className="inline-block bg-emerald-500/20 text-emerald-400 px-4 py-1.5 rounded-xl font-bold border border-emerald-500/30">
+                                                        ✅ {p.correct_answers || 0}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4 text-center">
+                                                    <span className="inline-block bg-rose-500/20 text-rose-400 px-4 py-1.5 rounded-xl font-bold border border-rose-500/30">
+                                                        ❌ {p.incorrect_answers || 0}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4 text-right">
+                                                    <span className="font-black text-amber-400 text-xl drop-shadow-sm">
+                                                        {p.score} <span className="text-xs text-amber-500/80">pts</span>
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 ) : (
@@ -254,6 +319,23 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
             {/* Música de Juego */}
             <audio id="bg-music" loop src="https://cdns-preview-f.dzcdn.net/stream/c-f458e0aae13fa26ea7f2c69bb128deba-3.mp3"></audio>
 
+            <style jsx global>{`
+                /* Scrollbar mágico */  
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 10px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: rgba(0,0,0,0.2);
+                    border-radius: 10px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: linear-gradient(to bottom, rgba(99, 102, 241, 0.6), rgba(168, 85, 247, 0.6));
+                    border-radius: 10px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: linear-gradient(to bottom, rgba(99, 102, 241, 0.9), rgba(168, 85, 247, 0.9));
+                }
+            `}</style>
         </div>
     );
 }

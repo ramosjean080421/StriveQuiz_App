@@ -61,6 +61,45 @@ export default function TeacherDashboard() {
         }
     };
 
+    const handleDuplicateQuiz = async (quizId: string) => {
+        if (!confirm("¿Deseas duplicar este tablero mágico para usarlo en otra aula?")) return;
+        try {
+            // 1. Obtener Quiz original
+            const { data: originalQuiz, error: errQuiz } = await supabase.from("quizzes").select("*").eq("id", quizId).single();
+            if (errQuiz || !originalQuiz) throw new Error("No se pudo encontrar el tablero original.");
+
+            // 2. Crear copia del Quiz
+            const { id: _, created_at: __, ...quizData } = originalQuiz;
+            const newTitle = `Copia de ${quizData.title}`;
+
+            const { data: newQuiz, error: errInsert } = await supabase.from("quizzes").insert({
+                ...quizData,
+                title: newTitle
+            }).select().single();
+            if (errInsert || !newQuiz) throw new Error("Error creando el nuevo tablero.");
+
+            // 3. Obtener preguntas originales
+            const { data: originalQuestions, error: errQ } = await supabase.from("questions").select("*").eq("quiz_id", quizId);
+            if (errQ) throw errQ;
+
+            // 4. Copiar preguntas al nuevo quiz
+            if (originalQuestions && originalQuestions.length > 0) {
+                const newQuestions = originalQuestions.map(q => {
+                    const { id, created_at, quiz_id, ...qData } = q;
+                    return { ...qData, quiz_id: newQuiz.id };
+                });
+                const { error: errInsertQ } = await supabase.from("questions").insert(newQuestions);
+                if (errInsertQ) throw errInsertQ;
+            }
+
+            // 5. Actualizar la vista
+            setQuizzes([newQuiz, ...quizzes]);
+            alert("¡Tablero duplicado con éxito!");
+        } catch (err: any) {
+            alert("Error al duplicar: " + err.message);
+        }
+    };
+
     if (loading) return (
         <div className="h-screen w-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-100 overflow-hidden">
             <div className="flex flex-col items-center">
@@ -192,7 +231,7 @@ export default function TeacherDashboard() {
                                             <span className="text-base">▶️</span> Lanzar Partida
                                         </Link>
 
-                                        <div className="grid grid-cols-3 gap-2">
+                                        <div className="grid grid-cols-2 gap-2">
                                             <Link
                                                 href={`/teacher/quiz/builder?editId=${quiz.id}`}
                                                 className="flex flex-col items-center justify-center py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 font-bold text-[11px] rounded-xl transition-all shadow-sm text-center"
@@ -208,6 +247,14 @@ export default function TeacherDashboard() {
                                             >
                                                 <span className="text-lg mb-0.5">📝</span> Preguntas
                                             </Link>
+
+                                            <button
+                                                onClick={() => handleDuplicateQuiz(quiz.id)}
+                                                className="flex flex-col items-center justify-center py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold text-[11px] rounded-xl transition-all shadow-sm group text-center"
+                                                title="Duplicar Tablero para otra aula"
+                                            >
+                                                <span className="text-lg mb-0.5 group-hover:scale-110 transition-transform">📋</span> Duplicar
+                                            </button>
 
                                             <button
                                                 onClick={() => handleDeleteQuiz(quiz.id)}
