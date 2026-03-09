@@ -68,6 +68,23 @@ export default function QuizReportsPage({ params }: { params: Promise<{ quizId: 
         fetchData();
     }, [quizId, router]);
 
+    const handleDeleteReport = async (gameId: string) => {
+        if (!window.confirm("¿Estás seguro de que deseas borrar este reporte de forma permanente? Se eliminarán todos los datos de los estudiantes y el ranking de esta sesión.")) return;
+
+        try {
+            const { error } = await supabase.from("games").delete().eq("id", gameId);
+            if (error) throw error;
+
+            // Actualizar el estado local directamente
+            setReports(prev => prev.filter(r => r.id !== gameId));
+            setSelectedGame(null);
+            alert("Reporte eliminado con éxito.");
+        } catch (err: any) {
+            console.error("Error al borrar:", err);
+            alert("No se pudo borrar el reporte: " + (err.message || "Error desconocido"));
+        }
+    };
+
     if (loading) return (
         <div className="h-screen w-screen flex items-center justify-center bg-indigo-50">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
@@ -103,8 +120,8 @@ export default function QuizReportsPage({ params }: { params: Promise<{ quizId: 
                                     key={report.id}
                                     onClick={() => setSelectedGame(report)}
                                     className={`w-full text-left p-5 rounded-2xl transition-all border ${selectedGame?.id === report.id
-                                            ? "bg-indigo-600 border-indigo-400 text-white shadow-lg scale-[1.02]"
-                                            : "bg-white border-gray-100 text-gray-700 hover:border-indigo-300 hover:bg-indigo-50 shadow-sm"
+                                        ? "bg-indigo-600 border-indigo-400 text-white shadow-lg scale-[1.02]"
+                                        : "bg-white border-gray-100 text-gray-700 hover:border-indigo-300 hover:bg-indigo-50 shadow-sm"
                                         }`}
                                 >
                                     <div className="flex justify-between items-start mb-1">
@@ -127,8 +144,8 @@ export default function QuizReportsPage({ params }: { params: Promise<{ quizId: 
                         <div className="lg:col-span-2">
                             {selectedGame ? (
                                 <div className="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 overflow-hidden animate-fade-in">
-                                    <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-8 text-white">
-                                        <div className="flex justify-between items-center">
+                                    <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-8 text-white relative group">
+                                        <div className="flex justify-between items-center mr-10">
                                             <div>
                                                 <h3 className="text-2xl font-black">Resultados de la Sesión</h3>
                                                 <p className="text-indigo-100 font-medium opacity-90">PIN de acceso: {selectedGame.pin} • {new Date(selectedGame.created_at).toLocaleString()}</p>
@@ -138,6 +155,15 @@ export default function QuizReportsPage({ params }: { params: Promise<{ quizId: 
                                                 <div className="text-[10px] font-bold uppercase tracking-widest mt-1 opacity-80">Jugadores</div>
                                             </div>
                                         </div>
+
+                                        {/* Botón Flotante para borrar */}
+                                        <button
+                                            onClick={() => handleDeleteReport(selectedGame.id)}
+                                            className="absolute top-4 right-4 bg-white/10 hover:bg-red-500 p-3 rounded-2xl text-white/50 hover:text-white transition-all border border-white/20 hover:border-red-400 group-hover:opacity-100 lg:opacity-30"
+                                            title="Eliminar este reporte"
+                                        >
+                                            <span className="text-xl">🗑️</span>
+                                        </button>
                                     </div>
 
                                     <div className="p-6 sm:p-8">
@@ -157,9 +183,9 @@ export default function QuizReportsPage({ params }: { params: Promise<{ quizId: 
                                                         <tr key={idx} className="group hover:bg-gray-50/50 transition-colors">
                                                             <td className="py-4 px-2 text-center">
                                                                 <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-black text-sm ${idx === 0 ? "bg-yellow-100 text-yellow-700" :
-                                                                        idx === 1 ? "bg-gray-100 text-gray-600" :
-                                                                            idx === 2 ? "bg-orange-100 text-orange-700" :
-                                                                                "text-gray-400"
+                                                                    idx === 1 ? "bg-gray-100 text-gray-600" :
+                                                                        idx === 2 ? "bg-orange-100 text-orange-700" :
+                                                                            "text-gray-400"
                                                                     }`}>
                                                                     {idx + 1}
                                                                 </span>
