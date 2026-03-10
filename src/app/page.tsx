@@ -275,6 +275,13 @@ export default function Home() {
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1.5 flex justify-between items-center uppercase tracking-wider">
                     <span>Elige tu Avatar</span>
+                    <button
+                      type="button"
+                      onClick={() => setShuffledMemes([...shuffledMemes].sort(() => Math.random() - 0.5))}
+                      className="text-[10px] text-indigo-500 hover:text-indigo-700 font-black flex items-center gap-1"
+                    >
+                      <span>🔄</span> Aleatorio
+                    </button>
                   </label>
                   {/* Grid Scrolleable Mágico para Avatares */}
                   <div className="grid grid-cols-5 sm:grid-cols-6 gap-2 pr-2 p-1 max-h-36 overflow-y-auto custom-scrollbar-avatar bg-gray-50/50 rounded-xl border border-gray-200">

@@ -188,8 +188,17 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
             navigator.vibrate(isCorrect ? [100, 50, 100] : [300]);
         }
         playSound(fbType);
-
         if (playerId) {
+            // REGISTRO PARA MAPA DE CALOR: Guardar si esta respuesta fue correcta o no
+            supabase.from("game_responses").insert([{
+                game_id: gameId,
+                player_id: playerId,
+                question_id: question.id,
+                is_correct: isCorrect
+            }]).then(({ error }) => {
+                if (error) console.error("Error logging response for heatmap:", error);
+            });
+
             // Actualizar: avanzar/retroceder posición, sumar puntos y rachas
             const { data: pData } = await supabase.from("game_players").select("current_position, score, correct_answers, incorrect_answers, current_streak").eq("id", playerId).single();
             const { data: gData } = await supabase.from("games").select("game_mode, boss_hp, auto_end").eq("id", gameId).single();

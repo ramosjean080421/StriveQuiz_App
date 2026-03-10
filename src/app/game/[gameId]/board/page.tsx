@@ -168,7 +168,12 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                             <button
                                 onClick={async () => {
                                     const newStatus = gameStatus === "active" ? "paused" : "active";
-                                    await supabase.from("games").update({ status: newStatus }).eq("id", gameId);
+                                    const { error } = await supabase.from("games").update({ status: newStatus }).eq("id", gameId);
+                                    if (error) {
+                                        console.error("Error updating game status:", error);
+                                        alert("Error al cambiar el estado del juego. Verifica que la base de datos acepte el estado 'paused'.");
+                                        return;
+                                    }
                                     setGameStatus(newStatus);
                                 }}
                                 className={`px-6 sm:px-8 py-4 rounded-2xl font-black shadow-md hover:shadow-lg text-lg transition-transform transform hover:scale-105 active:scale-95 border flex items-center gap-2 ${gameStatus === "active" ? 'bg-amber-500 hover:bg-amber-600 border-amber-400 text-white' : 'bg-emerald-500 hover:bg-emerald-600 border-emerald-400 text-white'}`}
@@ -202,10 +207,11 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                         </div>
                     )}
                 </div>
-            </header>
+            </header >
 
             {/* Contenedor del Mapa Central o Podio (Ocupa el resto de la pantalla) */}
-            <main className={`flex-1 relative z-10 p-4 sm:p-8 flex ${gameStatus === "finished" ? "flex-col overflow-y-auto items-center justify-start h-full custom-scrollbar pt-10" : "items-center justify-center overflow-hidden"}`}>
+            < main className={`flex-1 relative z-10 p-4 sm:p-8 flex ${gameStatus === "finished" ? "flex-col overflow-y-auto items-center justify-start h-full custom-scrollbar pt-10" : "items-center justify-center overflow-hidden"}`
+            }>
                 {gameStatus === "finished" ? (
                     <div className="flex flex-col items-center justify-start w-full max-w-5xl animate-fade-in relative pb-20">
                         {/* Confeti Sencillo CSS */}
@@ -316,10 +322,10 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                 ) : (
                     <GameBoard gameId={gameId} />
                 )}
-            </main>
+            </main >
 
             {/* Música de Juego */}
-            <audio id="bg-music" loop src="https://cdns-preview-f.dzcdn.net/stream/c-f458e0aae13fa26ea7f2c69bb128deba-3.mp3"></audio>
+            < audio id="bg-music" loop src="https://cdns-preview-f.dzcdn.net/stream/c-f458e0aae13fa26ea7f2c69bb128deba-3.mp3" ></audio >
 
             <style jsx global>{`
                 /* Scrollbar mágico */  
@@ -338,6 +344,6 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                     background: linear-gradient(to bottom, rgba(99, 102, 241, 0.9), rgba(168, 85, 247, 0.9));
                 }
             `}</style>
-        </div>
+        </div >
     );
 }

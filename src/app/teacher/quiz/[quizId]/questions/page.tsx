@@ -34,6 +34,8 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
     // Modales Personalizados
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
     const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean, title: string, message: string, onConfirm: () => void, isDestructive?: boolean } | null>(null);
+    const [bulkImportOpen, setBulkImportOpen] = useState(false);
+    const [bulkText, setBulkText] = useState("");
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
         setToast({ message, type });
@@ -212,6 +214,104 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
         setSaving(false);
     };
 
+    const handleCSVImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const content = event.target?.result as string;
+            if (!content) return;
+
+            const lines = content.split(/\r?\n/).filter(line => line.trim().length > 0);
+            const newQuestions: any[] = [];
+
+            // Empezamos desde 0 o 1 si tiene cabecera. Asumiremos cabecera si la primera linea contiene "Pregunta"
+            const startIdx = lines[0].toLowerCase().includes("pregunta") ? 1 : 0;
+
+            for (let i = startIdx; i < lines.length; i++) {
+                // Parser simple de CSV (maneja comas básicas)
+                const parts = lines[i].split(',').map(p => p.trim());
+                if (parts.length >= 6) {
+                    newQuestions.push({
+                        quiz_id: quizId,
+                        question_text: parts[0],
+                        options: [parts[1], parts[2], parts[3], parts[4]],
+                        correct_option_index: parseInt(parts[5]) || 0,
+                        type: 'multiple_choice'
+                    });
+                } else if (parts.length >= 2) {
+                    // Soporte básico para V/F o Llenar
+                    newQuestions.push({
+                        quiz_id: quizId,
+                        question_text: parts[0],
+                        options: parts.length > 2 ? [parts[1], parts[2]] : [],
+                        correct_option_index: parseInt(parts[2]) || 0,
+                        correct_answer: parts[1],
+                        type: parts.length === 3 ? 'true_false' : 'fill_in_the_blank'
+                    });
+                }
+            }
+
+            if (newQuestions.length > 0) {
+                setSaving(true);
+                const { data, error } = await supabase.from("questions").insert(newQuestions).select();
+                if (!error && data) {
+                    setQuestions(prev => [...prev, ...data]);
+                    showToast(`¡${data.length} preguntas importadas con éxito!`, 'success');
+                } else {
+                    showToast("Error al importar CSV: " + error?.message, 'error');
+                }
+                setSaving(false);
+            }
+        };
+        reader.readAsText(file);
+        e.target.value = ""; // Reset
+    };
+
+    const handleBulkProcess = async () => {
+        if (!bulkText.trim()) return;
+
+        const lines = bulkText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+        const newQuestions = [];
+
+        for (let i = 0; i < lines.length; i += 5) {
+            if (i + 4 < lines.length) {
+                const questionText = lines[i].replace(/^\d+[\.\-\)]\s*/, '');
+                const optionTexts = [
+                    lines[i + 1].replace(/^([A-D]\)|[a-d]\)|[1-4]\.|\-|\*)\s*/, ''),
+                    lines[i + 2].replace(/^([A-D]\)|[a-d]\)|[1-4]\.|\-|\*)\s*/, ''),
+                    lines[i + 3].replace(/^([A-D]\)|[a-d]\)|[1-4]\.|\-|\*)\s*/, ''),
+                    lines[i + 4].replace(/^([A-D]\)|[a-d]\)|[1-4]\.|\-|\*)\s*/, '')
+                ];
+
+                newQuestions.push({
+                    quiz_id: quizId,
+                    question_text: questionText,
+                    options: optionTexts,
+                    correct_option_index: 0,
+                    type: 'multiple_choice'
+                });
+            }
+        }
+
+        if (newQuestions.length > 0) {
+            setSaving(true);
+            const { data, error } = await supabase.from("questions").insert(newQuestions).select();
+            if (!error && data) {
+                setQuestions(prev => [...prev, ...data]);
+                showToast(`¡${data.length} preguntas añadidas con éxito!`, 'success');
+                setBulkImportOpen(false);
+                setBulkText("");
+            } else {
+                showToast("Error al importar el bloque: " + error?.message, 'error');
+            }
+            setSaving(false);
+        } else {
+            showToast("No se detectaron preguntas válidas (usa bloques de 1 pregunta + 4 opciones).", "error");
+        }
+    };
+
     const handleDelete = (id: string) => {
         setConfirmModal({
             isOpen: true,
@@ -286,6 +386,51 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                 </div>
             )}
 
+            {/* MODAL IMPORTACIÓN MASIVA (PESTEO) */}
+            {bulkImportOpen && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
+                    <div className="bg-white rounded-[2.5rem] p-8 max-w-2xl w-full shadow-2xl border border-white/20 animate-scale-in flex flex-col max-h-[90vh]">
+                        <div className="flex justify-between items-center mb-6">
+                            <div className="flex items-center gap-3">
+                                <span className="text-3xl">📋</span>
+                                <div>
+                                    <h3 className="text-2xl font-black text-gray-900 leading-none">Importación Masiva</h3>
+                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Copia y Pega tus preguntas</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setBulkImportOpen(false)} className="text-gray-400 hover:text-gray-600 font-bold p-2 text-2xl leading-none">&times;</button>
+                        </div>
+
+                        <p className="text-sm text-gray-500 font-medium bg-indigo-50 p-4 rounded-2xl border border-indigo-100 mb-6 leading-relaxed">
+                            💡 <strong>Instrucciones:</strong> Pega aquí tus preguntas. Cada bloque debe tener <strong>5 líneas</strong> (1 para la pregunta y 4 para las opciones). Puedes pegar 50 o 100 de golpe.
+                        </p>
+
+                        <textarea
+                            value={bulkText}
+                            onChange={(e) => setBulkText(e.target.value)}
+                            placeholder="Ejemplo:&#10;¿Cual es el rio mas largo?&#10;Amazonas&#10;Nilo&#10;Rin&#10;Danubio"
+                            className="flex-1 w-full p-6 text-gray-800 font-medium bg-gray-50 border-2 border-dashed border-gray-200 rounded-3xl focus:border-indigo-500 focus:ring-0 outline-none resize-none shadow-inner custom-scrollbar"
+                        ></textarea>
+
+                        <div className="mt-8 flex gap-4">
+                            <button
+                                onClick={() => setBulkImportOpen(false)}
+                                className="flex-1 py-4 px-6 bg-gray-100 hover:bg-gray-200 text-gray-600 font-black rounded-2xl transition-all"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleBulkProcess}
+                                disabled={saving}
+                                className="flex-[2] py-4 px-6 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl shadow-lg shadow-indigo-200 transition-all active:scale-95 disabled:opacity-50"
+                            >
+                                {saving ? "Procesando..." : "🚀 ¡Importar Ahora!"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Cabecera Clásica Prisma */}
             <header className="flex-shrink-0 bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex justify-between items-center z-20">
                 <div className="flex items-center gap-4">
@@ -320,9 +465,21 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                     <div className="max-w-xl mx-auto">
                         <div className="flex items-center justify-between mb-8">
                             <h2 className="text-2xl font-extrabold text-gray-900">Banco Actual</h2>
-                            <span className="bg-indigo-100 text-indigo-700 font-black px-3 py-1 rounded-lg">
-                                {questions.length} Preguntas
-                            </span>
+                            <div className="flex gap-2 items-center">
+                                <button
+                                    onClick={() => setBulkImportOpen(true)}
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-black shadow-sm transition-all flex items-center gap-1 active:scale-95"
+                                >
+                                    <span>📋</span> Pegado Masivo
+                                </button>
+                                <label className="cursor-pointer bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg border border-emerald-200 text-xs font-black transition-all flex items-center gap-1">
+                                    <span>📊 CSV</span> Importar
+                                    <input type="file" accept=".csv" className="hidden" onChange={handleCSVImport} />
+                                </label>
+                                <span className="bg-indigo-100 text-indigo-700 font-black px-3 py-1.5 rounded-lg text-xs">
+                                    {questions.length} Preguntas
+                                </span>
+                            </div>
                         </div>
 
                         {questions.length === 0 ? (

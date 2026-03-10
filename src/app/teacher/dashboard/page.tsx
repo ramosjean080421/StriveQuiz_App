@@ -313,11 +313,11 @@ export default function TeacherDashboard() {
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <button
-                                                    title={isEditor ? "Cambiar a modo lectura" : "Permitir edición"}
+                                                    title={isEditor ? "Cambiar a modo lectura (Solo Ver)" : "Cambiar a modo editor (Puede modificar)"}
                                                     onClick={() => handleToggleRole(email)}
-                                                    className={`w-8 h-8 rounded-full flex items-center justify-center transition-all border ${isEditor
-                                                        ? 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100'
-                                                        : 'bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-100'
+                                                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all border shadow-sm active:scale-90 ${isEditor
+                                                        ? 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100'
+                                                        : 'bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100'
                                                         }`}
                                                 >
                                                     {isEditor ? '👁️' : '✍️'}
@@ -484,8 +484,15 @@ export default function TeacherDashboard() {
                                                     <div className="absolute -right-6 -top-6 w-24 h-24 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full opacity-50 group-hover:scale-150 transition-transform duration-500 ease-out z-0"></div>
                                                     <div className="relative z-10">
                                                         <div className="flex justify-between items-start mb-3">
-                                                            <div className="bg-indigo-100/90 backdrop-blur-sm text-indigo-700 w-max px-3 py-1.5 rounded-lg text-xs font-black shadow-sm border border-indigo-200/50">
-                                                                {quiz.teacher_id === user?.id ? "Mio" : "Compartido"}
+                                                            <div className="flex gap-1.5">
+                                                                <div className={`backdrop-blur-sm w-max px-3 py-1.5 rounded-lg text-xs font-black shadow-sm border ${quiz.teacher_id === user?.id ? "bg-indigo-100/90 text-indigo-700 border-indigo-200/50" : "bg-purple-100/90 text-purple-700 border-purple-200/50"}`}>
+                                                                    {quiz.teacher_id === user?.id ? "Mio" : "Compartido"}
+                                                                </div>
+                                                                {(quiz.shared_with_emails?.length || 0) > 0 && quiz.teacher_id === user?.id && (
+                                                                    <div className="bg-emerald-100/90 backdrop-blur-sm text-emerald-700 px-2.5 py-1.5 rounded-lg text-[10px] font-black shadow-sm border border-emerald-200/50 flex items-center gap-1" title={`${quiz.shared_with_emails?.length} colaboradores`}>
+                                                                        🤝 {quiz.shared_with_emails?.length}
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                             {quiz.board_image_url && (
                                                                 <div className="bg-amber-100/90 backdrop-blur-sm text-amber-800 px-3 py-1.5 rounded-lg text-xs font-black shadow-sm border border-amber-200/50 flex items-center gap-1.5" title="Escenario Seleccionado">

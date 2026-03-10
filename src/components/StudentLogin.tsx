@@ -125,7 +125,16 @@ export default function StudentLogin() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-3">Elige tu Avatar de Meme</label>
+                        <label className="block text-sm font-bold text-gray-700 mb-3 flex justify-between items-center">
+                            <span>Elige tu Avatar de Meme</span>
+                            <button
+                                type="button"
+                                onClick={() => setShuffledMemes([...shuffledMemes].sort(() => Math.random() - 0.5))}
+                                className="text-xs text-purple-600 hover:text-purple-800 font-black flex items-center gap-1 bg-purple-50 px-2 py-1 rounded-lg border border-purple-100 transition-colors"
+                            >
+                                <span>🔄</span> Reordenar
+                            </button>
+                        </label>
                         <div className="grid grid-cols-3 gap-3 pr-2 max-h-48 overflow-y-auto">
                             {shuffledMemes.map((gif, index) => (
                                 <div
