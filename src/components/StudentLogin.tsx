@@ -67,8 +67,11 @@ export default function StudentLogin() {
 
             if (playerError) throw playerError;
 
-            // 3. Guardar en el dispositivo la ID del jugador (para interactuar en partida)
+            // 3. Guardar en el dispositivo la ID del jugador y su token secreto (para interactuar en partida de forma segura)
             localStorage.setItem("currentPlayerId", player.id);
+            if (player.secret_token) {
+                localStorage.setItem("playerSecret", player.secret_token);
+            }
 
             // 4. Redirigir al lobby de espera o directo al tablero del juego
             router.push(`/game/${game.id}/board`);
@@ -81,11 +84,11 @@ export default function StudentLogin() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-4">
-            <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full animate-fade-in-up">
+        <div className="min-h-screen flex items-center justify-center bg-indigo-500 p-4">
+            <div className="bg-white rounded-3xl p-8 max-w-md w-full animate-fade-in-up">
 
                 <div className="text-center mb-8">
-                    <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600">
+                    <h1 className="text-4xl font-extrabold text-indigo-600">
                         GameQuiz!
                     </h1>
                     <p className="text-gray-500 mt-2">¡Ingresa el PIN, elige tu meme y juega!</p>
@@ -141,7 +144,7 @@ export default function StudentLogin() {
                                     key={index}
                                     onClick={() => setSelectedGif(gif)}
                                     className={`cursor-pointer rounded-xl overflow-hidden border-4 transition-transform duration-200 aspect-square ${selectedGif === gif
-                                        ? "border-green-400 scale-105 shadow-lg shadow-green-200"
+                                        ? "border-green-400 scale-105"
                                         : "border-transparent hover:scale-105"
                                         }`}
                                 >
@@ -154,7 +157,7 @@ export default function StudentLogin() {
                     <button
                         type="submit"
                         disabled={isLoading || !pin || !playerName}
-                        className="w-full py-4 rounded-xl text-white font-bold text-lg shadow-lg shadow-purple-300 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 transform hover:-translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                        className="w-full py-4 rounded-xl text-white font-bold text-lg bg-indigo-600 hover:bg-indigo-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {isLoading ? "Conectando..." : "¡ENTRAR AL JUEGO!"}
                     </button>

@@ -14,6 +14,9 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
     const [podium, setPodium] = useState<any[]>([]);
     const [allPlayers, setAllPlayers] = useState<any[]>([]);
     const [playerCount, setPlayerCount] = useState(0);
+    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'ludo'>('classic');
+
+    const [canControl, setCanControl] = useState(false);
 
     const fetchWinners = async () => {
         const { data: allP } = await supabase
@@ -30,25 +33,42 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
     };
 
     useEffect(() => {
-        const fetchGame = async () => {
+        const fetchGameAndPerms = async () => {
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+
             const { data: game } = await supabase
                 .from("games")
-                .select("pin, status")
+                .select("pin, status, game_mode, quiz_id")
                 .eq("id", gameId)
                 .single();
 
             if (game) {
                 setPin(game.pin);
                 setGameStatus(game.status);
+                setGameMode(game.game_mode as 'classic' | 'race' | 'ludo' || 'classic');
 
-                // Si la partida ya estaba finalizada, cargar el podio de inmediato
+                // Verificar Permisos
+                if (authUser) {
+                    const { data: quiz } = await supabase
+                        .from("quizzes")
+                        .select("teacher_id, editors_emails")
+                        .eq("id", game.quiz_id)
+                        .single();
+
+                    if (quiz) {
+                        const isOwner = quiz.teacher_id === authUser.id;
+                        const isEditor = quiz.editors_emails?.includes(authUser.email?.toLowerCase());
+                        if (isOwner || isEditor) setCanControl(true);
+                    }
+                }
+
                 if (game.status === "finished") {
                     fetchWinners();
                 }
             }
             setLoading(false);
         };
-        fetchGame();
+        fetchGameAndPerms();
 
         const channel = supabase.channel(`game_room_status_${gameId}`)
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
@@ -72,6 +92,8 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
 
     }, [gameId]);
 
+
+
     const startGame = async () => {
         const newStatus = "active";
         await supabase.from("games").update({ status: newStatus }).eq("id", gameId);
@@ -81,9 +103,11 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
         const audio = document.getElementById('bg-music') as HTMLAudioElement;
         if (audio) {
             audio.volume = 0.4;
-            audio.play().catch(e => console.log("Autoplay bloquedo:", e));
+            audio.play().catch(e => console.log("Autoplay bloqueado:", e));
         }
     };
+
+
 
     const finishGame = async () => {
         const newStatus = "finished";
@@ -109,12 +133,12 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
             <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-purple-600/20 rounded-full blur-[120px] pointer-events-none mix-blend-screen"></div>
             <div className="absolute bottom-0 left-0 w-[800px] h-[800px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none mix-blend-screen"></div>
 
-            {/* Header / Top Bar (Estilo Kahoot Espectacular) */}
-            <header className="relative z-20 flex-shrink-0 flex justify-between items-center p-4 sm:p-6 bg-white/5 backdrop-blur-md border-b border-white/10 shadow-lg">
+            {/* Header / Top Bar (Más compacto y eficiente) */}
+            <header className="relative z-20 flex-shrink-0 flex justify-between items-center px-6 py-3 bg-white/5 backdrop-blur-md border-b border-white/10 shadow-lg">
                 <div className="flex items-center gap-6">
-                    <div className="bg-gradient-to-r from-pink-500 to-orange-400 p-3 sm:p-4 rounded-2xl shadow-[0_0_20px_rgba(236,72,153,0.4)] border border-white/20 transform -rotate-2">
-                        <p className="text-xs sm:text-sm font-bold uppercase tracking-widest text-white/90 mb-1 leading-none">Únete en PrismQuiz.com con el PIN:</p>
-                        <h1 className="text-5xl sm:text-7xl font-black text-white tracking-widest drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)]">
+                    <div className="bg-gradient-to-r from-pink-500 to-orange-400 px-4 py-2 rounded-xl shadow-lg border border-white/20 transform -rotate-1">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-white/80 mb-0.5 leading-none">CÓDIGO:</p>
+                        <h1 className="text-4xl sm:text-5xl font-black text-white tracking-widest drop-shadow-md">
                             {pin}
                         </h1>
                     </div>
@@ -128,7 +152,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                         </div>
                     )}
                     {gameStatus === "waiting" && (
-                        <div className="hidden lg:flex items-center gap-2 bg-white/10 px-4 py-2 rounded-xl text-white font-black border border-white/20 shadow-inner">
+                        <div className="hidden lg:flex items-center gap-2 bg-[#2d3748] px-4 py-2 rounded-xl text-white font-black border border-white/20 shadow-lg">
                             <span>👤</span>
                             {playerCount} Conectados
                         </div>
@@ -143,27 +167,28 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                                 onClick={() => {
                                     const url = `${window.location.origin}/?pin=${pin}`;
                                     navigator.clipboard.writeText(url);
-                                    alert("El enlace directo ha sido copiado a tu portapapeles. ¡Pégalo donde prefieras!");
+                                    alert("El enlace ha sido copiado.");
                                 }}
-                                className="px-5 py-4 bg-indigo-600 hover:bg-indigo-700 rounded-2xl font-bold shadow-[0_0_20px_rgba(79,70,229,0.4)] text-sm transition-all text-white border-2 border-indigo-400 flex items-center gap-2 transform hover:scale-105 active:scale-95"
-                                title="Copiar enlace directo de ingreso para estudiantes"
+                                className="px-5 py-3 bg-[#4a5568] hover:bg-[#2d3748] rounded-2xl font-bold text-xs transition-all text-white border border-white/10 flex items-center gap-2 shadow-lg"
                             >
-                                <span className="text-xl">🔗</span> COPIAR LINK
+                                <span>🔗</span> Copiar Link de Invitación
                             </button>
 
-                            <button
-                                onClick={startGame}
-                                className="group relative px-6 sm:px-10 py-4 sm:py-5 bg-green-500 hover:bg-green-600 rounded-2xl font-black shadow-[0_0_30px_rgba(34,197,94,0.4)] hover:shadow-lg text-xl transition-all hover:scale-[1.03] active:scale-95 border-2 border-green-400 overflow-hidden"
-                            >
-                                <div className="absolute inset-0 bg-white/20 skew-x-12 -translate-x-full group-hover:animate-[shimmer_1s_forwards]"></div>
-                                <span className="relative z-10 flex items-center gap-3">
-                                    <span className="text-3xl drop-shadow-md">🚀</span> INICIAR PARTIDA
-                                </span>
-                            </button>
+                            {canControl && (
+                                <button
+                                    onClick={startGame}
+                                    className="group relative px-8 py-3.5 bg-green-500 hover:bg-green-600 rounded-xl font-black shadow-lg text-lg transition-all hover:scale-[1.03] active:scale-95 border-2 border-green-400 overflow-hidden"
+                                >
+                                    <div className="absolute inset-0 bg-white/20 skew-x-12 -translate-x-full group-hover:animate-[shimmer_1s_forwards]"></div>
+                                    <span className="relative z-10 flex items-center gap-2">
+                                        <span className="text-2xl">🚀</span> INICIAR
+                                    </span>
+                                </button>
+                            )}
                         </>
                     )}
 
-                    {(gameStatus === "active" || gameStatus === "paused") && (
+                    {(gameStatus === "active" || gameStatus === "paused") && canControl && (
                         <>
                             <button
                                 onClick={async () => {
@@ -210,8 +235,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
             </header >
 
             {/* Contenedor del Mapa Central o Podio (Ocupa el resto de la pantalla) */}
-            < main className={`flex-1 relative z-10 p-4 sm:p-8 flex ${gameStatus === "finished" ? "flex-col overflow-y-auto items-center justify-start h-full custom-scrollbar pt-10" : "items-center justify-center overflow-hidden"}`
-            }>
+            <main className={`flex-1 relative z-10 p-2 sm:p-4 flex ${gameStatus === "finished" ? "flex-col overflow-y-auto items-center justify-start h-full custom-scrollbar pt-10" : "items-center justify-center overflow-hidden"}`}>
                 {gameStatus === "finished" ? (
                     <div className="flex flex-col items-center justify-start w-full max-w-5xl animate-fade-in relative pb-20">
                         {/* Confeti Sencillo CSS */}

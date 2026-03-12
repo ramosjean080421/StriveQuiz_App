@@ -17,14 +17,16 @@ function StartGameContent() {
 
     // Nuevas configuraciones de partida
     const [autoEnd, setAutoEnd] = useState(false);
+    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'ludo'>('classic');
 
     useEffect(() => {
         if (quizId) {
-            supabase.from("quizzes").select("title, board_image_url").eq("id", quizId).single()
+            supabase.from("quizzes").select("title, board_image_url, game_mode").eq("id", quizId).single()
                 .then(({ data }) => {
                     if (data) {
                         setQuizName(data.title);
                         setBoardImageUrl(data.board_image_url || "");
+                        if (data.game_mode) setGameMode(data.game_mode as any);
                     }
                 });
         }
@@ -46,7 +48,8 @@ function StartGameContent() {
                         quiz_id: quizId,
                         pin: pin,
                         status: "waiting",
-                        auto_end: autoEnd
+                        auto_end: autoEnd,
+                        game_mode: gameMode
                     }
                 ])
                 .select()
@@ -120,26 +123,36 @@ function StartGameContent() {
                     </strong>
                 </div>
 
-                {/* Toggles de Configuración Estilizados */}
-                <div className="space-y-4 mb-10">
+                {/* Sección de Configuración */}
+                <div className="space-y-4 mb-10 text-left">
+                    {/* Toggle de Auto-finalizar (Editable) */}
                     <div
                         onClick={() => setAutoEnd(!autoEnd)}
-                        className={`cursor-pointer flex items-center justify-between p-5 rounded-[1.8rem] border-2 transition-all duration-300 group ${autoEnd
-                                ? "bg-emerald-500/10 border-emerald-500/50 shadow-[0_10px_25px_rgba(16,185,129,0.1)]"
-                                : "bg-white/5 border-white/5 hover:border-white/10"
-                            }`}
+                        className={`cursor-pointer group relative overflow-hidden p-6 rounded-[2rem] border-2 transition-all duration-500 ${
+                            autoEnd 
+                            ? "bg-emerald-500/10 border-emerald-500/40 shadow-[0_20px_40px_rgba(16,185,129,0.1)]" 
+                            : "bg-white/[0.02] border-white/5 hover:border-white/10 hover:bg-white/[0.04]"
+                        }`}
                     >
-                        <div className="flex gap-4 items-center">
-                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl transition-colors ${autoEnd ? 'bg-emerald-500 text-white shadow-lg' : 'bg-white/10 text-white/40'}`}>
-                                🏁
+                        <div className="relative z-10 flex items-center justify-between">
+                            <div className="flex items-center gap-5">
+                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl transition-all duration-500 shadow-xl ${
+                                    autoEnd ? 'bg-emerald-500 text-white animate-pulse' : 'bg-white/5 text-white/30'
+                                }`}>
+                                    {autoEnd ? '🏁' : '🏳️'}
+                                </div>
+                                <div>
+                                    <h4 className={`text-base font-black transition-colors ${autoEnd ? 'text-emerald-400' : 'text-gray-300'}`}>
+                                        Auto-finalizar
+                                    </h4>
+                                    <p className="text-gray-500 text-xs font-medium">El primero en llegar cierra la sala</p>
+                                </div>
                             </div>
-                            <div className="text-left">
-                                <h3 className={`font-black text-sm transition-colors ${autoEnd ? 'text-emerald-400' : 'text-white'}`}>Auto-finalizar</h3>
-                                <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider">El primero en llegar cierra sala</p>
+                            
+                            {/* Toggle Switch Estilizado */}
+                            <div className={`w-16 h-8 rounded-full p-1.5 transition-colors duration-500 flex items-center ${autoEnd ? 'bg-emerald-500' : 'bg-gray-800'}`}>
+                                <div className={`w-5 h-5 bg-white rounded-full transition-transform duration-500 shadow-2xl ${autoEnd ? 'translate-x-8 scale-110' : 'translate-x-0'}`}></div>
                             </div>
-                        </div>
-                        <div className={`w-14 h-7 rounded-full relative transition-colors duration-500 ${autoEnd ? 'bg-emerald-500' : 'bg-gray-700'}`}>
-                            <div className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full transition-transform duration-300 shadow-md ${autoEnd ? 'translate-x-7' : 'translate-x-0'}`}></div>
                         </div>
                     </div>
                 </div>

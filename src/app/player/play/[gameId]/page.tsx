@@ -17,9 +17,11 @@ interface Question {
 export default function StudentPlayArea({ params }: { params: Promise<{ gameId: string }> }) {
     const { gameId } = use(params);
     const [playerId, setPlayerId] = useState<string | null>(null);
+    const [playerSecret, setPlayerSecret] = useState<string | null>(null);
     const [questions, setQuestions] = useState<Question[]>([]);
     const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
     const [gameStatus, setGameStatus] = useState("waiting");
+    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'ludo'>('classic');
 
     const [loading, setLoading] = useState(true);
     const [answering, setAnswering] = useState(false);
@@ -98,18 +100,21 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     useEffect(() => {
         // 1. Recuperar la ID del Jugador del localStorage
         const savedPlayerId = localStorage.getItem("currentPlayerId");
+        const savedSecret = localStorage.getItem("playerSecret");
         if (!savedPlayerId) {
             alert("No estás autenticado en esta sala. Vuelve a ingresar el PIN.");
             window.location.href = "/";
             return;
         }
         setPlayerId(savedPlayerId);
+        setPlayerSecret(savedSecret);
 
         // 2. Obtener estado de la partida, preguntas y configuracion de recompensas
         const fetchGame = async () => {
-            const { data: game } = await supabase.from("games").select("status, quiz_id, auto_end").eq("id", gameId).single();
+            const { data: game } = await supabase.from("games").select("status, quiz_id, auto_end, game_mode, team_distribution_mode").eq("id", gameId).single();
             if (game) {
                 setGameStatus(game.status);
+                setGameMode(game.game_mode as any || "classic");
 
                 // Configuración de recompensa del quiz
                 const { data: quizData } = await supabase.from("quizzes").select("rewards_enabled, reward_criteria, reward_text").eq("id", game.quiz_id).single();
@@ -136,8 +141,15 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         // 3. Escuchar cambios de estado de la partida (ej. el profe la inicia o la termina)
         const channel = supabase.channel(`game_status_${gameId}`)
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
-                (payload) => setGameStatus(payload.new.status)
-            ).subscribe();
+                (payload) => {
+                    setGameStatus(payload.new.status);
+                    if (payload.new.game_mode) setGameMode(payload.new.game_mode);
+                }
+            )
+
+            .subscribe();
+
+
 
         return () => { supabase.removeChannel(channel); };
     }, [gameId]);
@@ -214,16 +226,21 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 let currentBossHp = gData?.boss_hp || 0;
                 let newBossHp = currentBossHp;
 
+
+
                 if (isCorrect) {
-                    if (mode === "classic") {
+                    if (mode === "classic" || mode === "race" || mode === "ludo") {
                         nextPos += 1;
-                    } else if (mode === "boss") {
-                        newBossHp = Math.max(0, currentBossHp - 10);
                     }
 
                     newScore += 100 + timeLeft * 10;
                     newCorrect += 1;
                     newStreak += 1;
+
+                    // Ludo specific: Bonus of +3 for a 4-streak
+                    if (mode === 'ludo' && newStreak > 0 && newStreak % 4 === 0) {
+                        nextPos += 3;
+                    }
 
                     // Comprobar sistema de recompensas
                     if (rewardConfig.enabled && newStreak > 0 && newStreak % rewardConfig.criteria === 0) {
@@ -231,45 +248,37 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                         playSound("correct"); // Sonido extra
                     }
                 } else {
-                    if (mode === "classic") {
+                    if (mode === "classic" || mode === "race" || mode === "ludo") {
                         // Retrocede una posición si se equivoca, mínimo en 0
                         nextPos = Math.max(0, nextPos - 1);
-                    } else if (mode === "boss") {
-                        newBossHp = currentBossHp + 5;
                     }
 
                     newIncorrect += 1;
                     newStreak = 0;
                 }
+                // 1. Actualizar el Jugador (Protegido por secret_token)
+                const { error: pError } = await supabase.from("game_players")
+                    .update({
+                        current_position: nextPos,
+                        score: newScore,
+                        correct_answers: newCorrect,
+                        incorrect_answers: newIncorrect,
+                        current_streak: newStreak
+                    })
+                    .eq("id", playerId)
+                    .eq("secret_token", playerSecret);
 
-                // Guardar actualizaciones concurrentemente
-                const promises = [];
+                if (pError) {
+                    console.error("Error updating player record:", pError);
+                } else {
+                    // Solo si la actualización del jugador fue exitosa (es decir, el secret_token coincide), 
+                    // procedemos con cambios globales si aplica. Esto evita que alguien sin token modifique la HP del boss.
+                    // HP logic removed as Boss mode is replaced by Race mode
 
-                promises.push(
-                    supabase.from("game_players")
-                        .update({
-                            current_position: nextPos,
-                            score: newScore,
-                            correct_answers: newCorrect,
-                            incorrect_answers: newIncorrect,
-                            current_streak: newStreak
-                        })
-                        .eq("id", playerId)
-                );
-
-                if (mode === "boss" && newBossHp !== currentBossHp) {
-                    promises.push(
-                        supabase.from("games")
-                            .update({ boss_hp: newBossHp })
-                            .eq("id", gameId)
-                    );
-                }
-
-                await Promise.all(promises);
-
-                // Si terminó todas las preguntas y el autoEnd está activo, cerramos el juego para todos
-                if (currentQuestionIdx >= questions.length - 1 && gData?.auto_end) {
-                    await supabase.from("games").update({ status: "finished" }).eq("id", gameId);
+                    // Si terminó todas las preguntas y el autoEnd está activo, cerramos el juego para todos
+                    if (currentQuestionIdx >= questions.length - 1 && gData?.auto_end) {
+                        await supabase.from("games").update({ status: "finished" }).eq("id", gameId);
+                    }
                 }
             }
         }
@@ -296,20 +305,21 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
     if (gameStatus === "waiting") {
         return (
-            <div className="h-screen w-screen overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-700 to-pink-600 flex flex-col items-center justify-center p-6 text-center relative">
+            <div className={`h-screen w-screen overflow-hidden flex flex-col items-center justify-center p-6 text-center relative transition-all duration-700 bg-gradient-to-br from-indigo-600 via-purple-700 to-pink-600`}>
                 {/* Elementos Decorativos */}
                 <div className="absolute top-10 left-10 w-32 h-32 bg-white rounded-full mix-blend-overlay filter blur-[40px] opacity-40 animate-pulse"></div>
                 <div className="absolute bottom-10 right-10 w-40 h-40 bg-pink-400 rounded-full mix-blend-overlay filter blur-[50px] opacity-40 animate-pulse animation-delay-2000"></div>
 
-                <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-8 sm:p-12 rounded-[3.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] z-10 w-full max-w-sm flex flex-col items-center">
-                    <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center mb-6 shadow-inner animate-bounce">
-                        <span className="text-5xl">🎮</span>
+                <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-8 sm:p-12 rounded-[3.5rem] z-10 w-full max-w-sm flex flex-col items-center">
+                    <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mb-6 animate-bounce text-4xl">
+                        🎮
                     </div>
-                    <h1 className="text-4xl font-black text-white mb-2 tracking-tight drop-shadow-md">
+                    <h1 className="text-3xl font-black text-white mb-2 tracking-tight">
                         ¡Estás Dentro!
                     </h1>
+
                     <p className="text-lg text-indigo-100 font-medium leading-tight">
-                        Mira la pantalla del profesor. El juego está a punto de empezar...
+                        Prepárate... la batalla comenzará pronto.
                     </p>
                 </div>
             </div>
@@ -320,9 +330,9 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         return (
             <div className="h-screen w-screen overflow-hidden bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-gray-800 to-black flex flex-col items-center justify-center p-6 text-center relative z-50">
                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-                <div className="bg-amber-500/10 backdrop-blur-xl border-4 border-amber-500/50 p-10 sm:p-14 rounded-[3.5rem] shadow-[0_0_80px_rgba(245,158,11,0.2)] w-full max-w-sm flex flex-col items-center animate-pulse">
+                <div className="bg-amber-500/10 backdrop-blur-xl border-4 border-amber-500/50 p-10 sm:p-14 rounded-[3.5rem] w-full max-w-sm flex flex-col items-center animate-pulse">
                     <span className="text-8xl mb-6 shadow-black">⏸️</span>
-                    <h1 className="text-3xl sm:text-4xl font-black text-amber-400 mb-4 uppercase tracking-widest drop-shadow-md">
+                    <h1 className="text-3xl sm:text-4xl font-black text-amber-400 mb-4 uppercase tracking-widest">
                         ¡Tiempo Pausado!
                     </h1>
                     <p className="text-amber-100 font-medium leading-relaxed text-lg">
@@ -342,15 +352,15 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 {/* Recompensa masiva si es que la ganó al final */}
                 {earnedReward && (
                     <div className="absolute top-10 w-full flex justify-center z-50 animate-bounce">
-                        <div className="bg-yellow-400 text-yellow-900 px-6 py-3 rounded-full font-black text-xl shadow-[0_0_30px_rgba(250,204,21,0.6)] border-4 border-yellow-200">
+                        <div className="bg-yellow-400 text-yellow-900 px-6 py-3 rounded-full font-black text-xl border-4 border-yellow-200">
                             🎁 ¡Premio Desbloqueado: {earnedReward}!
                         </div>
                     </div>
                 )}
 
-                <div className="relative z-10 bg-gradient-to-br from-gray-800 to-gray-900 border-2 border-indigo-500/50 p-10 rounded-[3rem] shadow-[0_0_60px_rgba(79,70,229,0.3)] max-w-sm w-full">
+                <div className="relative z-10 bg-gradient-to-br from-gray-800 to-gray-900 border-2 border-indigo-500/50 p-10 rounded-[3rem] max-w-sm w-full">
                     <span className="text-8xl mb-6 block transform hover:scale-110 transition-transform cursor-pointer">🏆</span>
-                    <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 mb-4 drop-shadow-sm uppercase tracking-wider">
+                    <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 mb-4 uppercase tracking-wider">
                         ¡Misión Cumplida!
                     </h1>
                     <p className="text-gray-300 font-medium text-lg leading-relaxed">
@@ -370,10 +380,10 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
     // Paleta de Colores de Acción (Estilo Kahoot/Quizizz)
     const optionColors = [
-        "bg-rose-500 shadow-rose-600/50",      // Rojo/Rosa (A)
-        "bg-blue-500 shadow-blue-600/50",      // Azul (B)
-        "bg-amber-500 shadow-amber-600/50",    // Naranja/Amarillo (C)
-        "bg-emerald-500 shadow-emerald-600/50" // Verde (D)
+        "bg-rose-500",      // Rojo/Rosa (A)
+        "bg-blue-500",      // Azul (B)
+        "bg-amber-500",    // Naranja/Amarillo (C)
+        "bg-emerald-500" // Verde (D)
     ];
 
     const optionIcons = ["🔺", "🔷", "🟡", "🟩"]; // Símbolos visuales intuitivos
@@ -382,11 +392,11 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         <div className="h-screen w-screen flex flex-col bg-gray-100 overflow-hidden relative font-sans">
 
             {/* Header Mini - Progreso */}
-            <div className="bg-white shadow-[0_2px_15px_rgba(0,0,0,0.05)] px-4 py-3 flex justify-between items-center z-10 sticky top-0 border-b border-gray-100">
+            <div className="bg-white px-4 py-3 flex justify-between items-center z-10 sticky top-0 border-b border-gray-100">
                 <div className="font-black text-xl text-transparent bg-clip-text bg-indigo-600 tracking-tight">Prisma Quiz</div>
                 <div className="flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100">
                     <span className="text-xs font-bold text-indigo-800 uppercase tracking-widest">Pregunta</span>
-                    <span className="bg-indigo-600 text-white text-sm font-black w-7 h-7 flex items-center justify-center rounded-lg shadow-inner">{currentQuestionIdx + 1}/{questions.length}</span>
+                    <span className="bg-indigo-600 text-white text-sm font-black w-7 h-7 flex items-center justify-center rounded-lg">{currentQuestionIdx + 1}/{questions.length}</span>
                 </div>
             </div>
 
@@ -403,7 +413,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
             {/* Tarjeta de Pregunta Central */}
             <div className="flex items-center justify-center px-4 py-4 sm:py-8">
-                <div className="w-full max-w-3xl bg-white rounded-3xl shadow-lg p-6 sm:p-10 border-b-8 border-indigo-500 text-center relative overflow-hidden">
+                <div className="w-full max-w-3xl bg-white rounded-3xl p-6 sm:p-10 border-b-8 border-indigo-500 text-center relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-4 font-black text-3xl opacity-10">⏳ {timeLeft}</div>
                     <div className="absolute -top-4 -left-4 w-16 h-16 bg-indigo-100 rounded-full blur-xl opacity-60"></div>
                     <h2 className="text-2xl sm:text-3xl md:text-3xl font-extrabold text-gray-900 leading-snug break-words relative z-10 mt-2">
@@ -430,12 +440,12 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                                     key={i}
                                     disabled={answering}
                                     onClick={() => handleAnswerSubmit(i)}
-                                    className={`relative focus:outline-none rounded-2xl sm:rounded-3xl font-black text-xl sm:text-2xl transition-all duration-300 flex flex-col items-center justify-center p-6 text-white shadow-[0_8px_0_0_rgba(0,0,0,0.15)] active:shadow-none active:translate-y-2 transform hover:scale-[1.02] ${currentQ.type === 'true_false' ? (i === 0 ? 'bg-emerald-500' : 'bg-rose-500') : optionColors[i % 4]} ${opacityClass}`}
+                                    className={`relative focus:outline-none rounded-2xl sm:rounded-3xl font-black text-xl sm:text-2xl transition-all duration-300 flex flex-col items-center justify-center p-6 text-white active:translate-y-2 transform hover:scale-[1.02] ${currentQ.type === 'true_false' ? (i === 0 ? 'bg-emerald-500' : 'bg-rose-500') : optionColors[i % 4]} ${opacityClass}`}
                                 >
-                                    <span className="absolute top-4 left-5 text-3xl opacity-50 drop-shadow-md">
+                                    <span className="absolute top-4 left-5 text-3xl opacity-50">
                                         {currentQ.type === 'true_false' ? (i === 0 ? '✅' : '❌') : optionIcons[i % 4]}
                                     </span>
-                                    <span className="mt-4 break-words w-full px-4 drop-shadow-md">
+                                    <span className="mt-4 break-words w-full px-4">
                                         {opt}
                                     </span>
                                 </button>
@@ -452,12 +462,12 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                             value={blankAnswer}
                             onChange={(e) => setBlankAnswer(e.target.value)}
                             placeholder="Escribe tu respuesta aquí..."
-                            className="w-full text-center px-6 py-5 rounded-2xl text-2xl font-black text-indigo-900 bg-white border-4 border-indigo-200 focus:border-indigo-500 outline-none shadow-inner transition-all uppercase placeholder-indigo-300"
+                            className="w-full text-center px-6 py-5 rounded-2xl text-2xl font-black text-indigo-900 bg-white border-4 border-indigo-200 focus:border-indigo-500 outline-none transition-all uppercase placeholder-indigo-300"
                         />
                         <button
                             disabled={answering || !blankAnswer.trim()}
                             onClick={() => handleAnswerSubmit(blankAnswer)}
-                            className="w-full py-5 rounded-2xl bg-indigo-600 text-white font-black text-2xl shadow-[0_8px_0_0_rgba(79,70,229,0.5)] active:shadow-none active:translate-y-2 transform hover:scale-[1.02] transition-all disabled:opacity-50 disabled:active:shadow-[0_8px_0_0_rgba(79,70,229,0.5)] disabled:active:translate-y-0"
+                            className="w-full py-5 rounded-2xl bg-indigo-600 text-white font-black text-2xl active:translate-y-2 transform hover:scale-[1.02] transition-all disabled:opacity-50 disabled:active:translate-y-0"
                         >
                             ENVIAR RESPUESTA
                         </button>
@@ -465,11 +475,11 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 )}
 
                 {currentQ.type === 'matching' && currentQ.matching_pairs && (
-                    <div className="flex flex-col w-full max-w-2xl mx-auto bg-white/50 p-4 sm:p-8 rounded-3xl backdrop-blur-sm border border-white shadow-sm space-y-4">
+                    <div className="flex flex-col w-full max-w-2xl mx-auto bg-white/50 p-4 sm:p-8 rounded-3xl backdrop-blur-sm border border-white space-y-4">
                         <div className="text-center text-sm font-bold text-indigo-600 mb-2 uppercase tracking-widest">Une los conceptos correctos</div>
                         {currentQ.matching_pairs.map((p, i) => (
                             <div key={i} className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 w-full">
-                                <div className="w-full sm:w-1/2 p-4 rounded-xl bg-indigo-600 text-white font-bold text-center shadow-sm">
+                                <div className="w-full sm:w-1/2 p-4 rounded-xl bg-indigo-600 text-white font-bold text-center">
                                     {p.left}
                                 </div>
                                 <span className="text-2xl rotate-90 sm:rotate-0 text-indigo-300 font-bold">↔️</span>
@@ -489,7 +499,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                         <button
                             disabled={answering || Object.keys(userMatches).length < currentQ.matching_pairs.length || Object.values(userMatches).some(v => !v)}
                             onClick={() => handleAnswerSubmit(userMatches)}
-                            className="mt-6 w-full py-5 rounded-2xl bg-emerald-500 text-white font-black text-2xl shadow-[0_8px_0_0_rgba(16,185,129,0.5)] active:shadow-none active:translate-y-2 transform hover:scale-[1.02] transition-all disabled:opacity-50 disabled:active:shadow-[0_8px_0_0_rgba(16,185,129,0.5)] disabled:active:translate-y-0"
+                            className="mt-6 w-full py-5 rounded-2xl bg-emerald-500 text-white font-black text-2xl active:translate-y-2 transform hover:scale-[1.02] transition-all disabled:opacity-50 disabled:active:translate-y-0"
                         >
                             COMPROBAR PAREJAS
                         </button>
@@ -503,7 +513,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                     }`}>
                     <div className="transform animate-bounce mb-4">
                         {feedback === 'correct' ? (
-                            <div className="w-40 h-40 bg-white rounded-full flex items-center justify-center shadow-[0_0_50px_rgba(255,255,255,0.5)]">
+                            <div className="w-40 h-40 bg-white rounded-full flex items-center justify-center">
                                 <span className="text-8xl">🥇</span>
                             </div>
                         ) : feedback === 'timeout' ? (
@@ -516,7 +526,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                             </div>
                         )}
                     </div>
-                    <h2 className="text-5xl font-black text-white uppercase tracking-widest drop-shadow-lg text-center px-4">
+                    <h2 className="text-5xl font-black text-white uppercase tracking-widest text-center px-4">
                         {feedback === 'correct' ? '¡Genial!' : feedback === 'timeout' ? '¡Tiempo!' : '¡Fallaste!'}
                     </h2>
                 </div>

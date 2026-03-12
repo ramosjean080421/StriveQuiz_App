@@ -241,7 +241,7 @@ export default function TeacherDashboard() {
     if (loading) return (
         <div className="h-screen w-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-100 overflow-hidden">
             <div className="flex flex-col items-center">
-                <div className="w-16 h-16 border-4 border-indigo-400 border-t-indigo-600 rounded-full animate-spin shadow-lg"></div>
+                <div className="w-16 h-16 border-4 border-indigo-400 border-t-indigo-600 rounded-full animate-spin"></div>
                 <h2 className="mt-4 text-2xl font-bold text-indigo-800 tracking-tight">Cargando tu espacio...</h2>
             </div>
         </div>
@@ -252,7 +252,7 @@ export default function TeacherDashboard() {
 
             {/* TOAST FLOTANTE */}
             {toast && (
-                <div className={`fixed bottom-6 right-6 z-50 px-6 py-4 rounded-2xl shadow-2xl font-bold flex items-center gap-3 animate-slide-up border ${toast.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-red-50 text-red-800 border-red-200'
+                <div className={`fixed bottom-6 right-6 z-50 px-6 py-4 rounded-2xl font-bold flex items-center gap-3 animate-slide-up border ${toast.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-red-50 text-red-800 border-red-200'
                     }`}>
                     <span className="text-xl">{toast.type === 'success' ? '✅' : '🚨'}</span>
                     {toast.message}
@@ -262,7 +262,7 @@ export default function TeacherDashboard() {
             {/* MODAL CONFIRMACION */}
             {confirmModal && confirmModal.isOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-                    <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl transform transition-all animate-bounce-short text-center border border-gray-100">
+                    <div className="bg-white rounded-3xl p-8 max-w-sm w-full transform transition-all animate-bounce-short text-center border border-gray-100">
                         <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 ${confirmModal.isDestructive ? 'bg-red-100 text-red-500' : 'bg-indigo-100 text-indigo-500'}`}>
                             <span className="text-3xl">{confirmModal.isDestructive ? '🗑️' : '📋'}</span>
                         </div>
@@ -272,7 +272,7 @@ export default function TeacherDashboard() {
                             <button onClick={() => setConfirmModal(null)} className="flex-1 py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-colors">
                                 Cancelar
                             </button>
-                            <button onClick={confirmModal.onConfirm} className={`flex-1 py-3 px-4 font-bold rounded-xl text-white shadow-md transition-all active:scale-95 ${confirmModal.isDestructive ? 'bg-red-500 hover:bg-red-600 shadow-red-200' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'}`}>
+                            <button onClick={confirmModal.onConfirm} className={`flex-1 py-3 px-4 font-bold rounded-xl text-white transition-all active:scale-95 ${confirmModal.isDestructive ? 'bg-red-500 hover:bg-red-600' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
                                 Confirmar
                             </button>
                         </div>
@@ -283,7 +283,7 @@ export default function TeacherDashboard() {
             {/* MODAL GESTOR DE ACCESOS (Compartir / Descompartir) */}
             {shareModal && shareModal.isOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-                    <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl transform transition-all animate-bounce-short border border-gray-100 max-h-[90vh] flex flex-col">
+                    <div className="bg-white rounded-3xl p-6 max-w-lg w-full transform transition-all animate-bounce-short border border-gray-100 max-h-[90vh] flex flex-col">
                         <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
                             <div className="w-12 h-12 bg-blue-100 text-blue-500 rounded-full flex items-center justify-center shrink-0">
                                 <span className="text-2xl">🤝</span>
@@ -315,7 +315,7 @@ export default function TeacherDashboard() {
                                                 <button
                                                     title={isEditor ? "Cambiar a modo lectura (Solo Ver)" : "Cambiar a modo editor (Puede modificar)"}
                                                     onClick={() => handleToggleRole(email)}
-                                                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all border shadow-sm active:scale-90 ${isEditor
+                                                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all border active:scale-90 ${isEditor
                                                         ? 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100'
                                                         : 'bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100'
                                                         }`}
@@ -352,7 +352,7 @@ export default function TeacherDashboard() {
                                     <button
                                         onClick={handleAddShare}
                                         disabled={!shareInput.trim()}
-                                        className="px-6 py-3 font-black rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all active:scale-95 disabled:opacity-50"
+                                        className="px-6 py-3 font-black rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50"
                                     >
                                         Invitar
                                     </button>
@@ -360,13 +360,13 @@ export default function TeacherDashboard() {
                                 <div className="flex p-1 bg-gray-100 rounded-2xl w-full">
                                     <button
                                         onClick={() => setShareRole("viewer")}
-                                        className={`flex-1 py-1.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${shareRole === "viewer" ? "bg-white text-indigo-600 shadow-sm" : "text-gray-400 hover:text-gray-600"}`}
+                                        className={`flex-1 py-1.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${shareRole === "viewer" ? "bg-white text-indigo-600" : "text-gray-400 hover:text-gray-600"}`}
                                     >
                                         👁️ Solo Ver
                                     </button>
                                     <button
                                         onClick={() => setShareRole("editor")}
-                                        className={`flex-1 py-1.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${shareRole === "editor" ? "bg-white text-indigo-600 shadow-sm" : "text-gray-400 hover:text-gray-600"}`}
+                                        className={`flex-1 py-1.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${shareRole === "editor" ? "bg-white text-indigo-600" : "text-gray-400 hover:text-gray-600"}`}
                                     >
                                         ✍️ Puede Editar
                                     </button>
@@ -384,7 +384,7 @@ export default function TeacherDashboard() {
             )}
 
             {/* Header Lleno de Color */}
-            <header className="flex-shrink-0 bg-white shadow-[0_4px_20px_rgba(0,0,0,0.05)] border-b border-indigo-100 px-6 py-4 flex justify-between items-center z-20">
+            <header className="flex-shrink-0 bg-white border-b border-indigo-100 px-6 py-4 flex justify-between items-center z-20">
                 <div className="flex items-center gap-0 sm:gap-2">
                     <img
                         src="/logo1.png"
@@ -394,7 +394,7 @@ export default function TeacherDashboard() {
                     <span className="text-[1.7rem] sm:text-4xl font-black text-[#7D32FF] tracking-tight ml-1">
                         Prisma Quiz
                     </span>
-                    <span className="bg-[#7D32FF]/10 text-[#7D32FF] font-black px-3 py-1 rounded-full text-xs hidden md:block ml-4 shadow-sm border border-[#7D32FF]/20 relative top-0.5">
+                    <span className="bg-[#7D32FF]/10 text-[#7D32FF] font-black px-3 py-1 rounded-full text-xs hidden md:block ml-4 border border-[#7D32FF]/20 relative top-0.5">
                         Panel de Profesor
                     </span>
                 </div>
@@ -407,13 +407,13 @@ export default function TeacherDashboard() {
                     <div className="flex items-center gap-3">
                         <Link
                             href="/teacher/settings"
-                            className="flex items-center gap-2 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 px-4 py-2.5 rounded-xl transition-all shadow-sm border border-gray-200"
+                            className="flex items-center gap-2 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 px-4 py-2.5 rounded-xl transition-all border border-gray-200"
                         >
                             <span>⚙️ Ajustes</span>
                         </Link>
                         <button
                             onClick={handleLogout}
-                            className="flex items-center gap-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 px-4 py-2.5 rounded-xl transition-all shadow-sm hover:shadow-md border border-transparent"
+                            className="flex items-center gap-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 px-4 py-2.5 rounded-xl transition-all border border-transparent"
                         >
                             <span className="hidden sm:inline">Cerrar Sesión</span>
                             <span className="sm:hidden">Salir</span>
@@ -430,14 +430,14 @@ export default function TeacherDashboard() {
                 <div className="absolute top-10 right-10 w-64 h-64 bg-indigo-400 rounded-full mix-blend-multiply filter blur-[80px] opacity-20 -z-10 animate-blob animation-delay-2000"></div>
 
                 {/* Controles de Acción Principal */}
-                <div className="flex-shrink-0 flex flex-col md:flex-row justify-between items-center bg-white/60 backdrop-blur-md p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white mb-6">
+                <div className="flex-shrink-0 flex flex-col md:flex-row justify-between items-center bg-white/60 backdrop-blur-md p-6 rounded-3xl border border-white mb-6">
                     <div>
                         <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Mis Tableros Mágicos</h1>
                         <p className="text-sm text-gray-500 mt-1 font-medium">Gestiona tus aventuras y lanza nuevas salas de juego.</p>
                     </div>
                     <Link
                         href="/teacher/quiz/builder"
-                        className="mt-4 md:mt-0 inline-flex items-center gap-2 px-8 py-3.5 text-base font-bold rounded-2xl shadow-md hover:shadow-lg text-white bg-indigo-600 hover:bg-indigo-700 transition-all transform hover:-translate-y-1 active:scale-95"
+                        className="mt-4 md:mt-0 inline-flex items-center gap-2 px-8 py-3.5 text-base font-bold rounded-2xl text-white bg-indigo-600 hover:bg-indigo-700 transition-all transform hover:-translate-y-1 active:scale-95"
                     >
                         <span className="text-xl leading-none">+</span> Crear Nuevo Tablero
                     </Link>
@@ -446,8 +446,8 @@ export default function TeacherDashboard() {
                 {/* Grid de Tableros Scrolleable */}
                 <div className="flex-1 overflow-y-auto px-1 pb-10 scrollbar-thin scrollbar-thumb-indigo-200 scrollbar-track-transparent">
                     {quizzes.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-center bg-white/40 backdrop-blur-sm rounded-[2.5rem] p-12 shadow-inner border border-white/50 border-dashed">
-                            <div className="text-8xl mb-6 filter drop-shadow-md">🚀</div>
+                        <div className="flex flex-col items-center justify-center h-full text-center bg-white/40 backdrop-blur-sm rounded-[2.5rem] p-12 border border-white/50 border-dashed">
+                            <div className="text-8xl mb-6">🚀</div>
                             <h3 className="text-2xl font-extrabold text-gray-800">El lienzo está en blanco</h3>
                             <p className="mt-3 text-lg text-gray-600 max-w-md">No tienes tableros aún. ¡Empieza a crear tu primera aventura interactiva en Prisma Quiz ahora mismo!</p>
                             <Link href="/teacher/quiz/builder" className="mt-8 text-indigo-600 font-bold hover:text-indigo-800 underline decoration-indigo-300 underline-offset-4 decoration-2">Quiero crear mi primer tablero &rarr;</Link>
@@ -459,12 +459,12 @@ export default function TeacherDashboard() {
                                 { title: "🗺️ Aventuras Clásicas", items: quizzes.filter(q => !q.board_image_url?.toLowerCase().includes("carrera")) }
                             ].filter(cat => cat.items.length > 0).map((category, catIdx) => (
                                 <div key={catIdx}>
-                                    <h2 className="text-2xl font-black text-indigo-900 mb-6 drop-shadow-sm ml-2">
+                                    <h2 className="text-2xl font-black text-indigo-900 mb-6 ml-2">
                                         {category.title}
                                     </h2>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                                         {category.items.map((quiz) => (
-                                            <div key={quiz.id} className="bg-white/80 backdrop-blur-lg rounded-[2rem] border border-white shadow-[0_4px_15px_rgba(0,0,0,0.05)] hover:shadow-[0_10px_30px_rgba(99,102,241,0.15)] transition-all duration-300 group flex flex-col overflow-hidden transform hover:-translate-y-1">
+                                            <div key={quiz.id} className="bg-white/80 backdrop-blur-lg rounded-[2rem] border border-white transition-all duration-300 group flex flex-col overflow-hidden transform hover:-translate-y-1">
                                                 {/* Cabecera de Tarjeta con Fondo de Mapa */}
                                                 <div className="px-6 py-8 flex-1 relative overflow-hidden">
                                                     {/* Imagen de Fondo Borrosa */}
@@ -485,23 +485,23 @@ export default function TeacherDashboard() {
                                                     <div className="relative z-10">
                                                         <div className="flex justify-between items-start mb-3">
                                                             <div className="flex gap-1.5">
-                                                                <div className={`backdrop-blur-sm w-max px-3 py-1.5 rounded-lg text-xs font-black shadow-sm border ${quiz.teacher_id === user?.id ? "bg-indigo-100/90 text-indigo-700 border-indigo-200/50" : "bg-purple-100/90 text-purple-700 border-purple-200/50"}`}>
+                                                                <div className={`backdrop-blur-sm w-max px-3 py-1.5 rounded-lg text-xs font-black border ${quiz.teacher_id === user?.id ? "bg-indigo-100/90 text-indigo-700 border-indigo-200/50" : "bg-purple-100/90 text-purple-700 border-purple-200/50"}`}>
                                                                     {quiz.teacher_id === user?.id ? "Mio" : "Compartido"}
                                                                 </div>
                                                                 {(quiz.shared_with_emails?.length || 0) > 0 && quiz.teacher_id === user?.id && (
-                                                                    <div className="bg-emerald-100/90 backdrop-blur-sm text-emerald-700 px-2.5 py-1.5 rounded-lg text-[10px] font-black shadow-sm border border-emerald-200/50 flex items-center gap-1" title={`${quiz.shared_with_emails?.length} colaboradores`}>
+                                                                    <div className="bg-emerald-100/90 backdrop-blur-sm text-emerald-700 px-2.5 py-1.5 rounded-lg text-[10px] font-black border border-emerald-200/50 flex items-center gap-1" title={`${quiz.shared_with_emails?.length} colaboradores`}>
                                                                         🤝 {quiz.shared_with_emails?.length}
                                                                     </div>
                                                                 )}
                                                             </div>
                                                             {quiz.board_image_url && (
-                                                                <div className="bg-amber-100/90 backdrop-blur-sm text-amber-800 px-3 py-1.5 rounded-lg text-xs font-black shadow-sm border border-amber-200/50 flex items-center gap-1.5" title="Escenario Seleccionado">
+                                                                <div className="bg-amber-100/90 backdrop-blur-sm text-amber-800 px-3 py-1.5 rounded-lg text-xs font-black border border-amber-200/50 flex items-center gap-1.5" title="Escenario Seleccionado">
                                                                     <span className="text-sm">🗺️</span>
                                                                     <span className="capitalize">{quiz.board_image_url.split('/').pop()?.split('.')[0].replace(/-/g, ' ') || "Mapa"}</span>
                                                                 </div>
                                                             )}
                                                         </div>
-                                                        <h3 className="text-xl font-bold text-gray-900 group-hover:text-indigo-800 transition-colors line-clamp-2 leading-tight drop-shadow-sm">
+                                                        <h3 className="text-xl font-bold text-gray-900 group-hover:text-indigo-800 transition-colors line-clamp-2 leading-tight">
                                                             {quiz.title}
                                                         </h3>
                                                         <p className="text-xs font-bold text-gray-500 mt-3 flex items-center gap-1.5 bg-white/60 w-max px-2 py-1 rounded-md">
@@ -530,7 +530,7 @@ export default function TeacherDashboard() {
 
                                                     <Link
                                                         href={`/teacher/game/new?quizId=${quiz.id}`}
-                                                        className="w-full flex items-center justify-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 px-3 text-sm rounded-xl transition-all shadow-sm hover:shadow-md transform active:scale-95"
+                                                        className="w-full flex items-center justify-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 px-3 text-sm rounded-xl transition-all transform active:scale-95"
                                                     >
                                                         <span className="text-base">▶️</span> Lanzar Partida
                                                     </Link>
@@ -547,7 +547,7 @@ export default function TeacherDashboard() {
                                                                     {canEdit ? (
                                                                         <Link
                                                                             href={`/teacher/quiz/builder?editId=${quiz.id}`}
-                                                                            className="flex flex-col items-center justify-center py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 font-bold text-[11px] rounded-xl transition-all shadow-sm text-center"
+                                                                            className="flex flex-col items-center justify-center py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 font-bold text-[11px] rounded-xl transition-all text-center"
                                                                             title="Editar Mapa e Itinerario"
                                                                         >
                                                                             <span className="text-lg mb-0.5">🗺️</span> Mapa
@@ -564,7 +564,7 @@ export default function TeacherDashboard() {
                                                                     {canEdit ? (
                                                                         <Link
                                                                             href={`/teacher/quiz/${quiz.id}/questions`}
-                                                                            className="flex flex-col items-center justify-center py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-bold text-[11px] rounded-xl transition-all shadow-sm text-center"
+                                                                            className="flex flex-col items-center justify-center py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-bold text-[11px] rounded-xl transition-all text-center"
                                                                             title="Editar Banco de Preguntas"
                                                                         >
                                                                             <span className="text-lg mb-0.5">📝</span> Preguntas
@@ -583,7 +583,7 @@ export default function TeacherDashboard() {
 
                                                         <button
                                                             onClick={() => handleDuplicateQuiz(quiz.id)}
-                                                            className="flex flex-col items-center justify-center py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold text-[11px] rounded-xl transition-all shadow-sm group text-center"
+                                                            className="flex flex-col items-center justify-center py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold text-[11px] rounded-xl transition-all group text-center"
                                                             title="Duplicar para tu propia cuenta"
                                                         >
                                                             <span className="text-lg mb-0.5 group-hover:scale-110 transition-transform">📋</span> Copiar

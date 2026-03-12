@@ -184,7 +184,7 @@ export default function Home() {
     <div className="flex h-screen w-screen overflow-hidden font-sans bg-gray-50">
 
       {/* Lado Izquierdo - Logo Gigante */}
-      <div className="hidden lg:flex w-1/2 bg-white items-center justify-center relative overflow-hidden shadow-[20px_0_40px_rgba(0,0,0,0.06)] z-10 border-r border-gray-100">
+      <div className="hidden lg:flex w-1/2 bg-white items-center justify-center relative overflow-hidden z-10 border-r border-gray-100">
         <div className="relative z-20 w-11/12 h-11/12 max-w-[800px] flex items-center justify-center">
           {/* Logo con escala masiva priorizando altura disponible */}
           <img
@@ -198,7 +198,7 @@ export default function Home() {
             }}
           />
           <div id="logo-fallback" className="hidden flex-col items-center justify-center h-full w-full" style={{ display: 'none' }}>
-            <h1 className="text-7xl lg:text-9xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 mb-6 drop-shadow-xl text-center leading-none">
+            <h1 className="text-7xl lg:text-9xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 mb-6 text-center leading-none">
               Prisma<br />Quiz
             </h1>
             <p className="text-2xl lg:text-3xl text-gray-400 font-bold tracking-widest text-center mt-4">JUEGA Y APRENDE</p>
@@ -208,7 +208,7 @@ export default function Home() {
 
       {/* Lado Derecho - Formulario Híbrido */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-8 shrink-0 bg-gradient-to-tr from-indigo-50 via-white to-purple-50">
-        <div className="max-w-[28rem] w-full space-y-5 bg-white/95 backdrop-blur-xl p-6 sm:p-8 rounded-[2rem] shadow-2xl shadow-indigo-100/60 border border-white relative">
+        <div className="max-w-[28rem] w-full space-y-5 bg-white/95 backdrop-blur-xl p-6 sm:p-8 rounded-[2rem] border border-white relative">
 
           <div className="absolute -top-10 -right-10 w-32 h-32 bg-indigo-500 rounded-full blur-[70px] opacity-20 pointer-events-none"></div>
           <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-purple-500 rounded-full blur-[70px] opacity-20 pointer-events-none"></div>
@@ -219,16 +219,16 @@ export default function Home() {
             </h2>
 
             {/* Selector de Pestañas */}
-            <div className="flex mt-6 bg-gray-100/80 rounded-xl p-1 shadow-inner">
+            <div className="flex mt-6 bg-gray-100/80 rounded-xl p-1">
               <button
                 onClick={() => { setActiveTab("student"); setError(null); }}
-                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === "student" ? "bg-white text-indigo-600 shadow-[0_2px_8px_rgba(0,0,0,0.1)]" : "text-gray-500 hover:text-gray-700"}`}
+                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === "student" ? "bg-white text-indigo-600" : "text-gray-500 hover:text-gray-700"}`}
               >
                 🎓 Soy Estudiante
               </button>
               <button
                 onClick={() => { setActiveTab("teacher"); setError(null); }}
-                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === "teacher" ? "bg-white text-indigo-600 shadow-[0_2px_8px_rgba(0,0,0,0.1)]" : "text-gray-500 hover:text-gray-700"}`}
+                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === "teacher" ? "bg-white text-indigo-600" : "text-gray-500 hover:text-gray-700"}`}
               >
                 👨‍🏫 Soy Profesor
               </button>
@@ -237,7 +237,7 @@ export default function Home() {
 
           <div className="relative z-10 mt-5">
             {error && (
-              <div className="bg-red-50 backdrop-blur-sm border-2 border-red-200 p-3 rounded-xl flex items-center shadow-sm mb-4">
+              <div className="bg-red-50 backdrop-blur-sm border-2 border-red-200 p-3 rounded-xl flex items-center mb-4">
                 <span className="text-red-500 mr-2 text-xl">⚠️</span>
                 <p className="text-sm text-red-700 font-bold leading-tight">{error}</p>
               </div>
@@ -255,7 +255,7 @@ export default function Home() {
                     value={pin}
                     onChange={(e) => setPin(e.target.value.toUpperCase())}
                     placeholder="Ej. A1B2C3"
-                    className="block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-center text-xl font-black font-mono tracking-widest text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all uppercase shadow-inner"
+                    className="block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-center text-xl font-black font-mono tracking-widest text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all uppercase"
                   />
                 </div>
 
@@ -268,7 +268,7 @@ export default function Home() {
                     value={playerName}
                     onChange={(e) => setPlayerName(e.target.value)}
                     placeholder="Ej. Juan Pérez"
-                    className="block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-inner text-sm"
+                    className="block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
                   />
                 </div>
 
@@ -290,7 +290,7 @@ export default function Home() {
                         key={index}
                         onClick={() => setSelectedGif(gif)}
                         className={`cursor-pointer rounded-lg overflow-hidden border-[3px] transition-all aspect-square flex items-center justify-center bg-gray-200 shrink-0 ${selectedGif === gif
-                          ? "border-emerald-400 scale-[1.15] shadow-lg shadow-emerald-300/50 z-10 rotate-3"
+                          ? "border-emerald-400 scale-[1.15] z-10 rotate-3"
                           : "border-transparent hover:border-indigo-300 hover:scale-105 opacity-80 hover:opacity-100"
                           }`}
                       >
@@ -307,7 +307,7 @@ export default function Home() {
                 <button
                   type="submit"
                   disabled={loading || !pin || !playerName}
-                  className="w-full flex justify-center py-4 px-4 mt-2 border border-transparent text-sm font-black rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-all duration-300 shadow-[0_8px_20px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 active:scale-95 uppercase tracking-wider"
+                  className="w-full flex justify-center py-4 px-4 mt-2 border border-transparent text-sm font-black rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-all duration-300 hover:-translate-y-0.5 active:scale-95 uppercase tracking-wider"
                 >
                   {loading ? "Conectando..." : "¡ENTRAR AL JUEGO!"}
                 </button>
@@ -337,7 +337,7 @@ export default function Home() {
                         <input
                           type="text"
                           required
-                          className="block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm shadow-inner"
+                          className="block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
                           placeholder="Tu nombre y apellido"
                           value={fullName}
                           onChange={(e) => setFullName(e.target.value)}
@@ -350,7 +350,7 @@ export default function Home() {
                         <input
                           type="text"
                           required
-                          className="block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm shadow-inner lowercase"
+                          className="block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm lowercase"
                           placeholder="profesor_pro123"
                           value={username}
                           onChange={(e) => setUsername(e.target.value)}
@@ -366,7 +366,7 @@ export default function Home() {
                     <input
                       type={isLogin ? "text" : "email"}
                       required
-                      className="block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm shadow-inner"
+                      className="block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
                       placeholder={isLogin ? "profesor / correo@ejemplo.com" : "tu@correo.com"}
                       value={isLogin ? identifier : email}
                       onChange={(e) => isLogin ? setIdentifier(e.target.value) : setEmail(e.target.value)}
@@ -381,7 +381,7 @@ export default function Home() {
                       <input
                         type={showPassword ? "text" : "password"}
                         required
-                        className="block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm shadow-inner pr-10"
+                        className="block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm pr-10"
                         placeholder="••••••••"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
@@ -399,7 +399,7 @@ export default function Home() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full flex justify-center py-4 px-4 mt-2 border border-transparent text-sm font-black uppercase tracking-wider rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-all duration-300 shadow-[0_8px_20px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 active:scale-95"
+                    className="w-full flex justify-center py-4 px-4 mt-2 border border-transparent text-sm font-black uppercase tracking-wider rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-all duration-300 hover:-translate-y-0.5 active:scale-95"
                   >
                     {loading ? "Procesando..." : (isLogin ? "Acceder al Panel" : "Crear mi cuenta")}
                   </button>
@@ -415,7 +415,7 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={handleGoogleLogin}
-                    className="w-full flex justify-center items-center gap-3 py-3 px-4 border-2 border-gray-100 text-sm font-bold rounded-xl text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-200 transition-all duration-300 shadow-sm hover:shadow-md transform hover:-translate-y-0.5"
+                    className="w-full flex justify-center items-center gap-3 py-3 px-4 border-2 border-gray-100 text-sm font-bold rounded-xl text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-200 transition-all duration-300 transform hover:-translate-y-0.5"
                   >
                     <svg className="w-5 h-5" viewBox="0 0 24 24">
                       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -451,12 +451,12 @@ export default function Home() {
       {/* MODAL DE ÉXITO PREMIUM */}
       {successModal && successModal.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
-          <div className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] transform transition-all animate-bounce-short text-center border border-white/20 relative overflow-hidden">
+          <div className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full transform transition-all animate-bounce-short text-center border border-white/20 relative overflow-hidden">
             {/* Decoración de fondo del modal */}
             <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-50 rounded-full blur-3xl opacity-50 -mr-10 -mt-10"></div>
 
             <div className="relative z-10">
-              <div className="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mb-6 rotate-3 shadow-lg shadow-indigo-200">
+              <div className="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mb-6 rotate-3">
                 <span className="text-4xl text-white">📮</span>
               </div>
 
@@ -470,7 +470,7 @@ export default function Home() {
 
               <button
                 onClick={() => setSuccessModal(null)}
-                className="w-full py-4 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black rounded-2xl shadow-lg shadow-indigo-200 transition-all active:scale-95 uppercase tracking-widest text-sm"
+                className="w-full py-4 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black rounded-2xl transition-all active:scale-95 uppercase tracking-widest text-sm"
               >
                 Entendido, lo revisaré
               </button>

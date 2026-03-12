@@ -70,7 +70,7 @@ export default function TeacherLogin() {
     return (
         <div className="flex min-h-screen font-sans bg-gray-50">
             {/* Lado Izquierdo - Logo (Blanco) */}
-            <div className="hidden lg:flex w-1/2 bg-white items-center justify-center p-12 relative overflow-hidden shadow-[10px_0_30px_rgba(0,0,0,0.05)] z-10">
+            <div className="hidden lg:flex w-1/2 bg-white items-center justify-center p-12 relative overflow-hidden z-10">
                 {/* Elemento decorativo de fondo */}
                 <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 rounded-full bg-gradient-to-br from-indigo-50 to-purple-50 blur-3xl opacity-50"></div>
 
@@ -87,7 +87,7 @@ export default function TeacherLogin() {
                         }}
                     />
                     <div id="logo-fallback" className="hidden" style={{ display: 'none' }}>
-                        <h1 className="text-6xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 mb-4 drop-shadow-sm">
+                        <h1 className="text-6xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 mb-4">
                             Prisma Quiz
                         </h1>
                         <p className="text-xl text-gray-400 font-medium tracking-wide">Plataforma Educativa Gamificada</p>
@@ -97,7 +97,7 @@ export default function TeacherLogin() {
 
             {/* Lado Derecho - Formulario (Moderno/Vibrante) */}
             <div className="w-full lg:w-1/2 flex items-center justify-center p-8 sm:p-12 lg:p-24 bg-gradient-to-tr from-indigo-50 via-white to-purple-50">
-                <div className="max-w-md w-full space-y-8 bg-white/80 backdrop-blur-xl p-10 sm:p-14 rounded-[2rem] shadow-2xl shadow-indigo-100/50 border border-white/50 relative overflow-hidden">
+                <div className="max-w-md w-full space-y-8 bg-white/80 backdrop-blur-xl p-10 sm:p-14 rounded-[2rem] border border-white/50 relative overflow-hidden">
 
                     {/* Decoración dentro de la tarjeta */}
                     <div className="absolute -top-10 -right-10 w-32 h-32 bg-indigo-500 rounded-full blur-[60px] opacity-20 pointer-events-none"></div>
@@ -124,7 +124,7 @@ export default function TeacherLogin() {
 
                     <form className="mt-8 space-y-6 relative z-10" onSubmit={handleAuth}>
                         {error && (
-                            <div className="bg-red-50/80 backdrop-blur-sm border-l-4 border-red-500 p-4 rounded-xl flex items-center shadow-sm">
+                            <div className="bg-red-50/80 backdrop-blur-sm border-l-4 border-red-500 p-4 rounded-xl flex items-center">
                                 <span className="text-red-500 mr-3 text-lg">⚠️</span>
                                 <p className="text-sm text-red-700 font-medium">{error}</p>
                             </div>
@@ -139,7 +139,7 @@ export default function TeacherLogin() {
                                     <input
                                         type="text"
                                         required
-                                        className="block w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all sm:text-sm shadow-inner"
+                                        className="block w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all sm:text-sm"
                                         placeholder="Tu nombre y apellido"
                                         value={fullName}
                                         onChange={(e) => setFullName(e.target.value)}
@@ -153,7 +153,7 @@ export default function TeacherLogin() {
                                 <input
                                     type="email"
                                     required
-                                    className="block w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all sm:text-sm shadow-inner"
+                                    className="block w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all sm:text-sm"
                                     placeholder="tu@correo.com"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
@@ -168,7 +168,7 @@ export default function TeacherLogin() {
                                     <input
                                         type={showPassword ? "text" : "password"}
                                         required
-                                        className="block w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all sm:text-sm shadow-inner pr-12"
+                                        className="block w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all sm:text-sm pr-12"
                                         placeholder="••••••••"
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
@@ -188,7 +188,7 @@ export default function TeacherLogin() {
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full flex justify-center items-center py-4 px-4 border border-transparent text-base font-bold rounded-2xl text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-[0_8px_20px_rgba(79,70,229,0.3)] hover:shadow-[0_8px_25px_rgba(79,70,229,0.4)] transform hover:-translate-y-0.5"
+                                className="w-full flex justify-center items-center py-4 px-4 border border-transparent text-base font-bold rounded-2xl text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:-translate-y-0.5"
                             >
                                 {loading ? (
                                     <span className="flex items-center">
@@ -215,7 +215,7 @@ export default function TeacherLogin() {
                         <button
                             type="button"
                             onClick={handleGoogleLogin}
-                            className="w-full flex justify-center items-center gap-3 py-4 px-4 border-2 border-gray-100 text-base font-bold rounded-2xl text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-200 transition-all duration-300 shadow-sm hover:shadow-md transform hover:-translate-y-0.5"
+                            className="w-full flex justify-center items-center gap-3 py-4 px-4 border-2 border-gray-100 text-base font-bold rounded-2xl text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-200 transition-all duration-300 transform hover:-translate-y-0.5"
                         >
                             <svg className="w-6 h-6" viewBox="0 0 24 24">
                                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
