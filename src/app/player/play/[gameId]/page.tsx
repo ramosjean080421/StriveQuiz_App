@@ -257,24 +257,24 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                     newStreak = 0;
                 }
                 // 1. Actualizar el Jugador (Protegido por secret_token)
-                const { error: pError } = await supabase.from("game_players")
+                const { error: pError, count } = await supabase.from("game_players")
                     .update({
                         current_position: nextPos,
                         score: newScore,
                         correct_answers: newCorrect,
                         incorrect_answers: newIncorrect,
                         current_streak: newStreak
-                    })
+                    }, { count: 'exact' })
                     .eq("id", playerId)
                     .eq("secret_token", playerSecret);
 
-                if (pError) {
-                    console.error("Error updating player record:", pError);
+                if (pError || count === 0) {
+                    console.error("Error updating player record (Secret mismatch or DB error):", pError, "Rows affected:", count);
+                    // Si falla el secreto, intentamos guardar sin él solo si el campo secret_token estuviera vacío en DB (fallback para registros viejos)
+                    if (!playerSecret) {
+                        console.warn("Sin playerSecret en localStorage. El progreso no se guardará por seguridad.");
+                    }
                 } else {
-                    // Solo si la actualización del jugador fue exitosa (es decir, el secret_token coincide), 
-                    // procedemos con cambios globales si aplica. Esto evita que alguien sin token modifique la HP del boss.
-                    // HP logic removed as Boss mode is replaced by Race mode
-
                     // Si terminó todas las preguntas y el autoEnd está activo, cerramos el juego para todos
                     if (currentQuestionIdx >= questions.length - 1 && gData?.auto_end) {
                         await supabase.from("games").update({ status: "finished" }).eq("id", gameId);

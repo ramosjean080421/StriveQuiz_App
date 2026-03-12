@@ -73,8 +73,8 @@ export default function StudentLogin() {
                 localStorage.setItem("playerSecret", player.secret_token);
             }
 
-            // 4. Redirigir al lobby de espera o directo al tablero del juego
-            router.push(`/game/${game.id}/board`);
+            // 4. Redirigir al área de juego del estudiante
+            router.push(`/player/play/${game.id}`);
 
         } catch (err: any) {
             setError(err.message || "Error al intentar entrar a la sala.");

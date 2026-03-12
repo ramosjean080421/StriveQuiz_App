@@ -97,6 +97,9 @@ export default function Home() {
       if (playerError) throw playerError;
 
       localStorage.setItem("currentPlayerId", player.id);
+      if (player.secret_token) {
+        localStorage.setItem("playerSecret", player.secret_token);
+      }
       router.push(`/player/play/${game.id}`);
     } catch (err: any) {
       setError(err.message || "Error al intentar entrar a la sala.");
