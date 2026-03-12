@@ -154,8 +154,9 @@ export default function GameBoard({ gameId }: GameBoardProps) {
                 setBoardImageUrl(quizData?.board_image_url || "/default-board.png");
                 setBoardPath(quizData?.board_path as BoardCoordinate[] || []);
                 setLudoTeamsCount(quizData?.ludo_teams_count || 4);
-                const { count } = await supabase.from("quiz_questions").select("*", { count: 'exact', head: true }).eq("quiz_id", gameConfig.quiz_id);
+                const { count } = await supabase.from("questions").select("*", { count: 'exact', head: true }).eq("quiz_id", gameConfig.quiz_id);
                 if (count) setTotalQuestions(count);
+                else setTotalQuestions(10); // Fallback robusto
             }
             const { data: initialPlayers } = await supabase.from("game_players").select("*").eq("game_id", gameId);
             if (initialPlayers) setPlayers(initialPlayers as Player[]);
@@ -167,8 +168,13 @@ export default function GameBoard({ gameId }: GameBoardProps) {
             .on("postgres_changes", { event: "INSERT", schema: "public", table: "game_players", filter: `game_id=eq.${gameId}` }, (payload) => {
                 setPlayers((prev) => [...prev, payload.new as Player]);
             })
-            .on("postgres_changes", { event: "UPDATE", schema: "public", table: "game_players", filter: `game_id=eq.${gameId}` }, (payload) => {
-                const newPlayer = payload.new as Player & { correct_answers?: number, incorrect_answers?: number };
+            .on("postgres_changes", { event: "UPDATE", schema: "public", table: "game_players" }, (payload) => {
+                const newPlayer = payload.new as Player & { correct_answers?: number, incorrect_answers?: number, game_id?: string };
+                
+                // Verificar si el jugador pertenece a esta partida
+                const isOurPlayer = playersRef.current.some(p => p.id === newPlayer.id);
+                if (!isOurPlayer) return;
+
                 const oldPlayer = playersRef.current.find(p => p.id === newPlayer.id);
                 if (oldPlayer && (gameModeRef.current === "classic" || gameModeRef.current === "race")) {
                     if ((newPlayer.correct_answers || 0) > (oldPlayer.correct_answers || 0)) triggerAttackAnim(newPlayer.id, "correct", newPlayer.avatar_gif_url);
