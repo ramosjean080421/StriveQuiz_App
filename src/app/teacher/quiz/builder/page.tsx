@@ -11,6 +11,71 @@ interface Coordinate {
     y: number;
 }
 
+// --- COMPONENTE DE TABLERO LUDO PROCEDURAL PARA PREVISUALIZACIÓN ---
+const LudoGridPreview = () => {
+    const parchment = "#e8dfc5"; 
+    const woodBorder = "#2d1810";
+    const redPath = "linear-gradient(135deg, #ef4444 0%, #991b1b 100%)";
+    const greenPath = "linear-gradient(135deg, #10b981 0%, #065f46 100%)";
+    const bluePath = "linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)";
+    const yellowPath = "linear-gradient(135deg, #f59e0b 0%, #b45309 100%)";
+
+    const Cell = ({ color, className = "" }: any) => {
+        const isPath = color !== "#e8dfc5";
+        return (
+            <div 
+                className={`w-full h-full border border-black/40 flex items-center justify-center ${className}`} 
+                style={{ 
+                    background: isPath ? color : parchment,
+                    boxShadow: isPath ? 'inset 0 0 5px rgba(0,0,0,0.3)' : 'none'
+                }}
+            />
+        );
+    };
+
+    const Base = ({ color, icon, glowColor }: any) => (
+        <div 
+            className="col-span-6 row-span-6 border-2 border-black/10 rounded-3xl p-3 flex items-center justify-center relative overflow-hidden shadow-lg" 
+            style={{ 
+                background: color,
+                boxShadow: `0 0 15px ${glowColor}33`
+            }}
+        >
+            <div className="w-full h-full bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center text-6xl shadow-inner">
+                {icon}
+            </div>
+        </div>
+    );
+
+    return (
+        <div className="aspect-square w-full max-w-[500px] bg-[#e8dfc5] border-8 border-[#2d1810] rounded-[2.5rem] shadow-2xl p-3 grid grid-cols-15 grid-rows-15 relative overflow-hidden">
+            <div className="absolute inset-0 pointer-events-none opacity-20 bg-[radial-gradient(circle_at_20%_30%,_rgba(255,255,255,0.4)_0%,_transparent_50%)]"></div>
+            
+            <Base color={greenPath} icon="🏰" glowColor="#10b981" />
+            <div className="col-span-3 row-span-6 grid grid-cols-3 grid-rows-6 p-0.5 gap-[1px]">
+                {Array(18).fill(0).map((_, i) => <Cell key={i} color={i % 3 === 1 && i > 0 ? "#10b981" : "#e8dfc5"} />)}
+            </div>
+            <Base color={redPath} icon="🐲" glowColor="#ef4444" />
+
+            <div className="col-span-6 row-span-3 grid grid-cols-6 grid-rows-3 p-0.5 gap-[1px]">
+                {Array(18).fill(0).map((_, i) => <Cell key={i} color={i >= 6 && i < 11 ? "#3b82f6" : "#e8dfc5"} />)}
+            </div>
+            <div className="col-span-3 row-span-3 bg-white/20 border border-black/10 flex items-center justify-center overflow-hidden">
+                <div className="w-full h-full bg-[#f3edd7] flex items-center justify-center text-7xl shadow-inner border border-black/5">📖</div>
+            </div>
+            <div className="col-span-6 row-span-3 grid grid-cols-6 grid-rows-3 p-0.5 gap-[1px]">
+                {Array(18).fill(0).map((_, i) => <Cell key={i} color={i >= 7 && i < 12 ? "#ef4444" : "#e8dfc5"} />)}
+            </div>
+
+            <Base color={bluePath} icon="🚢" glowColor="#3b82f6" />
+            <div className="col-span-3 row-span-6 grid grid-cols-3 grid-rows-6 p-0.5 gap-[1px]">
+                {Array(18).fill(0).map((_, i) => <Cell key={i} color={i % 3 === 1 && i < 15 ? "#f59e0b" : "#e8dfc5"} />)}
+            </div>
+            <Base color={yellowPath} icon="🕯️" glowColor="#f59e0b" />
+        </div>
+    );
+};
+
 function QuizBuilderContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -186,7 +251,7 @@ function QuizBuilderContent() {
             showToast("Por favor traza al menos 2 casillas en el tablero.", "error");
             return;
         }
-        if (!selectedMap) {
+        if (gameMode !== 'ludo' && !selectedMap) {
             showToast("Por favor selecciona un escenario.", "error");
             return;
         }
@@ -198,7 +263,7 @@ function QuizBuilderContent() {
             if (!user) throw new Error("No autenticado");
             const payload = {
                 title,
-                board_image_url: selectedMap.url,
+                board_image_url: gameMode === 'ludo' ? '/LUDO_PROCEDURAL' : selectedMap.url,
                 board_path: gameMode === 'ludo' ? [] : boardPath,
                 game_mode: gameMode,
                 ludo_teams_count: gameMode === 'ludo' ? ludoTeamsCount : null,
@@ -469,6 +534,11 @@ function QuizBuilderContent() {
                             <><span>✅</span> Publicar Aventura</>
                         )}
                     </button>
+                    {gameMode === 'ludo' && (
+                        <p className="mt-3 text-[10px] text-gray-400 text-center font-bold uppercase italic animate-pulse">
+                            ¡Tablero Procedural Activado! No requiere imagen externa.
+                        </p>
+                    )}
                 </div>
             </div>
 
@@ -478,7 +548,15 @@ function QuizBuilderContent() {
                 {/* Patrón de Fondo de Puntos Estrellado */}
                 <div className="absolute inset-0 opacity-[0.04] pointer-events-none z-0" style={{ backgroundImage: 'radial-gradient(white 2px, transparent 2px)', backgroundSize: '30px 30px' }}></div>
 
-                {selectedMap ? (
+                {gameMode === 'ludo' ? (
+                    <div className="relative z-10 w-full flex flex-col items-center gap-6 animate-fade-in-up">
+                        <LudoGridPreview />
+                        <div className="bg-indigo-600/20 backdrop-blur-md border border-indigo-500/30 px-6 py-3 rounded-2xl flex items-center gap-3">
+                            <span className="text-2xl animate-bounce">🎲</span>
+                            <span className="text-white font-black uppercase tracking-widest text-sm">Previsualización de Mapa Procedural</span>
+                        </div>
+                    </div>
+                ) : selectedMap ? (
                     <div className="relative z-10 w-full h-full flex items-center justify-center">
                         
                         {/* El lienzo invisible para cliquear encima de la imagen */}
@@ -496,7 +574,7 @@ function QuizBuilderContent() {
                             <svg className="absolute top-0 left-0 w-full h-full pointer-events-none z-10 overflow-visible">
                                 <filter id="glow"><feGaussianBlur stdDeviation="2"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
                                 {(() => {
-                                    if (gameMode === 'ludo') {
+                                    if ((gameMode as string) === 'ludo') {
                                         const lines: any[] = [];
                                         const drawArr = (arr: any[], color: string) => {
                                             for(let i=1; i<arr.length; i++) {
@@ -520,7 +598,7 @@ function QuizBuilderContent() {
                             </svg>
 
                             {/* Casillas Renderizadas */}
-                            {gameMode === 'ludo' ? (
+                            {(gameMode as string) === 'ludo' ? (
                                 <>
                                     {ludoPathData.bases.map((c: any, i: number) => {
                                         const colors = ["bg-red-500", "bg-blue-600", "bg-emerald-600", "bg-amber-500"];

@@ -22,6 +22,9 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
     const [gameStatus, setGameStatus] = useState("waiting");
     const [gameMode, setGameMode] = useState<'classic' | 'race' | 'ludo'>('classic');
+    const [players, setPlayers] = useState<any[]>([]);
+    const [totalQuestions, setTotalQuestions] = useState(10);
+    const [ludoTeamsCount, setLudoTeamsCount] = useState(4);
 
     const [loading, setLoading] = useState(true);
     const [answering, setAnswering] = useState(false);
@@ -131,25 +134,41 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 if (qData) {
                     const shuffled = [...qData].sort(() => Math.random() - 0.5);
                     setQuestions(shuffled);
+                    setTotalQuestions(qData.length || 10);
                 }
+                
+                // Cargar ludo_teams_count si existe
+                const { data: quizMeta } = await supabase.from("quizzes").select("ludo_teams_count").eq("id", game.quiz_id).single();
+                if (quizMeta) setLudoTeamsCount(quizMeta.ludo_teams_count || 4);
             }
+            
+            // Cargar lista de jugadores para colisiones
+            const { data: pList } = await supabase.from("game_players").select("*").eq("game_id", gameId);
+            if (pList) setPlayers(pList);
+            
             setLoading(false);
         };
 
         fetchGame();
 
-        // 3. Escuchar cambios de estado de la partida (ej. el profe la inicia o la termina)
-        const channel = supabase.channel(`game_status_${gameId}`)
+        // 3. Escuchar cambios de estado de la partida
+        const channel = supabase.channel(`game_updates_${gameId}`)
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
                 (payload) => {
                     setGameStatus(payload.new.status);
                     if (payload.new.game_mode) setGameMode(payload.new.game_mode);
                 }
             )
-
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'game_players', filter: `game_id=eq.${gameId}` },
+                (payload) => {
+                    if (payload.eventType === 'INSERT') {
+                        setPlayers(prev => [...prev, payload.new]);
+                    } else if (payload.eventType === 'UPDATE') {
+                        setPlayers(prev => prev.map(p => p.id === payload.new.id ? payload.new : p));
+                    }
+                }
+            )
             .subscribe();
-
-
 
         return () => { supabase.removeChannel(channel); };
     }, [gameId]);
@@ -212,7 +231,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
             });
 
             // Actualizar: avanzar/retroceder posición, sumar puntos y rachas
-            const { data: pData } = await supabase.from("game_players").select("current_position, score, correct_answers, incorrect_answers, current_streak").eq("id", playerId).single();
+            const { data: pData } = await supabase.from("game_players").select("player_name, current_position, score, correct_answers, incorrect_answers, current_streak").eq("id", playerId).single();
             const { data: gData } = await supabase.from("games").select("game_mode, boss_hp, auto_end").eq("id", gameId).single();
 
             if (pData) {
@@ -270,11 +289,60 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
                 if (pError || count === 0) {
                     console.error("Error updating player record (Secret mismatch or DB error):", pError, "Rows affected:", count);
-                    // Si falla el secreto, intentamos guardar sin él solo si el campo secret_token estuviera vacío en DB (fallback para registros viejos)
-                    if (!playerSecret) {
-                        console.warn("Sin playerSecret en localStorage. El progreso no se guardará por seguridad.");
-                    }
                 } else {
+                    // --- LÓGICA DE "COMER" (KICK MECHANIC) ---
+                    // Solo en modo LUDO, si avanzamos (isCorrect) y no estamos en la meta
+                    if (mode === 'ludo' && isCorrect && nextPos > 0 && nextPos < totalQuestions) {
+                        const checkCollision = async () => {
+                            // Obtener coordenadas de todos los jugadores si es Ludo, o solo posiciones si es Carrera
+                            const currentPlayers = players.filter(p => p.id !== playerId);
+                            
+                            for (const other of currentPlayers) {
+                                let isCollision = false;
+                                
+                                if (mode === 'ludo') {
+                                    // Helper para obtener coord de Ludo (debe coincidir con GameBoard)
+                                    const getLudoCoord = (p: any, pos: number) => {
+                                        const commonCircuit = [[1,6],[2,6],[3,6],[4,6],[5,6],[6,5],[6,4],[6,3],[6,2],[6,1],[6,0],[7,0],[8,0],[8,1],[8,2],[8,3],[8,4],[8,5],[9,6],[10,6],[11,6],[12,6],[13,6],[14,6],[14,7],[14,8],[13,8],[12,8],[11,8],[10,8],[9,8],[8,9],[8,10],[8,11],[8,12],[8,13],[8,14],[7,14],[6,14],[6,13],[6,12],[6,11],[6,10],[6,9],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8],[0,7],[0,6]];
+                                        const teamOffsets = [0, 13, 26, 39];
+                                        const teamNames = ["Verde", "Rojo", "Amarillo", "Azul"].slice(0, ludoTeamsCount);
+                                        const sorted = [...players, {id: playerId, ...pData}].sort((a,b) => a.id.localeCompare(b.id));
+                                        const idx = sorted.findIndex(pl => pl.id === p.id);
+                                        const teamIdx = idx % ludoTeamsCount;
+                                        const offset = teamOffsets[teamIdx];
+                                        
+                                        if (pos === 0) return `base_${teamIdx}`; // Safe at base
+                                        if (pos > 52) return `final_${teamIdx}_${pos}`; // Safe at finals
+                                        
+                                        const loopIdx = (pos - 1 + offset) % 52;
+                                        return `${commonCircuit[loopIdx][0]},${commonCircuit[loopIdx][1]}`;
+                                    };
+
+                                    const myCoord = getLudoCoord({id: playerId}, nextPos);
+                                    const otherCoord = getLudoCoord(other, other.current_position);
+                                    
+                                    // No se puede comer en bases ni en finales
+                                    if (myCoord === otherCoord && !myCoord.startsWith('base') && !myCoord.startsWith('final')) {
+                                        isCollision = true;
+                                    }
+                                } else {
+                                    // Carrera clásica: si caigo exactamente en la misma casilla
+                                    if (other.current_position === nextPos && nextPos !== 0) {
+                                        isCollision = true;
+                                    }
+                                }
+
+                                if (isCollision) {
+                                    // ¡BANG! Mandamos al otro al inicio
+                                    await supabase.from("game_players").update({ current_position: 0 }).eq("id", other.id);
+                                    // Notificar (Opcional: podrías añadir un mensaje en el tablero)
+                                    console.log(`¡Jugador ${other.player_name} comido por ${pData.player_name}!`);
+                                }
+                            }
+                        };
+                        checkCollision();
+                    }
+
                     // Si terminó todas las preguntas y el autoEnd está activo, cerramos el juego para todos
                     if (currentQuestionIdx >= questions.length - 1 && gData?.auto_end) {
                         await supabase.from("games").update({ status: "finished" }).eq("id", gameId);
