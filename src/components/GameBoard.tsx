@@ -363,7 +363,7 @@ export default function GameBoard({ gameId }: GameBoardProps) {
                             <span className="bg-black/90 backdrop-blur-md text-white text-[clamp(9px,1.2vh,13px)] px-3 py-1 rounded-full mb-2 font-bold whitespace-nowrap border-t border-white/30 shadow-[0_5px_15px_rgba(0,0,0,0.4)] uppercase tracking-wider">
                                 {player.player_name}
                             </span>
-                            <div className="w-[clamp(2.8rem,7vh,5rem)] h-[clamp(2.8rem,7vh,5rem)] rounded-full border-[clamp(3px,0.5vh,6px)] border-white shadow-[0_15px_30px_rgba(0,0,0,0.6),_inset_0_0_10px_rgba(0,0,0,0.2)] overflow-hidden bg-white hover:scale-125 transition-transform animate-[bounce-subtle_2s_infinite_ease-in-out]">
+                            <div className={`${isLudo ? 'w-[calc(min(65vh,85vw)/15*1.1)] h-[calc(min(65vh,85vw)/15*1.1)]' : 'w-[clamp(2.8rem,7vh,5rem)] h-[clamp(2.8rem,7vh,5rem)]'} rounded-full border-[clamp(2px,0.4vh,4px)] border-white shadow-[0_15px_30px_rgba(0,0,0,0.6),_inset_0_0_10px_rgba(0,0,0,0.2)] overflow-hidden bg-white hover:scale-125 transition-transform animate-[bounce-subtle_2s_infinite_ease-in-out]`}>
                                 <img src={player.avatar_gif_url} className="w-full h-full object-cover" />
                             </div>
                             

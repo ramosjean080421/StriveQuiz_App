@@ -13,7 +13,7 @@ interface Coordinate {
 
 // --- COMPONENTE DE TABLERO LUDO PROCEDURAL PARA PREVISUALIZACIÓN ---
 const LudoGridPreview = () => {
-    const parchment = "#e8dfc5"; 
+    const parchment = "#e8dfc5";
     const woodBorder = "#2d1810";
     const redPath = "linear-gradient(135deg, #ef4444 0%, #991b1b 100%)";
     const greenPath = "linear-gradient(135deg, #10b981 0%, #065f46 100%)";
@@ -23,9 +23,9 @@ const LudoGridPreview = () => {
     const Cell = ({ color, className = "" }: any) => {
         const isPath = color !== "#e8dfc5";
         return (
-            <div 
-                className={`w-full h-full border border-black/40 flex items-center justify-center ${className}`} 
-                style={{ 
+            <div
+                className={`w-full h-full border border-black/40 flex items-center justify-center ${className}`}
+                style={{
                     background: isPath ? color : parchment,
                     boxShadow: isPath ? 'inset 0 0 5px rgba(0,0,0,0.3)' : 'none'
                 }}
@@ -34,9 +34,9 @@ const LudoGridPreview = () => {
     };
 
     const Base = ({ color, icon, glowColor }: any) => (
-        <div 
-            className="col-span-6 row-span-6 border-2 border-black/10 rounded-3xl p-3 flex items-center justify-center relative overflow-hidden shadow-lg" 
-            style={{ 
+        <div
+            className="col-span-6 row-span-6 border-2 border-black/10 rounded-3xl p-3 flex items-center justify-center relative overflow-hidden shadow-lg"
+            style={{
                 background: color,
                 boxShadow: `0 0 15px ${glowColor}33`
             }}
@@ -50,7 +50,7 @@ const LudoGridPreview = () => {
     return (
         <div className="aspect-square w-full max-w-[500px] bg-[#e8dfc5] border-8 border-[#2d1810] rounded-[2.5rem] shadow-2xl p-3 grid grid-cols-15 grid-rows-15 relative overflow-hidden">
             <div className="absolute inset-0 pointer-events-none opacity-20 bg-[radial-gradient(circle_at_20%_30%,_rgba(255,255,255,0.4)_0%,_transparent_50%)]"></div>
-            
+
             <Base color={greenPath} icon="🏰" glowColor="#10b981" />
             <div className="col-span-3 row-span-6 grid grid-cols-3 grid-rows-6 p-0.5 gap-[1px]">
                 {Array(18).fill(0).map((_, i) => <Cell key={i} color={i % 3 === 1 && i > 0 ? "#10b981" : "#e8dfc5"} />)}
@@ -193,7 +193,7 @@ function QuizBuilderContent() {
         if (gameMode === 'ludo') {
             const currentData = { ...ludoPathData };
             const newCoord = { x: xPositionsPercent, y: yPositionsPercent };
-            
+
             if (ludoPathType === 'bases') {
                 if (currentData.bases.length < ludoTeamsCount) {
                     currentData.bases.push(newCoord);
@@ -369,8 +369,8 @@ function QuizBuilderContent() {
                                             // Reset selected map if it doesn't belong to the new mode
                                             setSelectedMap(null);
                                         }}
-                                        className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all group ${gameMode === mode.id 
-                                            ? 'bg-indigo-600 border-indigo-600 shadow-lg shadow-indigo-200 scale-105' 
+                                        className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all group ${gameMode === mode.id
+                                            ? 'bg-indigo-600 border-indigo-600 shadow-lg shadow-indigo-200 scale-105'
                                             : 'bg-gray-50 border-gray-100 hover:border-indigo-200'}`}
                                     >
                                         <span className={`text-xl mb-1 transition-transform group-hover:scale-125 ${gameMode === mode.id ? 'scale-110' : ''}`}>{mode.icon}</span>
@@ -389,8 +389,8 @@ function QuizBuilderContent() {
                                         <button
                                             key={num}
                                             onClick={() => setLudoTeamsCount(num)}
-                                            className={`flex-1 py-2 rounded-lg font-black text-xs transition-all ${ludoTeamsCount === num 
-                                                ? 'bg-indigo-600 text-white shadow-md' 
+                                            className={`flex-1 py-2 rounded-lg font-black text-xs transition-all ${ludoTeamsCount === num
+                                                ? 'bg-indigo-600 text-white shadow-md'
                                                 : 'text-gray-400 hover:text-indigo-600'}`}
                                         >
                                             {num} Equipos
@@ -400,57 +400,57 @@ function QuizBuilderContent() {
                             </div>
                         )}
 
-                        {/* 2. Selector de Escenario (Mapa) */}
-                        <div className="pt-4 border-t border-gray-100">
-                            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-3 block">2. Elige dónde jugar (Escenario)</label>
-                            {localMaps.length === 0 ? (
-                                <div className="text-xs text-red-500 bg-red-50 p-3 rounded-lg border border-red-100 font-medium">
-                                    No se encontraron mapas en <code className="font-bold">public/maps/</code>.
-                                </div>
-                            ) : (
-                                <div className="flex flex-col gap-4 max-h-[300px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-indigo-200">
-                                    {(() => {
-                                        let filtered: { id: number, name: string, url: string }[] = [];
-                                        if (gameMode === "classic") {
-                                            filtered = localMaps.filter(m => !m.name.toUpperCase().includes("CARRERA") && !m.name.toUpperCase().includes("LUDO"));
-                                        } else if (gameMode === "race") {
-                                            filtered = localMaps.filter(m => m.name.toUpperCase().includes("CARRERA"));
-                                        } else if (gameMode === "ludo") {
-                                            filtered = localMaps.filter(m => m.name.toUpperCase().includes("LUDO"));
-                                        }
+                        {/* 2. Selector de Escenario (Mapa) - Solo si NO es Ludo */}
+                        {gameMode !== 'ludo' && (
+                            <div className="pt-4 border-t border-gray-100">
+                                <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-3 block">2. Elige dónde jugar (Escenario)</label>
+                                {localMaps.length === 0 ? (
+                                    <div className="text-xs text-red-500 bg-red-50 p-3 rounded-lg border border-red-100 font-medium">
+                                        No se encontraron mapas en <code className="font-bold">public/maps/</code>.
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col gap-4 max-h-[300px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-indigo-200">
+                                        {(() => {
+                                            let filtered: { id: number, name: string, url: string }[] = [];
+                                            if (gameMode === "classic") {
+                                                filtered = localMaps.filter(m => !m.name.toUpperCase().includes("CARRERA") && !m.name.toUpperCase().includes("LUDO"));
+                                            } else if (gameMode === "race") {
+                                                filtered = localMaps.filter(m => m.name.toUpperCase().includes("CARRERA"));
+                                            }
 
-                                        return filtered.map((m) => {
-                                            const isActive = selectedMap?.url === m.url;
-                                            return (
-                                                <div
-                                                    key={m.id}
-                                                    onClick={() => setSelectedMap(m)}
-                                                    className={`group/map relative cursor-pointer rounded-xl overflow-hidden aspect-[2/1] transition-all bg-gray-900 border-4 ${isActive
-                                                        ? "border-indigo-500 ring-4 ring-indigo-100"
-                                                        : "border-transparent opacity-80 hover:opacity-100"
-                                                        }`}
-                                                >
-                                                    <img src={m.url} alt={m.name} className="w-full h-full object-cover transition-transform duration-700 group-hover/map:scale-110" />
-                                                    <div className={`absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-3 transition-opacity ${isActive ? "opacity-100" : "opacity-0 group-hover/map:opacity-100"}`}>
-                                                        <div className="flex flex-col">
-                                                            <span className="text-[8px] font-black uppercase text-indigo-400 tracking-widest leading-none">
-                                                                {gameMode === "classic" ? "🗺️ Aventura" : gameMode === "race" ? "🏁 Pista" : "🎲 Tablero Ludo"}
-                                                            </span>
-                                                            <span className="text-white font-bold text-xs truncate mt-1">{m.name.replace(/\.[^/.]+$/, "").replace(/_/g, " ")}</span>
+                                            return filtered.map((m) => {
+                                                const isActive = selectedMap?.url === m.url;
+                                                return (
+                                                    <div
+                                                        key={m.id}
+                                                        onClick={() => setSelectedMap(m)}
+                                                        className={`group/map relative cursor-pointer rounded-xl overflow-hidden aspect-[2/1] transition-all bg-gray-900 border-4 ${isActive
+                                                            ? "border-indigo-500 ring-4 ring-indigo-100"
+                                                            : "border-transparent opacity-80 hover:opacity-100"
+                                                            }`}
+                                                    >
+                                                        <img src={m.url} alt={m.name} className="w-full h-full object-cover transition-transform duration-700 group-hover/map:scale-110" />
+                                                        <div className={`absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-3 transition-opacity ${isActive ? "opacity-100" : "opacity-0 group-hover/map:opacity-100"}`}>
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[8px] font-black uppercase text-indigo-400 tracking-widest leading-none">
+                                                                    {gameMode === "classic" ? "🗺️ Aventura" : "🏁 Pista"}
+                                                                </span>
+                                                                <span className="text-white font-bold text-xs truncate mt-1">{m.name.replace(/\.[^/.]+$/, "").replace(/_/g, " ")}</span>
+                                                            </div>
                                                         </div>
+                                                        {isActive && (
+                                                            <div className="absolute top-2 right-2 bg-indigo-500 text-white w-5 h-5 rounded-full flex items-center justify-center shadow-lg">
+                                                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                    {isActive && (
-                                                        <div className="absolute top-2 right-2 bg-indigo-500 text-white w-5 h-5 rounded-full flex items-center justify-center shadow-lg">
-                                                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        });
-                                    })()}
-                                </div>
-                            )}
-                        </div>
+                                                );
+                                            });
+                                        })()}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                     {/* Sección 2.5: Sistema de Recompensas */}
                     <div className="mb-6 bg-white p-4 rounded-2xl border border-gray-100">
@@ -525,7 +525,12 @@ function QuizBuilderContent() {
                 <div className="flex-shrink-0 p-5 border-t border-gray-100 bg-white sticky bottom-0 z-30">
                     <button
                         onClick={handleSaveQuiz}
-                        disabled={saving || !title || !selectedMap || (gameMode !== 'ludo' && boardPath.length < 2)}
+                        disabled={
+                            saving ||
+                            !title ||
+                            (gameMode !== 'ludo' && !selectedMap) ||
+                            (gameMode !== 'ludo' && boardPath.length < 2)
+                        }
                         className="w-full flex items-center justify-center gap-2 py-4 px-4 text-base font-bold rounded-2xl text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5 active:scale-95 transition-all outline-none"
                     >
                         {saving ? (
@@ -558,7 +563,7 @@ function QuizBuilderContent() {
                     </div>
                 ) : selectedMap ? (
                     <div className="relative z-10 w-full h-full flex items-center justify-center">
-                        
+
                         {/* El lienzo invisible para cliquear encima de la imagen */}
                         <div className="relative w-fit h-fit max-w-full max-h-full cursor-crosshair select-none bg-gray-900 rounded-[2rem] border-4 border-indigo-500/30 overflow-hidden shadow-2xl">
                             <img
@@ -572,13 +577,13 @@ function QuizBuilderContent() {
                             {/* SVG para dibujar líneas (Ruta) */}
                             {/* SVG de Rutas (Ludo segments) */}
                             <svg className="absolute top-0 left-0 w-full h-full pointer-events-none z-10 overflow-visible">
-                                <filter id="glow"><feGaussianBlur stdDeviation="2"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                                <filter id="glow"><feGaussianBlur stdDeviation="2" /><feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge></filter>
                                 {(() => {
                                     if ((gameMode as string) === 'ludo') {
                                         const lines: any[] = [];
                                         const drawArr = (arr: any[], color: string) => {
-                                            for(let i=1; i<arr.length; i++) {
-                                                lines.push(<line key={`${color}-${i}`} x1={`${arr[i-1].x}%`} y1={`${arr[i-1].y}%`} x2={`${arr[i].x}%`} y2={`${arr[i].y}%`} stroke={color} strokeWidth="4" strokeDasharray="5,5" filter="url(#glow)" opacity="0.6"/>);
+                                            for (let i = 1; i < arr.length; i++) {
+                                                lines.push(<line key={`${color}-${i}`} x1={`${arr[i - 1].x}%`} y1={`${arr[i - 1].y}%`} x2={`${arr[i].x}%`} y2={`${arr[i].y}%`} stroke={color} strokeWidth="4" strokeDasharray="5,5" filter="url(#glow)" opacity="0.6" />);
                                             }
                                         };
                                         drawArr(ludoPathData.circuit, 'white');
@@ -591,7 +596,7 @@ function QuizBuilderContent() {
                                         return boardPath.map((coord, i) => {
                                             if (i === 0) return null;
                                             const prev = boardPath[i - 1];
-                                            return <line key={`line-${i}`} x1={`${prev.x}%`} y1={`${prev.y}%`} x2={`${coord.x}%`} y2={`${coord.y}%`} stroke="white" strokeWidth="6" strokeDasharray="12,12" filter="url(#glow)" opacity="0.8"/>;
+                                            return <line key={`line-${i}`} x1={`${prev.x}%`} y1={`${prev.y}%`} x2={`${coord.x}%`} y2={`${coord.y}%`} stroke="white" strokeWidth="6" strokeDasharray="12,12" filter="url(#glow)" opacity="0.8" />;
                                         });
                                     }
                                 })()}
@@ -607,7 +612,7 @@ function QuizBuilderContent() {
                                     {ludoPathData.circuit.map((c: any, i: number) => (
                                         <div key={`circ-${i}`} className="absolute w-8 h-8 -ml-4 -mt-4 rounded-full bg-white/20 border-2 border-white/50 z-10 flex items-center justify-center text-[8px] font-black text-white" style={{ left: `${c.x}%`, top: `${c.y}%` }}>{i}</div>
                                     ))}
-                                    {Object.entries(ludoPathData.finals).map(([color, points]: [string, any]) => 
+                                    {Object.entries(ludoPathData.finals).map(([color, points]: [string, any]) =>
                                         points.map((c: any, i: number) => {
                                             const bg = color === 'red' ? 'bg-red-500/50' : color === 'blue' ? 'bg-blue-500/50' : color === 'green' ? 'bg-emerald-500/50' : 'bg-amber-500/50';
                                             return <div key={`final-${color}-${i}`} className={`absolute w-7 h-7 -ml-3.5 -mt-3.5 rounded-full ${bg} border border-white/30 z-10 flex items-center justify-center text-[8px] font-black text-white`} style={{ left: `${c.x}%`, top: `${c.y}%` }}>🎯</div>

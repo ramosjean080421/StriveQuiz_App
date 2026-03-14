@@ -17,7 +17,15 @@ function StartGameContent() {
 
     // Nuevas configuraciones de partida
     const [autoEnd, setAutoEnd] = useState(false);
+    const [streaksEnabled, setStreaksEnabled] = useState(true);
     const [gameMode, setGameMode] = useState<'classic' | 'race' | 'ludo'>('classic');
+    const [dataLoaded, setDataLoaded] = useState(false);
+    const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+
+    const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3500);
+    };
 
     useEffect(() => {
         if (quizId) {
@@ -27,6 +35,7 @@ function StartGameContent() {
                         setQuizName(data.title);
                         setBoardImageUrl(data.board_image_url || "");
                         if (data.game_mode) setGameMode(data.game_mode as any);
+                        setDataLoaded(true);
                     }
                 });
         }
@@ -40,28 +49,49 @@ function StartGameContent() {
             // General un PIN aleatorio de 6 caracteres (letras y números)
             const pin = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-            // Crear el registro de 'games' (la sala) con su modo y configuraciones
+            let insertData: any = {
+                quiz_id: quizId,
+                pin: pin,
+                status: "waiting",
+                auto_end: autoEnd,
+                streaks_enabled: streaksEnabled,
+                game_mode: gameMode
+            };
+
+            // Primer intento: con todas las columnas
             const { data: newGame, error } = await supabase
                 .from("games")
-                .insert([
-                    {
-                        quiz_id: quizId,
-                        pin: pin,
-                        status: "waiting",
-                        auto_end: autoEnd,
-                        game_mode: gameMode
-                    }
-                ])
+                .insert([insertData])
                 .select()
                 .single();
 
-            if (error) throw error;
+            if (error) {
+                // Si el error es por columna inexistente, reintentamos omitiendo las nuevas
+                if (error.message?.includes("streaks_enabled") || error.message?.includes("auto_end")) {
+                    console.warn("Columnas nuevas no encontradas en DB, reintentando sin ellas...");
+                    const fallbackData = {
+                        quiz_id: quizId,
+                        pin: pin,
+                        status: "waiting",
+                        game_mode: gameMode
+                    };
+                    const { data: retryGame, error: retryError } = await supabase
+                        .from("games")
+                        .insert([fallbackData])
+                        .select()
+                        .single();
+                    
+                    if (retryError) throw retryError;
+                    router.push(`/game/${retryGame.id}/board`);
+                    return;
+                }
+                throw error;
+            }
 
-            // Navegar a la sala de Proyección o 'Board' del profesor
             router.push(`/game/${newGame.id}/board`);
 
         } catch (err: any) {
-            alert("Error al crear la sala: " + err.message);
+            showToast("Error al crear la sala: " + err.message, "error");
             setLoading(false);
         }
     };
@@ -98,11 +128,11 @@ function StartGameContent() {
                 <span className="relative z-10">Volver al Panel</span>
             </Link>
 
-            <div className="bg-white/[0.03] backdrop-blur-3xl border border-white/10 p-10 sm:p-14 rounded-[3.5rem] shadow-[0_30px_100px_rgba(0,0,0,0.5),0_0_50px_rgba(79,70,229,0.1)] max-w-lg w-full text-center relative z-10 mx-4 border-t-white/20">
-                <div className="absolute -top-12 left-1/2 transform -translate-x-1/2">
-                    <div className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-[2rem] shadow-[0_15px_40px_rgba(79,70,229,0.4)] flex items-center justify-center rotate-12 relative group">
-                        <div className="absolute inset-0 bg-white/20 rounded-[2rem] opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                        <span className="text-white text-4xl font-black -rotate-12 drop-shadow-lg">🎮</span>
+            <div className="bg-white/[0.03] backdrop-blur-3xl border border-white/10 p-8 sm:p-10 rounded-[3rem] shadow-[0_30px_100px_rgba(0,0,0,0.5),0_0_50px_rgba(79,70,229,0.1)] max-w-lg w-full text-center relative z-10 mx-4 border-t-white/20 my-10">
+                <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 z-20">
+                    <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-[1.8rem] shadow-[0_15px_40px_rgba(79,70,229,0.4)] flex items-center justify-center rotate-12 relative group">
+                        <div className="absolute inset-0 bg-white/20 rounded-[1.8rem] opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <span className="text-white text-3xl font-black -rotate-12 drop-shadow-lg">🎮</span>
                     </div>
                 </div>
 
@@ -115,37 +145,37 @@ function StartGameContent() {
                     </p>
                 </div>
 
-                <div className="mt-10 mb-8 p-6 rounded-[2rem] bg-indigo-500/10 border border-indigo-400/20 backdrop-blur-sm relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:rotate-12 transition-transform">🗺️</div>
-                    <p className="text-gray-400 text-sm font-medium mb-1">Cargando Aventura:</p>
-                    <strong className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-cyan-300 to-blue-300 text-2xl sm:text-3xl font-black block drop-shadow-sm leading-tight">
-                        {quizName || "Configurando..."}
+                <div className="mt-8 mb-6 p-5 rounded-[1.8rem] bg-indigo-500/10 border border-indigo-400/20 backdrop-blur-sm relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:rotate-12 transition-transform">🗺️</div>
+                    <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">Aventura Seleccionada</p>
+                    <strong className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-cyan-300 to-blue-300 text-xl sm:text-2xl font-black block drop-shadow-sm leading-tight">
+                        {quizName || "Cargando..."}
                     </strong>
                 </div>
 
                 {/* Sección de Configuración */}
-                <div className="space-y-4 mb-10 text-left">
+                <div className={`space-y-4 mb-10 transition-opacity duration-300 ${dataLoaded ? 'opacity-100' : 'opacity-0'}`}>
                     {/* Toggle de Auto-finalizar (Editable) */}
                     <div
                         onClick={() => setAutoEnd(!autoEnd)}
-                        className={`cursor-pointer group relative overflow-hidden p-6 rounded-[2rem] border-2 transition-all duration-500 ${
+                        className={`cursor-pointer group relative overflow-hidden p-4 rounded-[1.8rem] border-2 transition-all duration-500 ${
                             autoEnd 
                             ? "bg-emerald-500/10 border-emerald-500/40 shadow-[0_20px_40px_rgba(16,185,129,0.1)]" 
                             : "bg-white/[0.02] border-white/5 hover:border-white/10 hover:bg-white/[0.04]"
                         }`}
                     >
                         <div className="relative z-10 flex items-center justify-between">
-                            <div className="flex items-center gap-5">
-                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl transition-all duration-500 shadow-xl ${
+                            <div className="flex items-center gap-4 text-left">
+                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl transition-all duration-500 shadow-xl ${
                                     autoEnd ? 'bg-emerald-500 text-white animate-pulse' : 'bg-white/5 text-white/30'
                                 }`}>
                                     {autoEnd ? '🏁' : '🏳️'}
                                 </div>
-                                <div>
-                                    <h4 className={`text-base font-black transition-colors ${autoEnd ? 'text-emerald-400' : 'text-gray-300'}`}>
+                                <div className="text-left">
+                                    <h4 className={`text-sm font-black transition-colors ${autoEnd ? 'text-emerald-400' : 'text-gray-300'}`}>
                                         Auto-finalizar
                                     </h4>
-                                    <p className="text-gray-500 text-xs font-medium">El primero en llegar cierra la sala</p>
+                                    <p className="text-gray-500 text-[10px] font-medium">Meta cierra la sala</p>
                                 </div>
                             </div>
                             
@@ -155,6 +185,39 @@ function StartGameContent() {
                             </div>
                         </div>
                     </div>
+
+                    {/* Toggle de Rachas de Saltos (Oculto en modo Ludo) */}
+                    {gameMode !== 'ludo' && (
+                        <div
+                            onClick={() => setStreaksEnabled(!streaksEnabled)}
+                            className={`cursor-pointer group relative overflow-hidden p-4 rounded-[1.8rem] border-2 transition-all duration-500 ${
+                                streaksEnabled 
+                                ? "bg-indigo-500/10 border-indigo-500/40 shadow-[0_20px_40px_rgba(79,70,229,0.1)]" 
+                                : "bg-white/[0.02] border-white/5 hover:border-white/10 hover:bg-white/[0.04]"
+                            }`}
+                        >
+                            <div className="relative z-10 flex items-center justify-between">
+                                <div className="flex items-center gap-4 text-left">
+                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl transition-all duration-500 shadow-xl ${
+                                        streaksEnabled ? 'bg-indigo-500 text-white animate-bounce' : 'bg-white/5 text-white/30'
+                                    }`}>
+                                        {streaksEnabled ? '🔥' : '❄️'}
+                                    </div>
+                                    <div className="text-left">
+                                        <h4 className={`text-sm font-black transition-colors ${streaksEnabled ? 'text-indigo-400' : 'text-gray-300'}`}>
+                                            Rachas de Saltos
+                                        </h4>
+                                        <p className="text-gray-500 text-[10px] font-medium">Bonos de movimiento</p>
+                                    </div>
+                                </div>
+                                
+                                {/* Toggle Switch Estilizado */}
+                                <div className={`w-16 h-8 rounded-full p-1.5 transition-colors duration-500 flex items-center ${streaksEnabled ? 'bg-indigo-500' : 'bg-gray-800'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full transition-transform duration-500 shadow-2xl ${streaksEnabled ? 'translate-x-8 scale-110' : 'translate-x-0'}`}></div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <button
@@ -185,6 +248,16 @@ function StartGameContent() {
                     <div className="h-px w-8 bg-white"></div>
                 </div>
             </div>
+
+            {/* TOAST FLOTANTE PERSONALIZADO */}
+            {toast && (
+                <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] px-8 py-4 rounded-[2rem] font-bold flex items-center gap-4 animate-bounce-short border backdrop-blur-2xl shadow-2xl ${
+                    toast.type === 'success' ? 'bg-emerald-500/90 text-white border-emerald-400' : 'bg-red-500/90 text-white border-red-400'
+                }`}>
+                    <span className="text-2xl">{toast.type === 'success' ? '✅' : '🚨'}</span>
+                    <span className="tracking-wide uppercase text-xs">{toast.message}</span>
+                </div>
+            )}
         </div>
     );
 }

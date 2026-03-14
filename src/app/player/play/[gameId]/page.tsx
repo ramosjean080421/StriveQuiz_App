@@ -25,6 +25,8 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     const [players, setPlayers] = useState<any[]>([]);
     const [totalQuestions, setTotalQuestions] = useState(10);
     const [ludoTeamsCount, setLudoTeamsCount] = useState(4);
+    const [streaksEnabled, setStreaksEnabled] = useState(true);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     const [loading, setLoading] = useState(true);
     const [answering, setAnswering] = useState(false);
@@ -100,13 +102,28 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         }
     }, [currentQuestionIdx, questions]);
 
+    if (errorMessage) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-950 p-6 text-center">
+                <div className="bg-red-500/10 border border-red-500/30 p-10 rounded-[3rem] backdrop-blur-xl animate-bounce-short">
+                    <div className="text-6xl mb-6">🚫</div>
+                    <h2 className="text-2xl font-black text-white mb-4 uppercase tracking-tighter">¡Ups! Algo salió mal</h2>
+                    <p className="text-red-400 font-bold text-sm leading-relaxed">{errorMessage}</p>
+                    <div className="mt-8 flex justify-center">
+                        <div className="w-12 h-1 border-t-4 border-red-500/30 border-dashed animate-pulse"></div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     useEffect(() => {
         // 1. Recuperar la ID del Jugador del localStorage
         const savedPlayerId = localStorage.getItem("currentPlayerId");
         const savedSecret = localStorage.getItem("playerSecret");
         if (!savedPlayerId) {
-            alert("No estás autenticado en esta sala. Vuelve a ingresar el PIN.");
-            window.location.href = "/";
+            setErrorMessage("No estás autenticado en esta sala. Regresa al inicio e ingresa el PIN.");
+            setTimeout(() => { window.location.href = "/"; }, 3000);
             return;
         }
         setPlayerId(savedPlayerId);
@@ -114,10 +131,11 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
         // 2. Obtener estado de la partida, preguntas y configuracion de recompensas
         const fetchGame = async () => {
-            const { data: game } = await supabase.from("games").select("status, quiz_id, auto_end, game_mode, team_distribution_mode").eq("id", gameId).single();
+            const { data: game } = await supabase.from("games").select("status, quiz_id, auto_end, streaks_enabled, game_mode, team_distribution_mode").eq("id", gameId).single();
             if (game) {
                 setGameStatus(game.status);
                 setGameMode(game.game_mode as any || "classic");
+                setStreaksEnabled(game.streaks_enabled !== false); // Default true
 
                 // Configuración de recompensa del quiz
                 const { data: quizData } = await supabase.from("quizzes").select("rewards_enabled, reward_criteria, reward_text").eq("id", game.quiz_id).single();
@@ -157,6 +175,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 (payload) => {
                     setGameStatus(payload.new.status);
                     if (payload.new.game_mode) setGameMode(payload.new.game_mode);
+                    if (payload.new.streaks_enabled !== undefined) setStreaksEnabled(payload.new.streaks_enabled !== false);
                 }
             )
             .on('postgres_changes', { event: '*', schema: 'public', table: 'game_players', filter: `game_id=eq.${gameId}` },
@@ -232,7 +251,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
             // Actualizar: avanzar/retroceder posición, sumar puntos y rachas
             const { data: pData } = await supabase.from("game_players").select("player_name, current_position, score, correct_answers, incorrect_answers, current_streak").eq("id", playerId).single();
-            const { data: gData } = await supabase.from("games").select("game_mode, boss_hp, auto_end").eq("id", gameId).single();
+            const { data: gData } = await supabase.from("games").select("game_mode, boss_hp, auto_end, streaks_enabled").eq("id", gameId).single();
 
             if (pData) {
                 let nextPos = pData.current_position;
@@ -242,6 +261,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 let newStreak = pData.current_streak || 0;
 
                 const mode = gData?.game_mode || "classic";
+                const dbStreaksEnabled = gData?.streaks_enabled !== false; // Si no existe columna, es true por defecto
                 let currentBossHp = gData?.boss_hp || 0;
                 let newBossHp = currentBossHp;
 
@@ -256,9 +276,11 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                     newCorrect += 1;
                     newStreak += 1;
 
-                    // Ludo specific: Bonus of +3 for a 4-streak
-                    if (mode === 'ludo' && newStreak > 0 && newStreak % 4 === 0) {
+                    // Bonus de movimiento por racha de 4 (Universal: Classic, Race)
+                    // Si las rachas están habilitadas y NO es modo Ludo, salta +3 extra
+                    if (mode !== 'ludo' && dbStreaksEnabled && streaksEnabled && newStreak > 0 && newStreak % 4 === 0) {
                         nextPos += 3;
+                        console.log("¡BONO DE RACHA! +3 casillas extra.");
                     }
 
                     // Comprobar sistema de recompensas

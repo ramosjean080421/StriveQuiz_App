@@ -15,6 +15,12 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
     const [allPlayers, setAllPlayers] = useState<any[]>([]);
     const [playerCount, setPlayerCount] = useState(0);
     const [gameMode, setGameMode] = useState<'classic' | 'race' | 'ludo'>('classic');
+    const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
+
+    const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3500);
+    };
 
     const [canControl, setCanControl] = useState(false);
 
@@ -23,8 +29,8 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
             .from("game_players")
             .select("player_name, avatar_gif_url, score, current_position, correct_answers, incorrect_answers")
             .eq("game_id", gameId)
-            .order("current_position", { ascending: false })
-            .order("score", { ascending: false });
+            .order("score", { ascending: false })
+            .order("current_position", { ascending: false });
 
         if (allP) {
             setPodium(allP.slice(0, 3));
@@ -167,7 +173,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                                 onClick={() => {
                                     const url = `${window.location.origin}/?pin=${pin}`;
                                     navigator.clipboard.writeText(url);
-                                    alert("El enlace ha sido copiado.");
+                                    showToast("¡Enlace de invitación copiado!", "success");
                                 }}
                                 className="px-5 py-3 bg-[#4a5568] hover:bg-[#2d3748] rounded-2xl font-bold text-xs transition-all text-white border border-white/10 flex items-center gap-2 shadow-lg"
                             >
@@ -196,7 +202,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                                     const { error } = await supabase.from("games").update({ status: newStatus }).eq("id", gameId);
                                     if (error) {
                                         console.error("Error updating game status:", error);
-                                        alert("Error al cambiar el estado del juego. Verifica que la base de datos acepte el estado 'paused'.");
+                                        showToast("Error al cambiar el estado del juego", "error");
                                         return;
                                     }
                                     setGameStatus(newStatus);
@@ -350,6 +356,18 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
 
             {/* Música de Juego */}
             < audio id="bg-music" loop src="https://cdns-preview-f.dzcdn.net/stream/c-f458e0aae13fa26ea7f2c69bb128deba-3.mp3" ></audio >
+
+            {/* TOAST FLOTANTE PERSONALIZADO */}
+            {toast && (
+                <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] px-8 py-4 rounded-[2rem] font-bold flex items-center gap-4 animate-bounce-short border backdrop-blur-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] ${
+                    toast.type === 'success' ? 'bg-emerald-500/90 text-white border-emerald-400' : 
+                    toast.type === 'error' ? 'bg-red-500/90 text-white border-red-400' :
+                    'bg-indigo-500/90 text-white border-indigo-400'
+                }`}>
+                    <span className="text-2xl">{toast.type === 'success' ? '✅' : toast.type === 'error' ? '🚨' : 'ℹ️'}</span>
+                    <span className="tracking-wide uppercase text-xs">{toast.message}</span>
+                </div>
+            )}
 
             <style jsx global>{`
                 /* Scrollbar mágico */  
