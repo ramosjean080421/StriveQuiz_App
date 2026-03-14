@@ -96,6 +96,9 @@ function QuizBuilderContent() {
     const [saving, setSaving] = useState(false);
     const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean, title: string, message: string, onConfirm: () => void, isDestructive?: boolean } | null>(null);
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+    const [draggingNodeIdx, setDraggingNodeIdx] = useState<number | null>(null);
+    const justDragged = useState(false)[0]; // Actually I need a ref for this to avoid re-renders during drag
+    const justDraggedRef = useState({ value: false })[0];
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
         setToast({ message, type });
@@ -185,7 +188,14 @@ function QuizBuilderContent() {
         fetchMapsAndData();
     }, [editId]);
 
-    const handleImageClick = (e: React.MouseEvent<HTMLImageElement>) => {
+    const handleImageClick = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (draggingNodeIdx !== null || justDraggedRef.value) {
+            justDraggedRef.value = false;
+            return;
+        }
+        // Evitar crear nodo si se hizo clic directamente en uno existente
+        if ((e.target as HTMLElement).closest('.path-node')) return;
+
         const rect = e.currentTarget.getBoundingClientRect();
         const xPositionsPercent = ((e.clientX - rect.left) / rect.width) * 100;
         const yPositionsPercent = ((e.clientY - rect.top) / rect.height) * 100;
@@ -209,6 +219,34 @@ function QuizBuilderContent() {
             setLudoPathData(currentData);
         } else {
             setBoardPath([...boardPath, { x: xPositionsPercent, y: yPositionsPercent }]);
+        }
+    };
+
+    const handleNodeMouseDown = (e: React.MouseEvent, index: number) => {
+        e.stopPropagation();
+        setDraggingNodeIdx(index);
+    };
+
+    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (draggingNodeIdx === null) return;
+        justDraggedRef.value = true;
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+        const newPath = [...boardPath];
+        newPath[draggingNodeIdx] = { x, y };
+        setBoardPath(newPath);
+    };
+
+    const handleMouseUp = () => {
+        // Mantenemos justDraggedRef.value como true si hubo movimiento para que handleImageClick lo ignore
+        setDraggingNodeIdx(null);
+    };
+
+    const handleMapDoubleClick = () => {
+        if (boardPath.length > 0) {
+            showToast("¡Meta establecida! Puedes publicar o seguir añadiendo.");
         }
     };
 
@@ -365,9 +403,16 @@ function QuizBuilderContent() {
                                     <button
                                         key={mode.id}
                                         onClick={() => {
-                                            setGameMode(mode.id as any);
-                                            // Reset selected map if it doesn't belong to the new mode
-                                            setSelectedMap(null);
+                                            if (gameMode !== mode.id) {
+                                                setGameMode(mode.id as any);
+                                                setSelectedMap(null);
+                                                setBoardPath([]);
+                                                setLudoPathData({
+                                                    bases: [],
+                                                    circuit: [],
+                                                    finals: { red: [], blue: [], green: [], yellow: [] }
+                                                });
+                                            }
                                         }}
                                         className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all group ${gameMode === mode.id
                                             ? 'bg-indigo-600 border-indigo-600 shadow-lg shadow-indigo-200 scale-105'
@@ -413,9 +458,9 @@ function QuizBuilderContent() {
                                         {(() => {
                                             let filtered: { id: number, name: string, url: string }[] = [];
                                             if (gameMode === "classic") {
-                                                filtered = localMaps.filter(m => !m.name.toUpperCase().includes("CARRERA") && !m.name.toUpperCase().includes("LUDO"));
+                                                filtered = localMaps.filter(m => !m.name.toUpperCase().includes("CARRERA") && !m.name.toUpperCase().includes("LUDO") && !m.name.toUpperCase().includes("VOLCAN"));
                                             } else if (gameMode === "race") {
-                                                filtered = localMaps.filter(m => m.name.toUpperCase().includes("CARRERA"));
+                                                filtered = localMaps.filter(m => m.name.toUpperCase().includes("CARRERA") || m.name.toUpperCase().includes("VOLCAN"));
                                             }
 
                                             return filtered.map((m) => {
@@ -423,7 +468,12 @@ function QuizBuilderContent() {
                                                 return (
                                                     <div
                                                         key={m.id}
-                                                        onClick={() => setSelectedMap(m)}
+                                                        onClick={() => {
+                                                            if (selectedMap?.url !== m.url) {
+                                                                setSelectedMap(m);
+                                                                setBoardPath([]);
+                                                            }
+                                                        }}
                                                         className={`group/map relative cursor-pointer rounded-xl overflow-hidden aspect-[2/1] transition-all bg-gray-900 border-4 ${isActive
                                                             ? "border-indigo-500 ring-4 ring-indigo-100"
                                                             : "border-transparent opacity-80 hover:opacity-100"
@@ -565,13 +615,19 @@ function QuizBuilderContent() {
                     <div className="relative z-10 w-full h-full flex items-center justify-center">
 
                         {/* El lienzo invisible para cliquear encima de la imagen */}
-                        <div className="relative w-fit h-fit max-w-full max-h-full cursor-crosshair select-none bg-gray-900 rounded-[2rem] border-4 border-indigo-500/30 overflow-hidden shadow-2xl">
+                        <div 
+                            className="relative w-fit h-fit max-w-full max-h-full cursor-crosshair select-none bg-gray-900 rounded-[2rem] border-4 border-indigo-500/30 overflow-hidden shadow-2xl"
+                            onMouseMove={handleMouseMove}
+                            onMouseUp={handleMouseUp}
+                            onMouseLeave={handleMouseUp}
+                            onClick={handleImageClick}
+                            onDoubleClick={handleMapDoubleClick}
+                        >
                             <img
                                 src={selectedMap.url}
                                 alt="Previsualización de mapa"
-                                onClick={handleImageClick}
                                 draggable={false}
-                                className="max-w-full max-h-[85vh] block opacity-95 group-hover:opacity-100 transition-opacity duration-500 object-contain"
+                                className="max-w-full max-h-[85vh] block opacity-95 group-hover:opacity-100 transition-opacity duration-500 object-contain pointer-events-none"
                             />
 
                             {/* SVG para dibujar líneas (Ruta) */}
@@ -621,8 +677,25 @@ function QuizBuilderContent() {
                                 </>
                             ) : (
                                 boardPath.map((coord, index) => {
-                                    let styleClass = index === 0 ? "w-14 h-14 -ml-7 -mt-7 rounded-2xl bg-gradient-to-br from-emerald-400 to-green-600 border-[3px] border-white z-20 text-lg rotate-3" : index === boardPath.length - 1 ? "w-12 h-12 -ml-6 -mt-6 rounded-full bg-gradient-to-br from-rose-400 to-red-600 border-[3px] border-white ring-4 ring-rose-300/50 z-20 animate-pulse text-base" : "w-10 h-10 -ml-5 -mt-5 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 border-2 border-white z-10 text-sm hover:scale-110 hover:z-30";
-                                    return <div key={`node-${index}`} className={`absolute flex items-center justify-center font-black text-white transition-all duration-300 cursor-default select-none ${styleClass}`} style={{ left: `${coord.x}%`, top: `${coord.y}%` }}>{index === 0 ? "🏁" : index}</div>;
+                                    const isStart = index === 0;
+                                    const isEnd = index === boardPath.length - 1 && boardPath.length > 1;
+                                    
+                                    let styleClass = isStart 
+                                        ? "w-14 h-14 -ml-7 -mt-7 rounded-2xl bg-gradient-to-br from-emerald-400 to-green-600 border-[3px] border-white z-20 text-lg rotate-3" 
+                                        : isEnd 
+                                            ? "w-14 h-14 -ml-7 -mt-7 rounded-full bg-gradient-to-br from-rose-400 to-red-600 border-[3px] border-white ring-4 ring-rose-300/50 z-20 animate-pulse text-xl" 
+                                            : "w-10 h-10 -ml-5 -mt-5 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 border-2 border-white z-10 text-sm hover:scale-110 hover:z-30";
+                                    
+                                    return (
+                                        <div 
+                                            key={`node-${index}`} 
+                                            onMouseDown={(e) => handleNodeMouseDown(e, index)}
+                                            className={`path-node absolute flex items-center justify-center font-black text-white transition-all duration-300 cursor-move select-none ${styleClass}`} 
+                                            style={{ left: `${coord.x}%`, top: `${coord.y}%` }}
+                                        >
+                                            {isStart ? "🏁" : isEnd ? "🏆" : index}
+                                        </div>
+                                    );
                                 })
                             )}
                         </div>

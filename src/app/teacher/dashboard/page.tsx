@@ -470,13 +470,19 @@ export default function TeacherDashboard() {
                                                     {/* Imagen de Fondo Borrosa */}
                                                     {quiz.board_image_url && (
                                                         <div
-                                                            className="absolute inset-0 z-0 opacity-20 group-hover:opacity-40 transition-opacity duration-500 blur-[2px] scale-110 group-hover:scale-125"
-                                                            style={{
+                                                            className={`absolute inset-0 z-0 opacity-20 group-hover:opacity-40 transition-opacity duration-500 blur-[2px] scale-110 group-hover:scale-125 ${quiz.board_image_url === '/LUDO_PROCEDURAL' ? 'bg-gradient-to-br from-red-500 via-blue-500 to-emerald-500' : ''}`}
+                                                            style={quiz.board_image_url !== '/LUDO_PROCEDURAL' ? {
                                                                 backgroundImage: `url(${quiz.board_image_url})`,
                                                                 backgroundSize: 'cover',
                                                                 backgroundPosition: 'center'
-                                                            }}
-                                                        ></div>
+                                                            } : {}}
+                                                        >
+                                                            {quiz.board_image_url === '/LUDO_PROCEDURAL' && (
+                                                                <div className="absolute inset-0 flex items-center justify-center opacity-30">
+                                                                    <span className="text-9xl rotate-12">🎲</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     )}
                                                     {/* Gradiente extra para legibilidad */}
                                                     <div className="absolute inset-0 bg-gradient-to-t from-white via-white/80 to-transparent z-0"></div>
@@ -497,7 +503,7 @@ export default function TeacherDashboard() {
                                                             {quiz.board_image_url && (
                                                                 <div className="bg-amber-100/90 backdrop-blur-sm text-amber-800 px-3 py-1.5 rounded-lg text-xs font-black border border-amber-200/50 flex items-center gap-1.5" title="Escenario Seleccionado">
                                                                     <span className="text-sm">🗺️</span>
-                                                                    <span className="capitalize">{quiz.board_image_url.split('/').pop()?.split('.')[0].replace(/-/g, ' ') || "Mapa"}</span>
+                                                                    <span className="capitalize">{quiz.board_image_url === '/LUDO_PROCEDURAL' ? "LUDO" : (quiz.board_image_url.split('/').pop()?.split('.')[0].replace(/-/g, ' ') || "Mapa")}</span>
                                                                 </div>
                                                             )}
                                                         </div>

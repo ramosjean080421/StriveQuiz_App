@@ -4,6 +4,14 @@ import { useState, useEffect, use } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import mammoth from "mammoth";
+import * as pdfjsLib from "pdfjs-dist";
+
+// Configurar el worker de PDF.js localmente con ruta absoluta
+if (typeof window !== "undefined") {
+    // Usamos una ruta absoluta basada en el origen para evitar fallos de carga
+    pdfjsLib.GlobalWorkerOptions.workerSrc = window.location.origin + '/pdf.worker.min.js';
+}
 
 interface Question {
     id: string;
@@ -110,39 +118,21 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
         // Si son 5 o más líneas, podríamos estar pegando múltiples preguntas
         if (lines.length >= 5) {
             e.preventDefault();
-
             const processPastedQuestions = async () => {
                 setSaving(true);
-                const newQuestions = [];
+                const rawText = pasteData;
+                const questionsFound = parseQuestionsIntelligently(rawText, quizId);
 
-                // Leemos bloques de 5 líneas (1 pregunta + 4 opciones)
-                for (let i = 0; i < lines.length; i += 5) {
-                    if (i + 4 < lines.length) {
-                        const questionText = lines[i].replace(/^\d+[\.\-\)]\s*/, ''); // Quitar número inicial ej. "1."
-                        const optionTexts = [
-                            lines[i + 1].replace(/^([A-D]\)|[a-d]\)|[1-4]\.|\-|\*)\s*/, ''),
-                            lines[i + 2].replace(/^([A-D]\)|[a-d]\)|[1-4]\.|\-|\*)\s*/, ''),
-                            lines[i + 3].replace(/^([A-D]\)|[a-d]\)|[1-4]\.|\-|\*)\s*/, ''),
-                            lines[i + 4].replace(/^([A-D]\)|[a-d]\)|[1-4]\.|\-|\*)\s*/, '')
-                        ];
-
-                        newQuestions.push({
-                            quiz_id: quizId,
-                            question_text: questionText,
-                            options: optionTexts,
-                            correct_option_index: 0 // Por defecto la A, el profesor debe ajustarla luego si desea
-                        });
-                    }
-                }
-
-                if (newQuestions.length > 0) {
-                    const { data, error } = await supabase.from("questions").insert(newQuestions).select();
+                if (questionsFound.length > 0) {
+                    const { data, error } = await supabase.from("questions").insert(questionsFound).select();
                     if (!error && data) {
                         setQuestions(prev => [...prev, ...data]);
-                        showToast(`¡${data.length} preguntas añadidas! Revisa la opción correcta de cada una.`, 'success');
+                        showToast(`¡${data.length} preguntas inteligentes añadidas!`, 'success');
                     } else {
-                        showToast("Hubo un error al insertar el bloque: " + error?.message, 'error');
+                        showToast("Error al insertar: " + error?.message, 'error');
                     }
+                } else {
+                    showToast("No se detectó un formato válido de preguntas.", "error");
                 }
                 setSaving(false);
                 setConfirmModal(null);
@@ -214,89 +204,147 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
         setSaving(false);
     };
 
-    const handleCSVImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        const reader = new FileReader();
-        reader.onload = async (event) => {
-            const content = event.target?.result as string;
-            if (!content) return;
+        setLoading(true);
+        try {
+            let extractedText = "";
 
-            const lines = content.split(/\r?\n/).filter(line => line.trim().length > 0);
-            const newQuestions: any[] = [];
+            if (file.name.endsWith('.csv')) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const content = event.target?.result as string;
+                    setBulkText(content);
+                    setBulkImportOpen(true);
+                    setLoading(false);
+                };
+                reader.readAsText(file);
+                return;
+            } else if (file.name.endsWith('.docx')) {
+                const arrayBuffer = await file.arrayBuffer();
+                const result = await mammoth.extractRawText({ arrayBuffer });
+                extractedText = result.value;
+            } else if (file.name.endsWith('.pdf')) {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                let fullText = "";
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const textContent = await page.getTextContent();
+                    const pageText = textContent.items.map((item: any) => item.str).join(" ");
+                    fullText += pageText + "\n";
+                }
+                extractedText = fullText;
+            } else {
+                showToast("Formato no compatible. Usa PDF, Word o CSV.", "error");
+                setLoading(false);
+                return;
+            }
 
-            // Empezamos desde 0 o 1 si tiene cabecera. Asumiremos cabecera si la primera linea contiene "Pregunta"
-            const startIdx = lines[0].toLowerCase().includes("pregunta") ? 1 : 0;
+            if (extractedText && extractedText.trim().length > 10) {
+                // Limpiar un poco el texto extraído
+                const cleanText = extractedText
+                    .replace(/\t/g, " ")
+                    .replace(/ {2,}/g, " ")
+                    .split(/\n/)
+                    .map(line => line.trim())
+                    .filter(line => line.length > 0)
+                    .join("\n");
+                
+                const lines = cleanText.split("\n");
 
-            for (let i = startIdx; i < lines.length; i++) {
-                // Parser simple de CSV (maneja comas básicas)
-                const parts = lines[i].split(',').map(p => p.trim());
-                if (parts.length >= 6) {
-                    newQuestions.push({
-                        quiz_id: quizId,
-                        question_text: parts[0],
-                        options: [parts[1], parts[2], parts[3], parts[4]],
-                        correct_option_index: parseInt(parts[5]) || 0,
+                // Solo abrimos el modal si detectamos que al menos hay estructura de una pregunta (5 líneas)
+                if (lines.length >= 5) {
+                    setBulkText(cleanText);
+                    setBulkImportOpen(true);
+                    showToast("Documento procesado. Revisa y organiza las preguntas.", "success");
+                } else {
+                    showToast("El archivo no tiene el formato necesario (Mínimo 5 líneas para una pregunta).", "error");
+                }
+            } else {
+                showToast("No se pudo extraer texto legible de este archivo.", "error");
+            }
+        } catch (error) {
+            console.error("Error al procesar archivo:", error);
+            showToast("Error al leer el documento.", "error");
+        }
+        setLoading(false);
+        e.target.value = ""; // Reset
+    };
+
+    // Función de Procesado Inteligente para detectar preguntas y opciones incluso en texto sucio
+    const parseQuestionsIntelligently = (text: string, qId: string) => {
+        // Normalizar el texto: quitar múltiples espacios y unificar saltos de línea
+        const cleanText = text.replace(/\s+/g, ' ').trim();
+        
+        // Expresión regular para encontrar el inicio de una pregunta (Ej: "1. ¿Cuál...")
+        // Buscamos números seguidos de punto o paréntesis
+        const questionRegex = /(\d+)[\.\)]\s*(.*?)(?=\s*\d+[\.\)]|$)/g;
+        const matches = [...cleanText.matchAll(questionRegex)];
+        
+        const results: any[] = [];
+        
+        matches.forEach(match => {
+            const fullBlock = match[0];
+            const content = match[2];
+            
+            // Intentar detectar opciones dentro del bloque (A), B), etc.)
+            const optionsRegex = /([A-D]|[a-d])[\.\)]\s*(.*?)(?=\s*([A-D]|[a-d])[\.\)]|$)/g;
+            const optionMatches = [...content.matchAll(optionsRegex)];
+            
+            if (optionMatches.length >= 2) {
+                // Es una pregunta con opciones detectadas
+                const questionText = content.split(/[A-D][\.\)]/)[0].trim();
+                const options = optionMatches.slice(0, 4).map(o => o[2].trim());
+                
+                // Rellenar si faltan hasta 4
+                while(options.length < 4 && options.length > 0) options.push("---");
+                
+                if (questionText && options.length >= 2) {
+                    results.push({
+                        quiz_id: qId,
+                        question_text: questionText,
+                        options: options,
+                        correct_option_index: 0,
                         type: 'multiple_choice'
                     });
-                } else if (parts.length >= 2) {
-                    // Soporte básico para V/F o Llenar
-                    newQuestions.push({
-                        quiz_id: quizId,
-                        question_text: parts[0],
-                        options: parts.length > 2 ? [parts[1], parts[2]] : [],
-                        correct_option_index: parseInt(parts[2]) || 0,
-                        correct_answer: parts[1],
-                        type: parts.length === 3 ? 'true_false' : 'fill_in_the_blank'
+                }
+            }
+        });
+
+        // Si el regex inteligente no funcionó (no hay números), probar con el método original de 5 líneas
+        if (results.length === 0) {
+            const lines = text.split(/\n/).map(l => l.trim()).filter(l => l.length > 0);
+            for (let i = 0; i < lines.length; i += 5) {
+                if (i + 4 < lines.length) {
+                    results.push({
+                        quiz_id: qId,
+                        question_text: lines[i].replace(/^\d+[\.\-\)]\s*/, ''),
+                        options: [
+                            lines[i+1].replace(/^(([A-D]|[a-d])[\.\)]|[1-4]\.|[\-\*])\s*/, ''),
+                            lines[i+2].replace(/^(([A-D]|[a-d])[\.\)]|[1-4]\.|[\-\*])\s*/, ''),
+                            lines[i+3].replace(/^(([A-D]|[a-d])[\.\)]|[1-4]\.|[\-\*])\s*/, ''),
+                            lines[i+4].replace(/^(([A-D]|[a-d])[\.\)]|[1-4]\.|[\-\*])\s*/, '')
+                        ],
+                        correct_option_index: 0,
+                        type: 'multiple_choice'
                     });
                 }
             }
+        }
 
-            if (newQuestions.length > 0) {
-                setSaving(true);
-                const { data, error } = await supabase.from("questions").insert(newQuestions).select();
-                if (!error && data) {
-                    setQuestions(prev => [...prev, ...data]);
-                    showToast(`¡${data.length} preguntas importadas con éxito!`, 'success');
-                } else {
-                    showToast("Error al importar CSV: " + error?.message, 'error');
-                }
-                setSaving(false);
-            }
-        };
-        reader.readAsText(file);
-        e.target.value = ""; // Reset
+        return results;
     };
 
     const handleBulkProcess = async () => {
         if (!bulkText.trim()) return;
 
-        const lines = bulkText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
-        const newQuestions = [];
-
-        for (let i = 0; i < lines.length; i += 5) {
-            if (i + 4 < lines.length) {
-                const questionText = lines[i].replace(/^\d+[\.\-\)]\s*/, '');
-                const optionTexts = [
-                    lines[i + 1].replace(/^([A-D]\)|[a-d]\)|[1-4]\.|\-|\*)\s*/, ''),
-                    lines[i + 2].replace(/^([A-D]\)|[a-d]\)|[1-4]\.|\-|\*)\s*/, ''),
-                    lines[i + 3].replace(/^([A-D]\)|[a-d]\)|[1-4]\.|\-|\*)\s*/, ''),
-                    lines[i + 4].replace(/^([A-D]\)|[a-d]\)|[1-4]\.|\-|\*)\s*/, '')
-                ];
-
-                newQuestions.push({
-                    quiz_id: quizId,
-                    question_text: questionText,
-                    options: optionTexts,
-                    correct_option_index: 0,
-                    type: 'multiple_choice'
-                });
-            }
-        }
+        setSaving(true);
+        const newQuestions = parseQuestionsIntelligently(bulkText, quizId);
 
         if (newQuestions.length > 0) {
-            setSaving(true);
             const { data, error } = await supabase.from("questions").insert(newQuestions).select();
             if (!error && data) {
                 setQuestions(prev => [...prev, ...data]);
@@ -306,10 +354,10 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
             } else {
                 showToast("Error al importar el bloque: " + error?.message, 'error');
             }
-            setSaving(false);
         } else {
-            showToast("No se detectaron preguntas válidas (usa bloques de 1 pregunta + 4 opciones).", "error");
+            showToast("No se detectaron preguntas en el formato correcto (Pregunta + Opciones A,B,C,D).", "error");
         }
+        setSaving(false);
     };
 
     const handleDelete = (id: string) => {
@@ -328,6 +376,36 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                 setQuestions(questions.filter(q => q.id !== id));
                 await supabase.from("questions").delete().eq("id", id);
                 showToast("Pregunta eliminada.", 'success');
+            }
+        });
+    };
+
+    const handleDeleteAll = () => {
+        if (questions.length === 0) return;
+        
+        setConfirmModal({
+            isOpen: true,
+            title: "¡VACIAR BANCO!",
+            message: `¿Estás TOTALMENTE seguro? Esto eliminará las ${questions.length} preguntas de este tablero de forma permanente. No podrás deshacer esta acción.`,
+            isDestructive: true,
+            onConfirm: async () => {
+                if (!canEdit) {
+                    showToast("No tienes permiso para realizar esta acción.", "error");
+                    setConfirmModal(null);
+                    return;
+                }
+                setSaving(true);
+                setConfirmModal(null);
+                
+                const { error } = await supabase.from("questions").delete().eq("quiz_id", quizId);
+                
+                if (!error) {
+                    setQuestions([]);
+                    showToast("Todas las preguntas han sido eliminadas.", 'success');
+                } else {
+                    showToast("Error al vaciar el banco: " + error.message, 'error');
+                }
+                setSaving(false);
             }
         });
     };
@@ -468,22 +546,35 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                 {/* Panel Izquierdo - Lista de Preguntas */}
                 <div className="w-1/2 h-full overflow-y-auto p-8 border-r border-gray-200 bg-white">
                     <div className="max-w-xl mx-auto">
-                        <div className="flex items-center justify-between mb-8">
-                            <h2 className="text-2xl font-extrabold text-gray-900">Banco Actual</h2>
-                            <div className="flex gap-2 items-center">
+                        <div className="mb-8 pb-6 border-b border-gray-100 flex flex-col gap-5">
+                            <div>
+                                <h2 className="text-2xl font-black text-gray-900">Banco Actual</h2>
+                                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Todas tus preguntas guardadas</p>
+                            </div>
+                            
+                            <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+                                {questions.length > 0 && (
+                                    <button
+                                        onClick={handleDeleteAll}
+                                        className="h-10 px-4 flex-shrink-0 bg-red-500 hover:bg-red-600 text-white rounded-xl text-xs font-black transition-all flex items-center gap-2 active:scale-95 shadow-md shadow-red-100"
+                                        title="Eliminar TODAS las preguntas"
+                                    >
+                                        <span className="text-sm">🗑️</span> VACIAR
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => setBulkImportOpen(true)}
-                                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1 active:scale-95"
+                                    className="h-10 px-4 flex-shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-2 active:scale-95 shadow-md shadow-indigo-100"
                                 >
-                                    <span>📋</span> Pegado Masivo
+                                    <span className="text-sm">📋</span> Pegado Masivo
                                 </button>
-                                <label className="cursor-pointer bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg border border-emerald-200 text-xs font-black transition-all flex items-center gap-1">
-                                    <span>📊 CSV</span> Importar
-                                    <input type="file" accept=".csv" className="hidden" onChange={handleCSVImport} />
+                                <label className="h-10 px-4 flex-shrink-0 cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-2 active:scale-95 shadow-md shadow-emerald-100">
+                                    <span className="text-sm">📄</span> IMPORTAR
+                                    <input type="file" accept=".pdf,.docx,.csv" className="hidden" onChange={handleFileImport} />
                                 </label>
-                                <span className="bg-indigo-100 text-indigo-700 font-black px-3 py-1.5 rounded-lg text-xs">
+                                <div className="h-10 px-4 flex-shrink-0 bg-slate-700 text-white font-extrabold rounded-xl text-[10px] uppercase tracking-wider flex items-center shadow-sm">
                                     {questions.length} Preguntas
-                                </span>
+                                </div>
                             </div>
                         </div>
 
