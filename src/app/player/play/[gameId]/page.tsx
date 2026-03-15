@@ -131,33 +131,40 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
         // 2. Obtener estado de la partida, preguntas y configuracion de recompensas
         const fetchGame = async () => {
-            const { data: game } = await supabase.from("games").select("status, quiz_id, auto_end, streaks_enabled, game_mode, team_distribution_mode").eq("id", gameId).single();
+            const { data: game } = await supabase.from("games").select(`
+                status, quiz_id, auto_end, streaks_enabled, game_mode, team_distribution_mode,
+                quizzes (rewards_enabled, reward_criteria, reward_text, board_path, ludo_teams_count)
+            `).eq("id", gameId).single();
+
             if (game) {
                 setGameStatus(game.status);
                 setGameMode(game.game_mode as any || "classic");
-                setStreaksEnabled(game.streaks_enabled !== false); // Default true
+                setStreaksEnabled(game.streaks_enabled !== false);
 
-                // Configuración de recompensa del quiz
-                const { data: quizData } = await supabase.from("quizzes").select("rewards_enabled, reward_criteria, reward_text").eq("id", game.quiz_id).single();
+                const quizData: any = Array.isArray(game.quizzes) ? game.quizzes[0] : game.quizzes;
                 if (quizData) {
                     setRewardConfig({
                         enabled: quizData.rewards_enabled || false,
                         criteria: quizData.reward_criteria || 5,
                         text: quizData.reward_text || ""
                     });
+                    setLudoTeamsCount(quizData.ludo_teams_count || 4);
                 }
 
                 // Obtener preguntas y aleatorizarlas
                 const { data: qData } = await supabase.from("questions").select("*").eq("quiz_id", game.quiz_id);
                 if (qData) {
-                    const shuffled = [...qData].sort(() => Math.random() - 0.5);
+                    let shuffled = [...qData].sort(() => Math.random() - 0.5);
+                    const boardPath = quizData?.board_path as any[] || [];
+                    const mode = game.game_mode || "classic";
+                    
+                    if ((mode === 'classic' || mode === 'race') && boardPath.length > 0) {
+                        shuffled = shuffled.slice(0, boardPath.length);
+                    }
+                    
                     setQuestions(shuffled);
-                    setTotalQuestions(qData.length || 10);
+                    setTotalQuestions(shuffled.length || 10);
                 }
-                
-                // Cargar ludo_teams_count si existe
-                const { data: quizMeta } = await supabase.from("quizzes").select("ludo_teams_count").eq("id", game.quiz_id).single();
-                if (quizMeta) setLudoTeamsCount(quizMeta.ludo_teams_count || 4);
             }
             
             // Cargar lista de jugadores para colisiones
@@ -196,11 +203,23 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     useEffect(() => {
         if (gameStatus === "active" && questions.length === 0) {
             const fetchQuestions = async () => {
-                const { data: game } = await supabase.from("games").select("quiz_id").eq("id", gameId).single();
+                const { data: game } = await supabase.from("games").select(`
+                    quiz_id, game_mode,
+                    quizzes (board_path)
+                `).eq("id", gameId).single();
+
                 if (game) {
                     const { data: qData } = await supabase.from("questions").select("*").eq("quiz_id", game.quiz_id);
                     if (qData) {
-                        const shuffled = [...qData].sort(() => Math.random() - 0.5);
+                        let shuffled = [...qData].sort(() => Math.random() - 0.5);
+                        const quizData: any = Array.isArray(game.quizzes) ? game.quizzes[0] : game.quizzes;
+                        const boardPath = quizData?.board_path as any[] || [];
+                        const mode = game.game_mode || "classic";
+                        
+                        if ((mode === 'classic' || mode === 'race') && boardPath.length > 0) {
+                            shuffled = shuffled.slice(0, boardPath.length);
+                        }
+                        
                         setQuestions(shuffled);
                     }
                 }
@@ -276,11 +295,11 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                     newCorrect += 1;
                     newStreak += 1;
 
-                    // Bonus de movimiento por racha de 4 (Universal: Classic, Race)
-                    // Si las rachas están habilitadas y NO es modo Ludo, salta +3 extra
-                    if (mode !== 'ludo' && dbStreaksEnabled && streaksEnabled && newStreak > 0 && newStreak % 4 === 0) {
-                        nextPos += 3;
-                        console.log("¡BONO DE RACHA! +3 casillas extra.");
+                    // Bonus de movimiento por racha de 5 (Modo Classic/Race)
+                    // Salto de 2 casillas en total (+1 extra al sumar normal) y se salta una pregunta
+                    if (mode !== 'ludo' && dbStreaksEnabled && streaksEnabled && newStreak > 0 && newStreak % 5 === 0) {
+                        nextPos += 1; 
+                        console.log("¡BONO DE RACHA! +1 casilla extra y salto de pregunta.");
                     }
 
                     // Comprobar sistema de recompensas
@@ -379,7 +398,11 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
             setEarnedReward(null);
             setAnswering(false);
 
-            if (currentQuestionIdx < questions.length - 1) {
+            const skipQuestion = isCorrect && mode !== 'ludo' && dbStreaksEnabled && streaksEnabled && newStreak > 0 && newStreak % 5 === 0;
+
+            if (skipQuestion && currentQuestionIdx < questions.length - 2) {
+                setCurrentQuestionIdx(prev => prev + 2);
+            } else if (currentQuestionIdx < questions.length - 1) {
                 setCurrentQuestionIdx(prev => prev + 1);
             } else {
                 setHasFinishedAll(true);

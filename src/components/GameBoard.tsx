@@ -342,16 +342,13 @@ export default function GameBoard({ gameId }: GameBoardProps) {
                         };
                     } else if (boardPath.length > 0) {
                         const currentPos = uiPositions[player.id] ?? player.current_position;
-                        const progress = Math.min(currentPos / (totalQuestions || 1), 1);
-                        const vIdx = progress * (boardPath.length - 1);
-                        const iA = Math.floor(vIdx);
-                        const iB = Math.min(iA + 1, boardPath.length - 1);
-                        const w = vIdx - iA;
-                        coordinate = { x: boardPath[iA].x + (boardPath[iB].x-boardPath[iA].x)*w, y: boardPath[iA].y + (boardPath[iB].y-boardPath[iA].y)*w };
+                        const safeIdx = Math.min(Math.max(0, currentPos), boardPath.length - 1);
+                        coordinate = boardPath[safeIdx];
                     }
 
                     return (
-                        <div 
+                        <div
+
                             key={player.id} 
                             className={`absolute transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] z-30 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center ${eatenAnim?.playerId === player.id ? 'animate-shake' : ''}`} 
                             style={{ 

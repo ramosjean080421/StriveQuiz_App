@@ -224,8 +224,13 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                 return;
             } else if (file.name.endsWith('.docx')) {
                 const arrayBuffer = await file.arrayBuffer();
-                const result = await mammoth.extractRawText({ arrayBuffer });
-                extractedText = result.value;
+                const result = await mammoth.convertToHtml({ arrayBuffer });
+                const htmlString = result.value;
+                const cleanHtml = htmlString
+                    .replace(/<mark>(.*?)<\/mark>/g, '*$1*')
+                    .replace(/<span style="background-color:[^>]+>(.*?)<\/span>/g, '*$1*')
+                    .replace(/<[^>]+>/g, '\n');
+                extractedText = cleanHtml;
             } else if (file.name.endsWith('.pdf')) {
                 const arrayBuffer = await file.arrayBuffer();
                 const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -233,7 +238,20 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                 for (let i = 1; i <= pdf.numPages; i++) {
                     const page = await pdf.getPage(i);
                     const textContent = await page.getTextContent();
-                    const pageText = textContent.items.map((item: any) => item.str).join(" ");
+                    let pageText = "";
+                    let lastItem = null;
+                    
+                    for (const item of textContent.items) {
+                        if (lastItem) {
+                            if (Math.abs(item.transform[5] - lastItem.transform[5]) > 5) {
+                                pageText += "\n";
+                            } else if (item.transform[4] > (lastItem.transform[4] + lastItem.width + 1) && !lastItem.str.endsWith(' ') && !item.str.startsWith(' ')) {
+                                pageText += " ";
+                            }
+                        }
+                        pageText += item.str;
+                        lastItem = item;
+                    }
                     fullText += pageText + "\n";
                 }
                 extractedText = fullText;
@@ -280,7 +298,6 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
         const cleanText = text.replace(/\s+/g, ' ').trim();
         
         // Expresión regular para encontrar el inicio de una pregunta (Ej: "1. ¿Cuál...")
-        // Buscamos números seguidos de punto o paréntesis
         const questionRegex = /(\d+)[\.\)]\s*(.*?)(?=\s*\d+[\.\)]|$)/g;
         const matches = [...cleanText.matchAll(questionRegex)];
         
@@ -290,45 +307,59 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
             const fullBlock = match[0];
             const content = match[2];
             
-            // Intentar detectar opciones dentro del bloque (A), B), etc.)
-            const optionsRegex = /([A-D]|[a-d])[\.\)]\s*(.*?)(?=\s*([A-D]|[a-d])[\.\)]|$)/g;
+            // Aumentado a E para soportar 5 opciones
+            const optionsRegex = /([A-E]|[a-e])[\.\)]\s*(.*?)(?=\s*([A-E]|[a-e])[\.\)]|$)/g;
             const optionMatches = [...content.matchAll(optionsRegex)];
             
             if (optionMatches.length >= 2) {
-                // Es una pregunta con opciones detectadas
-                const questionText = content.split(/[A-D][\.\)]/)[0].trim();
-                const options = optionMatches.slice(0, 4).map(o => o[2].trim());
+                const questionText = content.split(/[A-E][\.\)]/)[0].trim();
+                const options = optionMatches.slice(0, 5).map(o => o[2].trim());
                 
-                // Rellenar si faltan hasta 4
-                while(options.length < 4 && options.length > 0) options.push("---");
+                let correctIdx = 0;
+                const cleanedOptions = options.map((opt, i) => {
+                    // Detectar si está resaltada/marcada con asteriscos
+                    if (opt.startsWith("*") || opt.endsWith("*") || opt.includes("*")) {
+                        correctIdx = i;
+                        return opt.replace(/\*/g, '').trim();
+                    }
+                    return opt;
+                });
+
+                // Rellenar si faltan hasta 4 para evitar errores de renderizado
+                while(cleanedOptions.length < 4 && cleanedOptions.length > 0) cleanedOptions.push("---");
                 
-                if (questionText && options.length >= 2) {
+                if (questionText && cleanedOptions.length >= 2) {
                     results.push({
                         quiz_id: qId,
                         question_text: questionText,
-                        options: options,
-                        correct_option_index: 0,
+                        options: cleanedOptions,
+                        correct_option_index: correctIdx,
                         type: 'multiple_choice'
                     });
                 }
             }
         });
 
-        // Si el regex inteligente no funcionó (no hay números), probar con el método original de 5 líneas
         if (results.length === 0) {
             const lines = text.split(/\n/).map(l => l.trim()).filter(l => l.length > 0);
             for (let i = 0; i < lines.length; i += 5) {
                 if (i + 4 < lines.length) {
+                    let correctIdx = 0;
+                    const rawOpts = [lines[i+1], lines[i+2], lines[i+3], lines[i+4]];
+                    const cleanedOpts = rawOpts.map((opt, j) => {
+                        let textOpt = opt.replace(/^(([A-E]|[a-e])[\.\)]|[1-4]\.|[\-\*])\s*/, '');
+                        if (opt.includes("*") || textOpt.includes("*")) {
+                            correctIdx = j;
+                            textOpt = textOpt.replace(/\*/g, '').trim();
+                        }
+                        return textOpt;
+                    });
+
                     results.push({
                         quiz_id: qId,
                         question_text: lines[i].replace(/^\d+[\.\-\)]\s*/, ''),
-                        options: [
-                            lines[i+1].replace(/^(([A-D]|[a-d])[\.\)]|[1-4]\.|[\-\*])\s*/, ''),
-                            lines[i+2].replace(/^(([A-D]|[a-d])[\.\)]|[1-4]\.|[\-\*])\s*/, ''),
-                            lines[i+3].replace(/^(([A-D]|[a-d])[\.\)]|[1-4]\.|[\-\*])\s*/, ''),
-                            lines[i+4].replace(/^(([A-D]|[a-d])[\.\)]|[1-4]\.|[\-\*])\s*/, '')
-                        ],
-                        correct_option_index: 0,
+                        options: cleanedOpts,
+                        correct_option_index: correctIdx,
                         type: 'multiple_choice'
                     });
                 }

@@ -306,9 +306,9 @@ function QuizBuilderContent() {
                 game_mode: gameMode,
                 ludo_teams_count: gameMode === 'ludo' ? ludoTeamsCount : null,
                 ludo_path_data: null,
-                rewards_enabled: rewardsEnabled,
-                reward_criteria: rewardCriteria,
-                reward_text: rewardText
+                rewards_enabled: false,
+                reward_criteria: 5,
+                reward_text: ""
             };
 
             let returnedId = editId;
@@ -502,43 +502,7 @@ function QuizBuilderContent() {
                             </div>
                         )}
                     </div>
-                    {/* Sección 2.5: Sistema de Recompensas */}
-                    <div className="mb-6 bg-white p-4 rounded-2xl border border-gray-100">
-                        <div className="flex items-center justify-between mb-3">
-                            <label className="flex items-center gap-2 text-sm font-bold text-gray-700">
-                                <span className="text-lg">🎁</span> Sistema de Recompensas
-                            </label>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" className="sr-only peer" checked={rewardsEnabled} onChange={() => setRewardsEnabled(!rewardsEnabled)} />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                            </label>
-                        </div>
 
-                        {rewardsEnabled && (
-                            <div className="space-y-4 mt-4 p-4 border-2 border-dashed border-purple-200 rounded-xl bg-purple-50">
-                                <div>
-                                    <label className="block text-xs font-bold text-purple-900 mb-1">Racha requerida (Ej. 5 correctas seguidas)</label>
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        value={rewardCriteria}
-                                        onChange={(e) => setRewardCriteria(Number(e.target.value))}
-                                        className="w-full bg-white border border-purple-200 rounded-lg px-3 py-2 text-gray-800 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-purple-900 mb-1">Premio a mostrar en pantalla</label>
-                                    <input
-                                        type="text"
-                                        value={rewardText}
-                                        onChange={(e) => setRewardText(e.target.value)}
-                                        placeholder="Ej. +10 Puntos ClassDojo"
-                                        className="w-full bg-white border border-purple-200 rounded-lg px-3 py-2 text-gray-800 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                    />
-                                </div>
-                            </div>
-                        )}
-                    </div>
 
                     {/* Sección 3: Instrucciones / Controles de Ruta */}
                     <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-4 rounded-2xl border border-indigo-100/50 mt-6">
