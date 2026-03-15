@@ -71,7 +71,7 @@ function StartGameContent() {
 
             if (error) {
                 // Si el error es por columna inexistente, reintentamos omitiendo las nuevas
-                if (error.message?.includes("streaks_enabled") || error.message?.includes("auto_end")) {
+                if (error.message?.includes("streaks_enabled") || error.message?.includes("auto_end") || error.message?.includes("game_duration") || error.message?.includes("question_duration") || error.message?.includes("column")) {
                     console.warn("Columnas nuevas no encontradas en DB, reintentando sin ellas...");
                     const fallbackData = {
                         quiz_id: quizId,
@@ -200,8 +200,8 @@ function StartGameContent() {
                                 type="number" 
                                 min="1" 
                                 max="120"
-                                value={gameDuration}
-                                onChange={(e) => setGameDuration(Number(e.target.value))}
+                                value={gameDuration === 0 ? "" : gameDuration}
+                                onChange={(e) => setGameDuration(e.target.value === "" ? 0 : Number(e.target.value))}
                                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm font-black focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                             />
                         </div>
@@ -216,8 +216,8 @@ function StartGameContent() {
                             type="number" 
                             min="5" 
                             max="120"
-                            value={questionDuration}
-                            onChange={(e) => setQuestionDuration(Number(e.target.value))}
+                            value={questionDuration === 0 ? "" : questionDuration}
+                            onChange={(e) => setQuestionDuration(e.target.value === "" ? 0 : Number(e.target.value))}
                             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm font-black focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                         />
                     </div>
