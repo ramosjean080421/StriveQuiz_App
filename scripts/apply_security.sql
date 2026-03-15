@@ -44,6 +44,7 @@ DROP POLICY IF EXISTS "Editores pueden actualizar" ON quizzes;
 
 CREATE POLICY "Dueños pueden hacer todo" ON quizzes FOR ALL USING (auth.uid() = teacher_id);
 CREATE POLICY "Editores pueden ver" ON quizzes FOR SELECT USING (auth.jwt() ->> 'email' = ANY(shared_with_emails));
+CREATE POLICY "Cualquiera puede leer tableros" ON quizzes FOR SELECT USING (true);
 CREATE POLICY "Editores pueden actualizar" ON quizzes FOR UPDATE USING (auth.jwt() ->> 'email' = ANY(editors_emails));
 
 -- 5. POLÍTICAS PARA QUESTIONS (Preguntas)

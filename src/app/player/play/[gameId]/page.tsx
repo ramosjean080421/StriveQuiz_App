@@ -160,11 +160,15 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 const { data: qData } = await supabase.from("questions").select("*").eq("quiz_id", game.quiz_id);
                 if (qData) {
                     let shuffled = [...qData].sort(() => Math.random() - 0.5);
-                    const boardPath = quizData?.board_path as any[] || [];
-                    const mode = game.game_mode || "classic";
+                    let boardPath = quizData?.board_path || [];
+                    if (typeof boardPath === "string") {
+                        try { boardPath = JSON.parse(boardPath); } catch(e) { boardPath = []; }
+                    }
+                    const mode = (game.game_mode || "classic").toLowerCase();
                     
-                    if ((mode === 'classic' || mode === 'race') && boardPath.length > 0) {
+                    if ((mode === 'classic' || mode === 'race') && (boardPath && boardPath.length > 0)) {
                         shuffled = shuffled.slice(0, boardPath.length);
+                        console.log("Slicing questions to board path length:", boardPath.length);
                     }
                     
                     setQuestions(shuffled);
@@ -218,10 +222,13 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                     if (qData) {
                         let shuffled = [...qData].sort(() => Math.random() - 0.5);
                         const quizData: any = Array.isArray(game.quizzes) ? game.quizzes[0] : game.quizzes;
-                        const boardPath = quizData?.board_path as any[] || [];
-                        const mode = game.game_mode || "classic";
+                        let boardPath = quizData?.board_path || [];
+                        if (typeof boardPath === "string") {
+                            try { boardPath = JSON.parse(boardPath); } catch(e) { boardPath = []; }
+                        }
+                        const mode = (game.game_mode || "classic").toLowerCase();
                         
-                        if ((mode === 'classic' || mode === 'race') && boardPath.length > 0) {
+                        if ((mode === 'classic' || mode === 'race') && (boardPath && boardPath.length > 0)) {
                             shuffled = shuffled.slice(0, boardPath.length);
                         }
                         
