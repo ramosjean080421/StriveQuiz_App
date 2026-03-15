@@ -33,6 +33,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     const [feedback, setFeedback] = useState<"correct" | "incorrect" | "timeout" | null>(null);
     const [hasFinishedAll, setHasFinishedAll] = useState(false);
     const [timeLeft, setTimeLeft] = useState(20);
+    const [questionDuration, setQuestionDuration] = useState(20);
 
     // Respuestas para nuevos tipos de preguntas
     const [blankAnswer, setBlankAnswer] = useState("");
@@ -92,7 +93,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
     // Reiniciar inputs en nueva pregunta
     useEffect(() => {
-        setTimeLeft(20);
+        setTimeLeft(questionDuration);
         setBlankAnswer("");
         setUserMatches({});
 
@@ -132,7 +133,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         // 2. Obtener estado de la partida, preguntas y configuracion de recompensas
         const fetchGame = async () => {
             const { data: game } = await supabase.from("games").select(`
-                status, quiz_id, auto_end, streaks_enabled, game_mode, team_distribution_mode,
+                status, quiz_id, auto_end, streaks_enabled, game_mode, team_distribution_mode, question_duration,
                 quizzes (rewards_enabled, reward_criteria, reward_text, board_path, ludo_teams_count)
             `).eq("id", gameId).single();
 
@@ -140,11 +141,15 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 setGameStatus(game.status);
                 setGameMode(game.game_mode as any || "classic");
                 setStreaksEnabled(game.streaks_enabled !== false);
+                if (game.question_duration) {
+                    setQuestionDuration(game.question_duration);
+                    setTimeLeft(game.question_duration);
+                }
 
                 const quizData: any = Array.isArray(game.quizzes) ? game.quizzes[0] : game.quizzes;
                 if (quizData) {
                     setRewardConfig({
-                        enabled: quizData.rewards_enabled || false,
+                        enabled: false, // Fuerza desactivado para unificar con el salto de pregunta general
                         criteria: quizData.reward_criteria || 5,
                         text: quizData.reward_text || ""
                     });
@@ -271,7 +276,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
             // Actualizar: avanzar/retroceder posición, sumar puntos y rachas
             const { data: pData } = await supabase.from("game_players").select("player_name, current_position, score, correct_answers, incorrect_answers, current_streak").eq("id", playerId).single();
-            const { data: gData } = await supabase.from("games").select("game_mode, boss_hp, auto_end, streaks_enabled").eq("id", gameId).single();
+            const { data: gData } = await supabase.from("games").select("game_mode, boss_hp, auto_end, streaks_enabled, question_duration").eq("id", gameId).single();
 
             if (pData) {
                 let nextPos = pData.current_position;
@@ -511,7 +516,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 <div className="font-black text-xl text-transparent bg-clip-text bg-indigo-600 tracking-tight">Prisma Quiz</div>
                 <div className="flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100">
                     <span className="text-xs font-bold text-indigo-800 uppercase tracking-widest">Pregunta</span>
-                    <span className="bg-indigo-600 text-white text-sm font-black w-7 h-7 flex items-center justify-center rounded-lg">{currentQuestionIdx + 1}/{questions.length}</span>
+                    <span className="bg-indigo-600 text-white text-xs font-black px-2.5 h-7 flex items-center justify-center rounded-lg">{currentQuestionIdx + 1}/{questions.length}</span>
                 </div>
             </div>
 
@@ -520,7 +525,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 <div
                     className="h-full transition-all duration-1000 linear"
                     style={{
-                        width: `${(timeLeft / 20) * 100}%`,
+                        width: `${(timeLeft / questionDuration) * 100}%`,
                         backgroundColor: timeLeft > 10 ? '#10B981' : timeLeft > 5 ? '#F59E0B' : '#EF4444'
                     }}
                 ></div>

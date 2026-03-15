@@ -20,6 +20,8 @@ function StartGameContent() {
     const [streaksEnabled, setStreaksEnabled] = useState(true);
     const [gameMode, setGameMode] = useState<'classic' | 'race' | 'ludo'>('classic');
     const [dataLoaded, setDataLoaded] = useState(false);
+    const [gameDuration, setGameDuration] = useState(10); // Minutos
+    const [questionDuration, setQuestionDuration] = useState(20); // Segundos
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -55,7 +57,9 @@ function StartGameContent() {
                 status: "waiting",
                 auto_end: autoEnd,
                 streaks_enabled: streaksEnabled,
-                game_mode: gameMode
+                game_mode: gameMode,
+                game_duration: !autoEnd ? gameDuration : null,
+                question_duration: questionDuration
             };
 
             // Primer intento: con todas las columnas
@@ -184,6 +188,38 @@ function StartGameContent() {
                                 <div className={`w-5 h-5 bg-white rounded-full transition-transform duration-500 shadow-2xl ${autoEnd ? 'translate-x-8 scale-110' : 'translate-x-0'}`}></div>
                             </div>
                         </div>
+                    </div>
+                    
+                    {/* Duración de la Partida (Sólo si NO es Auto-finalizar) */}
+                    {!autoEnd && (
+                        <div className="p-4 rounded-[1.8rem] bg-white/[0.02] border border-white/5 space-y-2">
+                            <label className="block text-left text-xs font-bold text-gray-400 uppercase tracking-widest pl-2">
+                                ⏳ Duración de la Partida (Minutos)
+                            </label>
+                            <input 
+                                type="number" 
+                                min="1" 
+                                max="120"
+                                value={gameDuration}
+                                onChange={(e) => setGameDuration(Number(e.target.value))}
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm font-black focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                            />
+                        </div>
+                    )}
+
+                    {/* Duración de la Pregunta (Para Todos) */}
+                    <div className="p-4 rounded-[1.8rem] bg-white/[0.02] border border-white/5 space-y-2">
+                        <label className="block text-left text-xs font-bold text-gray-400 uppercase tracking-widest pl-2">
+                            ⏱️ Tiempo por Pregunta (Segundos)
+                        </label>
+                        <input 
+                            type="number" 
+                            min="5" 
+                            max="120"
+                            value={questionDuration}
+                            onChange={(e) => setQuestionDuration(Number(e.target.value))}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm font-black focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                        />
                     </div>
 
                     {/* Toggle de Rachas de Saltos (Oculto en modo Ludo) */}

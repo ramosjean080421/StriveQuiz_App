@@ -18,6 +18,8 @@ ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS ludo_path_data JSONB;
 ALTER TABLE games ADD COLUMN IF NOT EXISTS auto_end BOOLEAN DEFAULT false;
 ALTER TABLE games ADD COLUMN IF NOT EXISTS streaks_enabled BOOLEAN DEFAULT true;
 ALTER TABLE games ADD COLUMN IF NOT EXISTS game_mode TEXT DEFAULT 'classic';
+ALTER TABLE games ADD COLUMN IF NOT EXISTS game_duration INT DEFAULT 0;
+ALTER TABLE games ADD COLUMN IF NOT EXISTS question_duration INT DEFAULT 20;
 
 -- 3. ASEGURAR COLUMNAS DE SEGURIDAD EN JUGADORES
 -- Añadimos un token secreto para que los alumnos no puedan editar los datos de otros

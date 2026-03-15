@@ -15,6 +15,8 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
     const [allPlayers, setAllPlayers] = useState<any[]>([]);
     const [playerCount, setPlayerCount] = useState(0);
     const [gameMode, setGameMode] = useState<'classic' | 'race' | 'ludo'>('classic');
+    const [gameDuration, setGameDuration] = useState(0); 
+    const [timeLeftSession, setTimeLeftSession] = useState(0);
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
 
     const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -44,7 +46,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
 
             const { data: game } = await supabase
                 .from("games")
-                .select("pin, status, game_mode, quiz_id")
+                .select("pin, status, game_mode, quiz_id, game_duration, auto_end")
                 .eq("id", gameId)
                 .single();
 
@@ -52,6 +54,12 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                 setPin(game.pin);
                 setGameStatus(game.status);
                 setGameMode(game.game_mode as 'classic' | 'race' | 'ludo' || 'classic');
+                if (game.game_duration && game.game_duration > 0 && !game.auto_end) {
+                    setGameDuration(game.game_duration);
+                    if (game.status === "active") {
+                        setTimeLeftSession(game.game_duration * 60);
+                    }
+                }
 
                 // Verificar Permisos
                 if (authUser) {
@@ -98,11 +106,31 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
 
     }, [gameId]);
 
+    useEffect(() => {
+        if (gameStatus !== "active" || timeLeftSession <= 0) return;
+
+        const timer = setInterval(() => {
+            setTimeLeftSession(prev => {
+                if (prev <= 1) {
+                    clearInterval(timer);
+                    finishGame(); 
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [gameStatus, timeLeftSession]);
+
 
 
     const startGame = async () => {
         const newStatus = "active";
         await supabase.from("games").update({ status: newStatus }).eq("id", gameId);
+        if (gameDuration > 0) {
+            setTimeLeftSession(gameDuration * 60);
+        }
         setGameStatus(newStatus);
 
         // Intentar reproducir música
@@ -148,6 +176,16 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                             {pin}
                         </h1>
                     </div>
+
+                    {/* Master Timer Session */}
+                    {gameStatus === "active" && timeLeftSession > 0 && (
+                        <div className="bg-gradient-to-r from-indigo-500/20 to-purple-500/20 px-5 py-2 rounded-xl border border-indigo-400/30 backdrop-blur-md flex flex-col items-center">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-indigo-300 mb-0.5">TIEMPO RESTANTE</p>
+                            <h2 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 to-purple-200">
+                                {Math.floor(timeLeftSession / 60)}:{(timeLeftSession % 60).toString().padStart(2, '0')}
+                            </h2>
+                        </div>
+                    )}
                     {gameStatus === "waiting" && (
                         <div className="hidden md:flex items-center gap-3 animate-pulse">
                             <span className="relative flex h-4 w-4">
