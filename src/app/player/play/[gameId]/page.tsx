@@ -234,6 +234,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
         const question = questions[currentQuestionIdx];
         let isCorrect = false;
+        let skippedThisStep = false;
 
         if (answerPayload === -1) {
             // timeout
@@ -299,6 +300,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                     // Salto de 2 casillas en total (+1 extra al sumar normal) y se salta una pregunta
                     if (mode !== 'ludo' && dbStreaksEnabled && streaksEnabled && newStreak > 0 && newStreak % 5 === 0) {
                         nextPos += 1; 
+                        skippedThisStep = true;
                         console.log("¡BONO DE RACHA! +1 casilla extra y salto de pregunta.");
                     }
 
@@ -398,7 +400,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
             setEarnedReward(null);
             setAnswering(false);
 
-            const skipQuestion = isCorrect && mode !== 'ludo' && dbStreaksEnabled && streaksEnabled && newStreak > 0 && newStreak % 5 === 0;
+            const skipQuestion = isCorrect && skippedThisStep;
 
             if (skipQuestion && currentQuestionIdx < questions.length - 2) {
                 setCurrentQuestionIdx(prev => prev + 2);

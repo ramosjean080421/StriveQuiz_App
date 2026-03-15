@@ -239,9 +239,9 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                     const page = await pdf.getPage(i);
                     const textContent = await page.getTextContent();
                     let pageText = "";
-                    let lastItem = null;
+                    let lastItem: any = null;
                     
-                    for (const item of textContent.items) {
+                    for (const item of textContent.items as any[]) {
                         if (lastItem) {
                             if (Math.abs(item.transform[5] - lastItem.transform[5]) > 5) {
                                 pageText += "\n";
