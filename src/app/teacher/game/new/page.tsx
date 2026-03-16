@@ -129,7 +129,7 @@ function StartGameContent() {
                         Preparar Sala
                     </h1>
                     <p className="text-indigo-200/60 text-xs font-bold uppercase tracking-[0.3em]">
-                        Mindcore Quiz Engine
+                        StriveQuiz Engine
                     </p>
                 </div>
 

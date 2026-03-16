@@ -525,7 +525,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
             {/* Header Mini - Progreso */}
             <div className="bg-white px-4 py-3 flex justify-between items-center z-10 sticky top-0 border-b border-gray-100">
-                <div className="font-black text-xl text-transparent bg-clip-text bg-indigo-600 tracking-tight">Mindcore Quiz</div>
+                <div className="font-black text-xl text-transparent bg-clip-text bg-indigo-600 tracking-tight">StriveQuiz</div>
                 <div className="flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100">
                     <span className="text-xs font-bold text-indigo-800 uppercase tracking-widest">Pregunta</span>
                     <span className="bg-indigo-600 text-white text-xs font-black px-2.5 h-7 flex items-center justify-center rounded-lg">{currentQuestionIdx + 1}/{questions.length}</span>

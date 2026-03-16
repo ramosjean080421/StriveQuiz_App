@@ -388,11 +388,11 @@ export default function TeacherDashboard() {
                 <div className="flex items-center gap-0 sm:gap-2">
                     <img
                         src="/logo1.png"
-                        alt="Logo Mindcore Quiz"
+                        alt="Logo StriveQuiz"
                         className="w-16 sm:w-20 h-auto object-contain mix-blend-multiply transform hover:rotate-2 hover:scale-105 transition-all duration-300"
                     />
                     <span className="text-[1.7rem] sm:text-4xl font-black text-[#7D32FF] tracking-tight ml-1">
-                        Mindcore Quiz
+                        StriveQuiz
                     </span>
                     <span className="bg-[#7D32FF]/10 text-[#7D32FF] font-black px-3 py-1 rounded-full text-xs hidden md:block ml-4 border border-[#7D32FF]/20 relative top-0.5">
                         Panel de Profesor
@@ -449,7 +449,7 @@ export default function TeacherDashboard() {
                         <div className="flex flex-col items-center justify-center h-full text-center bg-white/40 backdrop-blur-sm rounded-[2.5rem] p-12 border border-white/50 border-dashed">
                             <div className="text-8xl mb-6">🚀</div>
                             <h3 className="text-2xl font-extrabold text-gray-800">El lienzo está en blanco</h3>
-                            <p className="mt-3 text-lg text-gray-600 max-w-md">No tienes tableros aún. ¡Empieza a crear tu primera aventura interactiva en Mindcore Quiz ahora mismo!</p>
+                            <p className="mt-3 text-lg text-gray-600 max-w-md">No tienes tableros aún. ¡Empieza a crear tu primera aventura interactiva en StriveQuiz ahora mismo!</p>
                             <Link href="/teacher/quiz/builder" className="mt-8 text-indigo-600 font-bold hover:text-indigo-800 underline decoration-indigo-300 underline-offset-4 decoration-2">Quiero crear mi primer tablero &rarr;</Link>
                         </div>
                     ) : (

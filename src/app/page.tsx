@@ -192,7 +192,7 @@ export default function Home() {
           {/* Logo con escala masiva priorizando altura disponible */}
           <img
             src="/logo.png"
-            alt="Logo Mindcore Quiz"
+            alt="Logo StriveQuiz"
             className="w-full h-auto max-h-[85vh] object-contain transition-transform duration-700 hover:scale-[1.02] mix-blend-multiply"
             onError={(e) => {
               e.currentTarget.style.display = 'none';
@@ -202,7 +202,7 @@ export default function Home() {
           />
           <div id="logo-fallback" className="hidden flex-col items-center justify-center h-full w-full" style={{ display: 'none' }}>
             <h1 className="text-7xl lg:text-9xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 mb-6 text-center leading-none">
-              Mindcore<br />Quiz
+              StriveQuiz
             </h1>
             <p className="text-2xl lg:text-3xl text-gray-400 font-bold tracking-widest text-center mt-4">JUEGA Y APRENDE</p>
           </div>
@@ -218,7 +218,7 @@ export default function Home() {
 
           <div className="relative z-10">
             <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight text-center">
-              Bienvenido a Mindcore Quiz
+              Bienvenido a StriveQuiz
             </h2>
 
             {/* Selector de Pestañas */}

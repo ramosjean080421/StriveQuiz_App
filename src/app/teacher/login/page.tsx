@@ -77,7 +77,7 @@ export default function TeacherLogin() {
                 <div className="text-center relative z-20">
                     <img
                         src="/logo.png"
-                        alt="Logo Mindcore Quiz"
+                        alt="Logo StriveQuiz"
                         className="w-full max-w-[320px] mx-auto object-contain transition-transform duration-700 hover:scale-105"
                         onError={(e) => {
                             // Fallback temporal si el usuario aún no coloca el archivo logo.png
@@ -88,7 +88,7 @@ export default function TeacherLogin() {
                     />
                     <div id="logo-fallback" className="hidden" style={{ display: 'none' }}>
                         <h1 className="text-6xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 mb-4">
-                            Mindcore Quiz
+                            StriveQuiz
                         </h1>
                         <p className="text-xl text-gray-400 font-medium tracking-wide">Plataforma Educativa Gamificada</p>
                     </div>
@@ -112,7 +112,7 @@ export default function TeacherLogin() {
                             {isLogin ? "Bienvenido de nuevo" : "Crea tu cuenta"}
                         </h2>
                         <p className="mt-3 text-sm text-gray-500">
-                            {isLogin ? "¿No tienes cuenta en Mindcore Quiz? " : "¿Ya eres parte de Mindcore Quiz? "}
+                            {isLogin ? "¿No tienes cuenta en StriveQuiz? " : "¿Ya eres parte de StriveQuiz? "}
                             <button
                                 onClick={() => setIsLogin(!isLogin)}
                                 className="font-bold text-indigo-600 hover:text-indigo-500 transition-colors underline decoration-indigo-200 underline-offset-4"
