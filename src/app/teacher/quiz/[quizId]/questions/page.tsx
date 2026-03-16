@@ -179,6 +179,13 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
             showToast("Para Pareo, todos los pares deben estar llenos.", 'error'); return;
         }
 
+        // Evitar preguntas repetidas
+        const isDuplicate = questions.some(q => q.id !== editQuestionId && q.question_text.trim().toLowerCase() === newText.trim().toLowerCase());
+        if (isDuplicate) {
+            showToast("Esta pregunta ya existe en tu banco.", "error");
+            return;
+        }
+
         setSaving(true);
         const newQ: any = {
             quiz_id: quizId,
@@ -403,7 +410,17 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
         if (!bulkText.trim()) return;
 
         setSaving(true);
-        const newQuestions = parseQuestionsIntelligently(bulkText, quizId);
+        const parsed = parseQuestionsIntelligently(bulkText, quizId);
+        
+        // Filtrar repetidas
+        const newQuestions = parsed.filter(newQ => {
+            return !questions.some(q => q.question_text.trim().toLowerCase() === newQ.question_text.trim().toLowerCase());
+        });
+
+        const duplicatesCount = parsed.length - newQuestions.length;
+        if (duplicatesCount > 0) {
+            showToast(`Omitidas ${duplicatesCount} preguntas repetidas`, 'error');
+        }
 
         if (newQuestions.length > 0) {
             const { data, error } = await supabase.from("questions").insert(newQuestions).select();
