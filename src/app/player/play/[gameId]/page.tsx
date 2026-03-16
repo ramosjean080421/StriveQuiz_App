@@ -75,7 +75,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
     // Cronómetro visual
     useEffect(() => {
-        if (gameStatus === "waiting" || gameStatus === "finished" || gameStatus === "paused" || hasFinishedAll || answering || questions.length === 0) return;
+        if (gameStatus === "waiting" || gameStatus === "finished" || gameStatus === "paused" || hasFinishedAll || answering || questions.length === 0 || questionDuration <= 0) return;
 
         const timer = setInterval(() => {
             setTimeLeft(prev => {
@@ -528,6 +528,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
             </div>
 
             {/* Cronómetro Barra */}
+            {questionDuration > 0 && (
             <div className="w-full bg-gray-200 h-2">
                 <div
                     className="h-full transition-all duration-1000 linear"
@@ -537,11 +538,14 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                     }}
                 ></div>
             </div>
+            )}
 
             {/* Tarjeta de Pregunta Central */}
             <div className="flex items-center justify-center px-4 py-4 sm:py-8">
                 <div className="w-full max-w-3xl bg-white rounded-3xl p-6 sm:p-10 border-b-8 border-indigo-500 text-center relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-4 font-black text-3xl opacity-10">⏳ {timeLeft}</div>
+                    {questionDuration > 0 && (
+                        <div className="absolute top-0 right-0 p-4 font-black text-3xl opacity-10">⏳ {timeLeft}</div>
+                    )}
                     <div className="absolute -top-4 -left-4 w-16 h-16 bg-indigo-100 rounded-full blur-xl opacity-60"></div>
                     <h2 className="text-2xl sm:text-3xl md:text-3xl font-extrabold text-gray-900 leading-snug break-words relative z-10 mt-2">
                         {currentQ.question_text}
