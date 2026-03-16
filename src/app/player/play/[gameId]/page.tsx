@@ -521,7 +521,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     const optionIcons = ["🔺", "🔷", "🟡", "🟩"]; // Símbolos visuales intuitivos
 
     return (
-        <div className="h-screen w-screen flex flex-col bg-gray-100 overflow-hidden relative font-sans">
+        <div className="h-screen w-screen flex flex-col bg-gray-100 overflow-y-auto relative font-sans custom-scrollbar">
 
             {/* Header Mini - Progreso */}
             <div className="bg-white px-4 py-3 flex justify-between items-center z-10 sticky top-0 border-b border-gray-100">
@@ -546,8 +546,8 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
             )}
 
             {/* Tarjeta de Pregunta Central */}
-            <div className="flex items-center justify-center px-4 py-4 sm:py-8">
-                <div className="w-full max-w-3xl bg-white rounded-3xl p-6 sm:p-10 border-b-8 border-indigo-500 text-center relative overflow-hidden">
+            <div className="flex items-center justify-center px-4 py-4 sm:py-6">
+                <div className="w-full max-w-4xl bg-white rounded-3xl p-6 sm:p-10 border-b-4 border-indigo-500 text-center relative overflow-hidden">
                     {questionDuration > 0 && (
                         <div className="absolute top-0 right-0 p-4 font-black text-3xl opacity-10">⏳ {timeLeft}</div>
                     )}
