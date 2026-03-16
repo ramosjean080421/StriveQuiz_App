@@ -25,7 +25,6 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     const [players, setPlayers] = useState<any[]>([]);
     const [totalQuestions, setTotalQuestions] = useState(10);
     const [ludoTeamsCount, setLudoTeamsCount] = useState(4);
-    const [streaksEnabled, setStreaksEnabled] = useState(true);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     const [loading, setLoading] = useState(true);
@@ -133,14 +132,13 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         // 2. Obtener estado de la partida, preguntas y configuracion de recompensas
         const fetchGame = async () => {
             const { data: game } = await supabase.from("games").select(`
-                status, quiz_id, auto_end, streaks_enabled, game_mode, team_distribution_mode, question_duration,
+                status, quiz_id, auto_end, game_mode, team_distribution_mode, question_duration,
                 quizzes (rewards_enabled, reward_criteria, reward_text, board_path, ludo_teams_count)
             `).eq("id", gameId).single();
 
             if (game) {
                 setGameStatus(game.status);
                 setGameMode(game.game_mode as any || "classic");
-                setStreaksEnabled(game.streaks_enabled !== false);
                 if (game.question_duration !== undefined && game.question_duration !== null) {
                     setQuestionDuration(game.question_duration);
                     if (game.question_duration > 0) {
@@ -193,7 +191,6 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 (payload) => {
                     setGameStatus(payload.new.status);
                     if (payload.new.game_mode) setGameMode(payload.new.game_mode);
-                    if (payload.new.streaks_enabled !== undefined) setStreaksEnabled(payload.new.streaks_enabled !== false);
                 }
             )
             .on('postgres_changes', { event: '*', schema: 'public', table: 'game_players', filter: `game_id=eq.${gameId}` },
@@ -295,10 +292,8 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 let newScore = pData.score;
                 let newCorrect = pData.correct_answers || 0;
                 let newIncorrect = pData.incorrect_answers || 0;
-                let newStreak = pData.current_streak || 0;
 
                 const mode = gData?.game_mode || "classic";
-                const dbStreaksEnabled = gData?.streaks_enabled !== false; // Si no existe columna, es true por defecto
                 let currentBossHp = gData?.boss_hp || 0;
                 let newBossHp = currentBossHp;
 
@@ -311,21 +306,6 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
                     newScore += 100 + timeLeft * 10;
                     newCorrect += 1;
-                    newStreak += 1;
-
-                    // Bonus de movimiento por racha de 5 (Modo Classic/Race)
-                    // Salto de 2 casillas en total (+1 extra al sumar normal) y se salta una pregunta
-                    if (mode !== 'ludo' && dbStreaksEnabled && streaksEnabled && newStreak > 0 && newStreak % 5 === 0) {
-                        nextPos += 1; 
-                        skippedThisStep = true;
-                        console.log("¡BONO DE RACHA! +1 casilla extra y salto de pregunta.");
-                    }
-
-                    // Comprobar sistema de recompensas
-                    if (rewardConfig.enabled && newStreak > 0 && newStreak % rewardConfig.criteria === 0) {
-                        setEarnedReward(rewardConfig.text);
-                        playSound("correct"); // Sonido extra
-                    }
                 } else {
                     if (mode === "classic" || mode === "race" || mode === "ludo") {
                         // Retrocede una posición si se equivoca, mínimo en 0
@@ -333,7 +313,6 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                     }
 
                     newIncorrect += 1;
-                    newStreak = 0;
                 }
                 // 1. Actualizar el Jugador (Protegido por secret_token)
                 const { error: pError, count } = await supabase.from("game_players")
@@ -341,8 +320,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                         current_position: nextPos,
                         score: newScore,
                         correct_answers: newCorrect,
-                        incorrect_answers: newIncorrect,
-                        current_streak: newStreak
+                        incorrect_answers: newIncorrect
                     }, { count: 'exact' })
                     .eq("id", playerId)
                     .eq("secret_token", playerSecret);

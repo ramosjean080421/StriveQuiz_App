@@ -19,7 +19,6 @@ function StartGameContent() {
     const [autoEnd, setAutoEnd] = useState(false);
     const [enableGameTimer, setEnableGameTimer] = useState(false);
     const [enableQuestionTimer, setEnableQuestionTimer] = useState(true);
-    const [streaksEnabled, setStreaksEnabled] = useState(true);
     const [gameMode, setGameMode] = useState<'classic' | 'race' | 'ludo'>('classic');
     const [dataLoaded, setDataLoaded] = useState(false);
     const [gameDuration, setGameDuration] = useState(10); // Minutos
@@ -58,7 +57,6 @@ function StartGameContent() {
                 pin: pin,
                 status: "waiting",
                 auto_end: autoEnd,
-                streaks_enabled: streaksEnabled,
                 game_mode: gameMode,
                 game_duration: (enableGameTimer && !autoEnd) ? gameDuration : null,
                 question_duration: enableQuestionTimer ? questionDuration : 0
@@ -218,38 +216,6 @@ function StartGameContent() {
                         )}
                     </div>
 
-                    {/* Toggle de Rachas de Saltos (Oculto en modo Ludo) */}
-                    {gameMode !== 'ludo' && (
-                        <div
-                            onClick={() => setStreaksEnabled(!streaksEnabled)}
-                            className={`cursor-pointer group relative overflow-hidden p-4 rounded-[1.8rem] border-2 transition-all duration-500 ${
-                                streaksEnabled 
-                                ? "bg-indigo-500/10 border-indigo-500/40 shadow-[0_20px_40px_rgba(79,70,229,0.1)]" 
-                                : "bg-white/[0.02] border-white/5 hover:border-white/10 hover:bg-white/[0.04]"
-                            }`}
-                        >
-                            <div className="relative z-10 flex items-center justify-between">
-                                <div className="flex items-center gap-4 text-left">
-                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl transition-all duration-500 shadow-xl ${
-                                        streaksEnabled ? 'bg-indigo-500 text-white animate-bounce' : 'bg-white/5 text-white/30'
-                                    }`}>
-                                        {streaksEnabled ? '🔥' : '❄️'}
-                                    </div>
-                                    <div className="text-left">
-                                        <h4 className={`text-sm font-black transition-colors ${streaksEnabled ? 'text-indigo-400' : 'text-gray-300'}`}>
-                                            Rachas de Saltos
-                                        </h4>
-                                        <p className="text-gray-500 text-[10px] font-medium">Bonos de movimiento</p>
-                                    </div>
-                                </div>
-                                
-                                {/* Toggle Switch Estilizado */}
-                                <div className={`w-16 h-8 rounded-full p-1.5 transition-colors duration-500 flex items-center ${streaksEnabled ? 'bg-indigo-500' : 'bg-gray-800'}`}>
-                                    <div className={`w-5 h-5 bg-white rounded-full transition-transform duration-500 shadow-2xl ${streaksEnabled ? 'translate-x-8 scale-110' : 'translate-x-0'}`}></div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
 
                 <button

@@ -453,18 +453,9 @@ export default function TeacherDashboard() {
                             <Link href="/teacher/quiz/builder" className="mt-8 text-indigo-600 font-bold hover:text-indigo-800 underline decoration-indigo-300 underline-offset-4 decoration-2">Quiero crear mi primer tablero &rarr;</Link>
                         </div>
                     ) : (
-                        <div className="space-y-12">
-                            {[
-                                { title: "🏎️ Juegos de Carreras", items: quizzes.filter(q => q.board_image_url?.toLowerCase().includes("carrera")) },
-                                { title: "🗺️ Aventuras Clásicas", items: quizzes.filter(q => !q.board_image_url?.toLowerCase().includes("carrera")) }
-                            ].filter(cat => cat.items.length > 0).map((category, catIdx) => (
-                                <div key={catIdx}>
-                                    <h2 className="text-2xl font-black text-indigo-900 mb-6 ml-2">
-                                        {category.title}
-                                    </h2>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                        {category.items.map((quiz) => (
-                                            <div key={quiz.id} className="bg-white/80 backdrop-blur-lg rounded-[2rem] border border-white transition-all duration-300 group flex flex-col overflow-hidden transform hover:-translate-y-1">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                            {quizzes.map((quiz) => (
+                                <div key={quiz.id} className="bg-white/80 backdrop-blur-lg rounded-[2rem] border border-white transition-all duration-300 group flex flex-col overflow-hidden transform hover:-translate-y-1">
                                                 {/* Cabecera de Tarjeta con Fondo de Mapa */}
                                                 <div className="px-6 py-8 flex-1 relative overflow-hidden">
                                                     {/* Imagen de Fondo Borrosa */}
@@ -489,17 +480,15 @@ export default function TeacherDashboard() {
 
                                                     <div className="absolute -right-6 -top-6 w-24 h-24 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full opacity-50 group-hover:scale-150 transition-transform duration-500 ease-out z-0"></div>
                                                     <div className="relative z-10">
-                                                        <div className="flex justify-between items-start mb-3">
-                                                            <div className="flex gap-1.5">
-                                                                <div className={`backdrop-blur-sm w-max px-3 py-1.5 rounded-lg text-xs font-black border ${quiz.teacher_id === user?.id ? "bg-indigo-100/90 text-indigo-700 border-indigo-200/50" : "bg-purple-100/90 text-purple-700 border-purple-200/50"}`}>
-                                                                    {quiz.teacher_id === user?.id ? "Mio" : "Compartido"}
-                                                                </div>
-                                                                {(quiz.shared_with_emails?.length || 0) > 0 && quiz.teacher_id === user?.id && (
-                                                                    <div className="bg-emerald-100/90 backdrop-blur-sm text-emerald-700 px-2.5 py-1.5 rounded-lg text-[10px] font-black border border-emerald-200/50 flex items-center gap-1" title={`${quiz.shared_with_emails?.length} colaboradores`}>
-                                                                        🤝 {quiz.shared_with_emails?.length}
-                                                                    </div>
-                                                                )}
+                                                                 <div className="flex flex-wrap gap-1.5 items-start mb-3">
+                                                            <div className={`backdrop-blur-sm w-max px-3 py-1.5 rounded-lg text-xs font-black border ${quiz.teacher_id === user?.id ? "bg-indigo-100/90 text-indigo-700 border-indigo-200/50" : "bg-purple-100/90 text-purple-700 border-purple-200/50"}`}>
+                                                                {quiz.teacher_id === user?.id ? "Mio" : "Compartido"}
                                                             </div>
+                                                            {(quiz.shared_with_emails?.length || 0) > 0 && quiz.teacher_id === user?.id && (
+                                                                <div className="bg-emerald-100/90 backdrop-blur-sm text-emerald-700 px-2.5 py-1.5 rounded-lg text-[10px] font-black border border-emerald-200/50 flex items-center gap-1" title={`${quiz.shared_with_emails?.length} colaboradores`}>
+                                                                    🤝 {quiz.shared_with_emails?.length}
+                                                                </div>
+                                                            )}
                                                             {quiz.board_image_url && (
                                                                 <div className="bg-amber-100/90 backdrop-blur-sm text-amber-800 px-3 py-1.5 rounded-lg text-xs font-black border border-amber-200/50 flex items-center gap-1.5" title="Escenario Seleccionado">
                                                                     <span className="text-sm">🗺️</span>
@@ -622,9 +611,6 @@ export default function TeacherDashboard() {
                                             </div>
                                         ))}
                                     </div>
-                                </div>
-                            ))}
-                        </div>
                     )}
                 </div>
             </main>
