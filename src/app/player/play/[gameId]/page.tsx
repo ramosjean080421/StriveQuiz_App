@@ -89,7 +89,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         }, 1000);
 
         return () => clearInterval(timer);
-    }, [currentQuestionIdx, gameStatus, hasFinishedAll, answering, questions.length]);
+    }, [currentQuestionIdx, gameStatus, hasFinishedAll, answering, questions.length, questionDuration]);
 
     // Reiniciar inputs en nueva pregunta
     useEffect(() => {
