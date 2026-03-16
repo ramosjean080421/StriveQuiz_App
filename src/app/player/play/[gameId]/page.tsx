@@ -426,7 +426,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
             } else {
                 setHasFinishedAll(true);
             }
-        }, 2000);
+        }, 1000);
     };
 
     if (loading) return (
