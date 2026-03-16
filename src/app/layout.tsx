@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Prisma Quiz - Aventura de Aprendizaje",
+  title: "Mindcore Quiz - Aventura de Aprendizaje",
   description: "Plataforma gamificada para estudiantes y profesores.",
 };
 

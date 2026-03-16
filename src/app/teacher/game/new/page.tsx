@@ -145,7 +145,7 @@ function StartGameContent() {
                         Preparar Sala
                     </h1>
                     <p className="text-indigo-200/60 text-xs font-bold uppercase tracking-[0.3em]">
-                        Prisma Quiz Engine
+                        Mindcore Quiz Engine
                     </p>
                 </div>
 

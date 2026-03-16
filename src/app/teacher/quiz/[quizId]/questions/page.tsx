@@ -43,6 +43,7 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
     const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean, title: string, message: string, onConfirm: () => void, isDestructive?: boolean } | null>(null);
     const [bulkImportOpen, setBulkImportOpen] = useState(false);
+    const [editQuestionId, setEditQuestionId] = useState<string | null>(null);
     const [bulkText, setBulkText] = useState("");
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -189,17 +190,25 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
             matching_pairs: qType === 'matching' ? matchingPairs : null
         };
 
-        const { data, error } = await supabase.from("questions").insert([newQ]).select().single();
-        if (!error && data) {
-            setQuestions([...questions, data]);
-            setNewText("");
-            setOpts(["", "", "", ""]);
-            setCorrectIdx(0);
-            setCorrectAnswerText("");
-            setMatchingPairs([{ left: "", right: "" }, { left: "", right: "" }]);
-            showToast("Pregunta guardada exitosamente.", 'success');
+        if (editQuestionId) {
+            const { data, error } = await supabase.from("questions").update(newQ).eq("id", editQuestionId).select().single();
+            if (!error && data) {
+                setQuestions(questions.map(q => q.id === editQuestionId ? data : q));
+                setEditQuestionId(null);
+                setNewText(""); setOpts(["", "", "", ""]); setCorrectIdx(0); setCorrectAnswerText(""); setMatchingPairs([{ left: "", right: "" }, { left: "", right: "" }]);
+                showToast("Pregunta actualizada exitosamente.", 'success');
+            } else {
+                showToast("Error al actualizar: " + error?.message, 'error');
+            }
         } else {
-            showToast("Error al guardar: " + error?.message, 'error');
+            const { data, error } = await supabase.from("questions").insert([newQ]).select().single();
+            if (!error && data) {
+                setQuestions([...questions, data]);
+                setNewText(""); setOpts(["", "", "", ""]); setCorrectIdx(0); setCorrectAnswerText(""); setMatchingPairs([{ left: "", right: "" }, { left: "", right: "" }]);
+                showToast("Pregunta guardada exitosamente.", 'success');
+            } else {
+                showToast("Error al guardar: " + error?.message, 'error');
+            }
         }
         setSaving(false);
     };
@@ -462,6 +471,17 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
         });
     };
 
+    const handleEditQuestion = (q: any) => {
+        setEditQuestionId(q.id);
+        setQType(q.type || 'multiple_choice');
+        setNewText(q.question_text);
+        if (q.options) setOpts(q.options);
+        setCorrectIdx(q.correct_option_index || 0);
+        setCorrectAnswerText(q.correct_answer || "");
+        setMatchingPairs(q.matching_pairs || [{ left: "", right: "" }, { left: "", right: "" }]);
+        showToast("Editando pregunta. Revisa el panel derecho.", "success");
+    };
+
     const handleChangeCorrectOption = async (qId: string, newIdx: number) => {
         // Update local state first (optimistic UI)
         setQuestions(questions.map(q => q.id === qId ? { ...q, correct_option_index: newIdx } : q));
@@ -566,7 +586,7 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                 </div>
             )}
 
-            {/* Cabecera Clásica Prisma */}
+            {/* Cabecera Clásica Mindcore */}
             <header className="flex-shrink-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center z-20">
                 <div className="flex items-center gap-4">
                     <Link
@@ -596,9 +616,8 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
             <main className="flex-1 flex overflow-hidden">
 
                 {/* Panel Izquierdo - Lista de Preguntas */}
-                <div className="w-1/2 h-full overflow-y-auto p-8 border-r border-gray-200 bg-white">
-                    <div className="max-w-xl mx-auto">
-                        <div className="mb-8 pb-6 border-b border-gray-100 flex flex-col gap-5">
+                <div className="w-1/2 h-full flex flex-col border-r border-gray-200 bg-white">
+                    <div className="p-8 pb-6 border-b border-gray-100 flex flex-col gap-5">
                             <div>
                                 <h2 className="text-2xl font-black text-gray-900">Banco Actual</h2>
                                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Todas tus preguntas guardadas</p>
@@ -630,6 +649,7 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                             </div>
                         </div>
 
+                        <div className="flex-1 overflow-y-auto p-8 pt-0 custom-scrollbar">
                         {questions.length === 0 ? (
                             <div className="text-center p-10 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-300">
                                 <span className="text-5xl block mb-4 filter grayscale opacity-50">📝</span>
@@ -640,7 +660,8 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                             <div className="space-y-4">
                                 {questions.map((q, idx) => (
                                     <div key={q.id} className="p-5 rounded-2xl border border-gray-200 bg-white transition-shadow relative group">
-                                        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                            <button onClick={() => handleEditQuestion(q)} className="text-indigo-600 hover:bg-indigo-50 p-2 rounded-lg" title="Editar pregunta">✏️</button>
                                             <button onClick={() => handleDelete(q.id)} className="text-red-500 hover:bg-red-50 p-2 rounded-lg" title="Borrar pregunta">🗑️</button>
                                         </div>
                                         <div className="flex items-start gap-4 pr-8">
@@ -695,8 +716,8 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                                 ))}
                             </div>
                         )}
+                        </div>
                     </div>
-                </div>
 
                 {/* Panel Derecho - Creador Fijo */}
                 <div className="w-1/2 h-full bg-gray-50 p-8 overflow-y-auto">
@@ -704,7 +725,7 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                         <div className="bg-white p-8 rounded-3xl border border-gray-100">
                             <div className="flex items-center gap-3 mb-8">
                                 <span className="text-3xl">✨</span>
-                                <h2 className="text-2xl font-extrabold text-gray-900">Añadir Nueva</h2>
+                                <h2 className="text-2xl font-extrabold text-gray-900">{editQuestionId ? '✏️ Editar Pregunta' : '✨ Añadir Nueva'}</h2>
                             </div>
 
                             <form onSubmit={handleAdd} className="space-y-6">
@@ -844,13 +865,24 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                                     </div>
                                 )}
 
-                                     <button
+                                <div className="flex gap-2">
+                                    {editQuestionId && (
+                                        <button
+                                            type="button"
+                                            onClick={() => { setEditQuestionId(null); setNewText(""); setOpts(["", "", "", ""]); setCorrectIdx(0); setCorrectAnswerText(""); setMatchingPairs([{ left: "", right: "" }, { left: "", right: "" }]); }}
+                                            className="flex-1 py-4 bg-gray-100 hover:bg-gray-200 text-gray-600 font-black rounded-xl transition-all"
+                                        >
+                                            Cancelar
+                                        </button>
+                                    )}
+                                    <button
                                         type="submit"
                                         disabled={saving}
-                                        className="w-full mt-8 flex items-center justify-center gap-2 py-4 px-4 text-base font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-all active:scale-95"
+                                        className="flex-[2] py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-xl shadow-xl transition-all active:scale-95 disabled:opacity-50"
                                     >
-                                    {saving ? "Guardando..." : "➕ Agregar Pregunta al Quiz"}
-                                </button>
+                                        {saving ? "Guardando..." : editQuestionId ? "💾 Actualizar Pregunta" : "➕ Guardar Pregunta"}
+                                    </button>
+                                </div>
                             </form>
                         </div>
                     </div>

@@ -669,7 +669,7 @@ function QuizBuilderContent() {
                         <div className="flex flex-col items-center bg-gray-900/40 p-12 rounded-[2rem] border-2 border-dashed border-gray-600/50 backdrop-blur-md max-w-md text-center">
                             <span className="text-7xl mb-6">🗺️</span>
                             <h3 className="text-2xl font-black text-white mb-2">Lienzo Vacío</h3>
-                            <p className="text-gray-400 text-base">Escoge un escenario del panel izquierdo para empezar a forjar el camino de tu aventura en Prisma Quiz.</p>
+                            <p className="text-gray-400 text-base">Escoge un escenario del panel izquierdo para empezar a forjar el camino de tu aventura en Mindcore Quiz.</p>
                         </div>
                     </div>
                 )}
