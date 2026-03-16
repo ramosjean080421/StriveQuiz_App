@@ -101,7 +101,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
             const rights = questions[currentQuestionIdx].matching_pairs!.map(p => p.right);
             setShuffledMatchRight(rights.sort(() => Math.random() - 0.5));
         }
-    }, [currentQuestionIdx, questions]);
+    }, [currentQuestionIdx, questions, questionDuration]);
 
     if (errorMessage) {
         return (
@@ -141,9 +141,11 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 setGameStatus(game.status);
                 setGameMode(game.game_mode as any || "classic");
                 setStreaksEnabled(game.streaks_enabled !== false);
-                if (game.question_duration) {
+                if (game.question_duration !== undefined && game.question_duration !== null) {
                     setQuestionDuration(game.question_duration);
-                    setTimeLeft(game.question_duration);
+                    if (game.question_duration > 0) {
+                        setTimeLeft(game.question_duration);
+                    }
                 }
 
                 const quizData: any = Array.isArray(game.quizzes) ? game.quizzes[0] : game.quizzes;
@@ -213,11 +215,14 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         if (gameStatus === "active" && questions.length === 0) {
             const fetchQuestions = async () => {
                 const { data: game } = await supabase.from("games").select(`
-                    quiz_id, game_mode,
+                    quiz_id, game_mode, question_duration,
                     quizzes (board_path)
                 `).eq("id", gameId).single();
 
                 if (game) {
+                    if (game.question_duration !== undefined && game.question_duration !== null) {
+                        setQuestionDuration(game.question_duration);
+                    }
                     const { data: qData } = await supabase.from("questions").select("*").eq("quiz_id", game.quiz_id);
                     if (qData) {
                         let shuffled = [...qData].sort(() => Math.random() - 0.5);

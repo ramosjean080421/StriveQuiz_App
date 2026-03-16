@@ -71,25 +71,7 @@ function StartGameContent() {
                 .single();
 
             if (error) {
-                // Si el error es por columna inexistente, reintentamos omitiendo las nuevas
-                if (error.message?.includes("streaks_enabled") || error.message?.includes("auto_end") || error.message?.includes("game_duration") || error.message?.includes("question_duration") || error.message?.includes("column")) {
-                    console.warn("Columnas nuevas no encontradas en DB, reintentando sin ellas...");
-                    const fallbackData = {
-                        quiz_id: quizId,
-                        pin: pin,
-                        status: "waiting",
-                        game_mode: gameMode
-                    };
-                    const { data: retryGame, error: retryError } = await supabase
-                        .from("games")
-                        .insert([fallbackData])
-                        .select()
-                        .single();
-                    
-                    if (retryError) throw retryError;
-                    router.push(`/game/${retryGame.id}/board`);
-                    return;
-                }
+                console.error("Error creating game:", error);
                 throw error;
             }
 
