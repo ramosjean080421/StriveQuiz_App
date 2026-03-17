@@ -101,9 +101,21 @@ export default function Home() {
       if (gameError || !game) throw new Error("PIN de sala no válido o partida no encontrada.");
       if (game.status === "finished") throw new Error("La partida ya ha finalizado.");
 
+      // Verificar si el nombre ya está registrado en la sala (Case-Insensitive)
+      const { data: existingPlayer } = await supabase
+        .from("game_players")
+        .select("id")
+        .eq("game_id", game.id)
+        .ilike("player_name", trimmedName)
+        .maybeSingle();
+
+      if (existingPlayer) {
+        throw new Error("Ya hay un alumno con ese nombre en esta sala. Por favor, añade tu segundo apellido o inicial para diferenciarte.");
+      }
+
       const { data: player, error: playerError } = await supabase
         .from("game_players")
-        .insert([{ game_id: game.id, player_name: playerName, avatar_gif_url: selectedGif, current_position: 0, score: 0 }])
+        .insert([{ game_id: game.id, player_name: trimmedName, avatar_gif_url: selectedGif, current_position: 0, score: 0 }])
         .select()
         .single();
 
