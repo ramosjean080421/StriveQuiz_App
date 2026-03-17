@@ -11,6 +11,7 @@ export default function Home() {
   // --- Student State ---
   const [pin, setPin] = useState("");
   const [playerName, setPlayerName] = useState("");
+  const [showNameTooltip, setShowNameTooltip] = useState(false);
   const [shuffledMemes, setShuffledMemes] = useState<string[]>([]);
   const [selectedGif, setSelectedGif] = useState("");
 
@@ -262,7 +263,7 @@ export default function Home() {
                   />
                 </div>
 
-                <div>
+                <div className="relative">
                   <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Tu Nombre</label>
                   <input
                     type="text"
@@ -270,9 +271,16 @@ export default function Home() {
                     maxLength={40}
                     value={playerName}
                     onChange={(e) => setPlayerName(e.target.value)}
+                    onFocus={() => setShowNameTooltip(true)}
+                    onBlur={() => setShowNameTooltip(false)}
                     placeholder="Ej. Juan Pérez"
                     className="block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
                   />
+                  {showNameTooltip && (
+                    <div className="absolute left-0 right-0 top-full mt-1.5 bg-indigo-600 text-white text-[11px] font-black p-2 rounded-xl shadow-lg flex items-center gap-1.5 z-20 border border-indigo-400 animate-bounce-short">
+                        <span>💡</span> Usa tu nombre completo para guardar tu nota en el reporte.
+                    </div>
+                  )}
                 </div>
 
                 <div>

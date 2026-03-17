@@ -162,24 +162,24 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                     let shuffled = [...qData].sort(() => Math.random() - 0.5);
                     let boardPath = quizData?.board_path || [];
                     if (typeof boardPath === "string") {
-                        try { boardPath = JSON.parse(boardPath); } catch(e) { boardPath = []; }
+                        try { boardPath = JSON.parse(boardPath); } catch (e) { boardPath = []; }
                     }
                     const mode = (game.game_mode || "classic").toLowerCase();
-                    
+
                     if ((mode === 'classic' || mode === 'race') && (boardPath && boardPath.length > 0)) {
                         shuffled = shuffled.slice(0, boardPath.length);
                         console.log("Slicing questions to board path length:", boardPath.length);
                     }
-                    
+
                     setQuestions(shuffled);
                     setTotalQuestions(shuffled.length || 10);
                 }
             }
-            
+
             // Cargar lista de jugadores para colisiones
             const { data: pList } = await supabase.from("game_players").select("*").eq("game_id", gameId);
             if (pList) setPlayers(pList);
-            
+
             setLoading(false);
         };
 
@@ -226,14 +226,14 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                         const quizData: any = Array.isArray(game.quizzes) ? game.quizzes[0] : game.quizzes;
                         let boardPath = quizData?.board_path || [];
                         if (typeof boardPath === "string") {
-                            try { boardPath = JSON.parse(boardPath); } catch(e) { boardPath = []; }
+                            try { boardPath = JSON.parse(boardPath); } catch (e) { boardPath = []; }
                         }
                         const mode = (game.game_mode || "classic").toLowerCase();
-                        
+
                         if ((mode === 'classic' || mode === 'race') && (boardPath && boardPath.length > 0)) {
                             shuffled = shuffled.slice(0, boardPath.length);
                         }
-                        
+
                         setQuestions(shuffled);
                     }
                 }
@@ -334,31 +334,31 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                         const checkCollision = async () => {
                             // Obtener coordenadas de todos los jugadores si es Ludo, o solo posiciones si es Carrera
                             const currentPlayers = players.filter(p => p.id !== playerId);
-                            
+
                             for (const other of currentPlayers) {
                                 let isCollision = false;
-                                
+
                                 if (mode === 'ludo') {
                                     // Helper para obtener coord de Ludo (debe coincidir con GameBoard)
                                     const getLudoCoord = (p: any, pos: number) => {
-                                        const commonCircuit = [[1,6],[2,6],[3,6],[4,6],[5,6],[6,5],[6,4],[6,3],[6,2],[6,1],[6,0],[7,0],[8,0],[8,1],[8,2],[8,3],[8,4],[8,5],[9,6],[10,6],[11,6],[12,6],[13,6],[14,6],[14,7],[14,8],[13,8],[12,8],[11,8],[10,8],[9,8],[8,9],[8,10],[8,11],[8,12],[8,13],[8,14],[7,14],[6,14],[6,13],[6,12],[6,11],[6,10],[6,9],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8],[0,7],[0,6]];
+                                        const commonCircuit = [[1, 6], [2, 6], [3, 6], [4, 6], [5, 6], [6, 5], [6, 4], [6, 3], [6, 2], [6, 1], [6, 0], [7, 0], [8, 0], [8, 1], [8, 2], [8, 3], [8, 4], [8, 5], [9, 6], [10, 6], [11, 6], [12, 6], [13, 6], [14, 6], [14, 7], [14, 8], [13, 8], [12, 8], [11, 8], [10, 8], [9, 8], [8, 9], [8, 10], [8, 11], [8, 12], [8, 13], [8, 14], [7, 14], [6, 14], [6, 13], [6, 12], [6, 11], [6, 10], [6, 9], [5, 8], [4, 8], [3, 8], [2, 8], [1, 8], [0, 8], [0, 7], [0, 6]];
                                         const teamOffsets = [0, 13, 26, 39];
                                         const teamNames = ["Verde", "Rojo", "Amarillo", "Azul"].slice(0, ludoTeamsCount);
-                                        const sorted = [...players, {id: playerId, ...pData}].sort((a,b) => a.id.localeCompare(b.id));
+                                        const sorted = [...players, { id: playerId, ...pData }].sort((a, b) => a.id.localeCompare(b.id));
                                         const idx = sorted.findIndex(pl => pl.id === p.id);
                                         const teamIdx = idx % ludoTeamsCount;
                                         const offset = teamOffsets[teamIdx];
-                                        
+
                                         if (pos === 0) return `base_${teamIdx}`; // Safe at base
                                         if (pos > 52) return `final_${teamIdx}_${pos}`; // Safe at finals
-                                        
+
                                         const loopIdx = (pos - 1 + offset) % 52;
                                         return `${commonCircuit[loopIdx][0]},${commonCircuit[loopIdx][1]}`;
                                     };
 
-                                    const myCoord = getLudoCoord({id: playerId}, nextPos);
+                                    const myCoord = getLudoCoord({ id: playerId }, nextPos);
                                     const otherCoord = getLudoCoord(other, other.current_position);
-                                    
+
                                     // No se puede comer en bases ni en finales
                                     if (myCoord === otherCoord && !myCoord.startsWith('base') && !myCoord.startsWith('final')) {
                                         isCollision = true;
@@ -404,7 +404,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
             } else {
                 setHasFinishedAll(true);
             }
-        }, 1000);
+        }, 50);
     };
 
     if (loading) return (
@@ -512,15 +512,15 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
             {/* Cronómetro Barra */}
             {questionDuration > 0 && (
-            <div className="w-full bg-gray-200 h-2">
-                <div
-                    className="h-full transition-all duration-1000 linear"
-                    style={{
-                        width: `${(timeLeft / questionDuration) * 100}%`,
-                        backgroundColor: timeLeft > 10 ? '#10B981' : timeLeft > 5 ? '#F59E0B' : '#EF4444'
-                    }}
-                ></div>
-            </div>
+                <div className="w-full bg-gray-200 h-2">
+                    <div
+                        className="h-full transition-all duration-1000 linear"
+                        style={{
+                            width: `${(timeLeft / questionDuration) * 100}%`,
+                            backgroundColor: timeLeft > 10 ? '#10B981' : timeLeft > 5 ? '#F59E0B' : '#EF4444'
+                        }}
+                    ></div>
+                </div>
             )}
 
             {/* Tarjeta de Pregunta Central */}
@@ -623,7 +623,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
             {/* Pantalla Interpuesta de Feedback Rápido (Correcto/Incorrecto) */}
             {feedback && (
-                <div className={`absolute inset-0 z-50 flex flex-col items-center justify-center backdrop-blur-md transition-all duration-500 ${feedback === 'correct' ? 'bg-emerald-500/90' : feedback === 'timeout' ? 'bg-amber-500/90' : 'bg-rose-600/90'
+                <div className={`absolute inset-0 z-50 flex flex-col items-center justify-center backdrop-blur-md transition-all duration-100 ${feedback === 'correct' ? 'bg-emerald-500/90' : feedback === 'timeout' ? 'bg-amber-500/90' : 'bg-rose-600/90'
                     }`}>
                     <div className="transform animate-bounce mb-4">
                         {feedback === 'correct' ? (
