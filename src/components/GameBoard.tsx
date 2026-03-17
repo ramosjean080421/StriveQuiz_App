@@ -210,7 +210,7 @@ export default function GameBoard({ gameId }: GameBoardProps) {
                     if (newPlayer.current_position === 0 && oldPlayer.current_position > 0) {
                         // Activar animación de "Eaten"
                         setEatenAnim({ playerId: newPlayer.id, x: 50, y: 50 }); // Temporal coords
-                        setTimeout(() => setEatenAnim(null), 2000);
+                        setTimeout(() => setEatenAnim(null), 1000);
                     }
                     
                     if (gameModeRef.current === "classic" || gameModeRef.current === "race") {

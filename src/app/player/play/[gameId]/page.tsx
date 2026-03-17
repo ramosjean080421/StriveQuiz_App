@@ -623,7 +623,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
             {/* Pantalla Interpuesta de Feedback Rápido (Correcto/Incorrecto) */}
             {feedback && (
-                <div className={`absolute inset-0 z-50 flex flex-col items-center justify-center backdrop-blur-md transition-all duration-100 ${feedback === 'correct' ? 'bg-emerald-500/90' : feedback === 'timeout' ? 'bg-amber-500/90' : 'bg-rose-600/90'
+                <div className={`absolute inset-0 z-50 flex flex-col items-center justify-center backdrop-blur-md transition-all duration-0 ${feedback === 'correct' ? 'bg-emerald-500/90' : feedback === 'timeout' ? 'bg-amber-500/90' : 'bg-rose-600/90'
                     }`}>
                     <div className="transform animate-bounce mb-4">
                         {feedback === 'correct' ? (

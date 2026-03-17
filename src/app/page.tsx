@@ -21,15 +21,27 @@ export default function Home() {
         const res = await fetch("/api/avatars");
         const data = await res.json();
         if (data.avatars && data.avatars.length > 0) {
-          const shuffled = [...data.avatars].sort(() => Math.random() - 0.5);
-          setShuffledMemes(shuffled);
-          setSelectedGif(shuffled[0]);
+          setShuffledMemes(prev => {
+            const currentUrls = new Set(data.avatars);
+            const filteredPrev = prev.filter(url => currentUrls.has(url));
+            const prevUrls = new Set(filteredPrev);
+            const newItems = data.avatars.filter((url: string) => !prevUrls.has(url));
+            
+            if (newItems.length > 0 || filteredPrev.length !== prev.length) {
+              return [...newItems.sort(() => Math.random() - 0.5), ...filteredPrev];
+            }
+            return prev;
+          });
+          setSelectedGif(prev => prev || data.avatars[0]);
         }
       } catch (err) {
         console.error("Error loading avatars:", err);
       }
     };
+    
     loadAvatars();
+    const interval = setInterval(loadAvatars, 3000); // Polling cada 3 segundos
+    return () => clearInterval(interval);
   }, []);
 
   // Si envíamos el link a un alumno ?pin=ABCDEF
