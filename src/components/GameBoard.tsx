@@ -225,7 +225,7 @@ export default function GameBoard({ gameId }: GameBoardProps) {
     }, [gameId]);
 
     useEffect(() => {
-        if (gameMode === "ludo") {
+        if (gameMode?.startsWith("ludo")) {
             const teamNames = ["Verde", "Rojo", "Amarillo", "Azul"].slice(0, ludoTeamsCount);
             const newTeams: Record<string, Player[]> = {};
             teamNames.forEach(name => newTeams[name] = []);
@@ -260,7 +260,7 @@ export default function GameBoard({ gameId }: GameBoardProps) {
         </div>
     );
 
-    const isLudo = gameMode === "ludo";
+    const isLudo = gameMode?.startsWith("ludo");
 
     return (
         <div className="w-full h-full flex flex-row items-center justify-center overflow-hidden relative p-4 gap-8">

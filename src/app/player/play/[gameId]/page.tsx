@@ -341,10 +341,10 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 if (pError || count === 0) {
                     console.error("Error updating player record (Secret mismatch or DB error):", pError, "Rows affected:", count);
                 } else {
-                    // --- LÓGICA DE "COMER" (KICK MECHANIC) ---
-                    // Solo en modo LUDO, si avanzamos (isCorrect) y no estamos en la meta
-                    if (mode === 'ludo' && isCorrect && nextPos > 0 && nextPos < totalQuestions) {
-                        const checkCollision = async () => {
+                     // --- LÓGICA DE "COMER" (KICK MECHANIC) ---
+                     // Solo en modo LUDO (si está activado), si avanzamos (isCorrect) y no estamos en la meta
+                     if (mode.startsWith('ludo') && !mode.includes('nokick') && isCorrect && nextPos > 0 && nextPos < totalQuestions) {
+                         const checkCollision = async () => {
                             // Obtener coordenadas de todos los jugadores si es Ludo, o solo posiciones si es Carrera
                             const currentPlayers = players.filter(p => p.id !== playerId);
 
@@ -356,16 +356,20 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                                     const getLudoCoord = (p: any, pos: number) => {
                                         const commonCircuit = [[1, 6], [2, 6], [3, 6], [4, 6], [5, 6], [6, 5], [6, 4], [6, 3], [6, 2], [6, 1], [6, 0], [7, 0], [8, 0], [8, 1], [8, 2], [8, 3], [8, 4], [8, 5], [9, 6], [10, 6], [11, 6], [12, 6], [13, 6], [14, 6], [14, 7], [14, 8], [13, 8], [12, 8], [11, 8], [10, 8], [9, 8], [8, 9], [8, 10], [8, 11], [8, 12], [8, 13], [8, 14], [7, 14], [6, 14], [6, 13], [6, 12], [6, 11], [6, 10], [6, 9], [5, 8], [4, 8], [3, 8], [2, 8], [1, 8], [0, 8], [0, 7], [0, 6]];
                                         const teamOffsets = [0, 13, 26, 39];
-                                        const teamNames = ["Verde", "Rojo", "Amarillo", "Azul"].slice(0, ludoTeamsCount);
+                                        
+                                        // ESCALADO IGUAL QUE EN GAMEBOARD (Pregunta / Total)
+                                        const progress = Math.min(pos / (totalQuestions || 1), 1);
+                                        const pathIndex = Math.floor(progress * 58); // Bases(1) + Circuito(52) + Finales(6) = 59 celdas. Índices 0-58.
+
                                         const sorted = [...players, { id: playerId, ...pData }].sort((a, b) => a.id.localeCompare(b.id));
                                         const idx = sorted.findIndex(pl => pl.id === p.id);
                                         const teamIdx = idx % ludoTeamsCount;
                                         const offset = teamOffsets[teamIdx];
 
-                                        if (pos === 0) return `base_${teamIdx}`; // Safe at base
-                                        if (pos > 52) return `final_${teamIdx}_${pos}`; // Safe at finals
+                                        if (pathIndex === 0) return `base_${teamIdx}`; // Safe at base
+                                        if (pathIndex >= 53) return `final_${teamIdx}_${pathIndex}`; // Safe at finals
 
-                                        const loopIdx = (pos - 1 + offset) % 52;
+                                        const loopIdx = (pathIndex - 1 + offset) % 52;
                                         return `${commonCircuit[loopIdx][0]},${commonCircuit[loopIdx][1]}`;
                                     };
 

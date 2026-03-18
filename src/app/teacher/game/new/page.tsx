@@ -20,6 +20,7 @@ function StartGameContent() {
     const [enableGameTimer, setEnableGameTimer] = useState(false);
     const [enableQuestionTimer, setEnableQuestionTimer] = useState(true);
     const [gameMode, setGameMode] = useState<'classic' | 'race' | 'ludo'>('classic');
+    const [isKickEnabled, setIsKickEnabled] = useState(true);
     const [dataLoaded, setDataLoaded] = useState(false);
     const [gameDuration, setGameDuration] = useState(10); // Minutos
     const [questionDuration, setQuestionDuration] = useState(20); // Segundos
@@ -57,7 +58,7 @@ function StartGameContent() {
                 pin: pin,
                 status: "waiting",
                 auto_end: autoEnd,
-                game_mode: gameMode,
+                game_mode: gameMode === 'ludo' && !isKickEnabled ? 'ludo_nokick' : gameMode,
                 game_duration: (enableGameTimer && !autoEnd) ? gameDuration : null,
                 question_duration: enableQuestionTimer ? questionDuration : 0
             };
@@ -215,6 +216,18 @@ function StartGameContent() {
                             />
                         )}
                     </div>
+ 
+                    {/* Comer oponentes (Sólo en Ludo) */}
+                    {gameMode === 'ludo' && (
+                        <div className="p-4 rounded-[1.8rem] bg-white/[0.02] border border-white/5 space-y-3">
+                            <div onClick={() => setIsKickEnabled(!isKickEnabled)} className="flex items-center justify-between cursor-pointer px-1">
+                                <span className="text-left text-xs font-bold text-gray-400 uppercase tracking-widest">💥 Comer Oponentes</span>
+                                <div className={`w-12 h-6 rounded-full p-1 flex items-center transition-colors ${isKickEnabled ? 'bg-indigo-500' : 'bg-gray-800'}`}>
+                                    <div className={`w-4 h-4 bg-white rounded-full transition-transform ${isKickEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                 </div>
 
