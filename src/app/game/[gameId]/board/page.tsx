@@ -35,8 +35,10 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
             .order("current_position", { ascending: false });
 
         if (allP) {
-            setPodium(allP.slice(0, 3));
-            setAllPlayers(allP);
+            // Filtrar alumnos que abandonaron la partida (Posición -1)
+            const filtered = allP.filter((p: any) => p.current_position !== -1);
+            setPodium(filtered.slice(0, 3));
+            setAllPlayers(filtered);
         }
     };
 
@@ -84,6 +86,11 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
         };
         fetchGameAndPerms();
 
+        
+        const refreshCount = async () => {
+            const { count } = await supabase.from('game_players').select('*', { count: 'exact', head: true }).eq('game_id', gameId);
+            setPlayerCount(count || 0);
+        };
         const channel = supabase.channel(`game_room_status_${gameId}`)
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
                 (payload) => {
@@ -93,8 +100,8 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                     }
                 }
             )
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'game_players', filter: `game_id=eq.${gameId}` },
-                () => setPlayerCount(prev => prev + 1)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'game_players', filter: `game_id=eq.${gameId}` },
+                () => refreshCount()
             ).subscribe();
 
         // Obtener el conteo inicial
@@ -219,15 +226,21 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                             </button>
 
                             {canControl && (
-                                <button
-                                    onClick={startGame}
-                                    className="group relative px-8 py-3.5 bg-green-500 hover:bg-green-600 rounded-xl font-black shadow-lg text-lg transition-all hover:scale-[1.03] active:scale-95 border-2 border-green-400 overflow-hidden"
-                                >
-                                    <div className="absolute inset-0 bg-white/20 skew-x-12 -translate-x-full group-hover:animate-[shimmer_1s_forwards]"></div>
-                                    <span className="relative z-10 flex items-center gap-2">
-                                        <span className="text-2xl">🚀</span> INICIAR
-                                    </span>
-                                </button>
+                                <div className="relative group/tooltip">
+                                    <button onClick={startGame} disabled={playerCount < 1} className="group relative px-8 py-3.5 bg-green-500 hover:bg-green-600 rounded-xl font-black shadow-lg text-lg transition-all hover:scale-[1.03] active:scale-95 border-2 border-green-400 overflow-hidden disabled:bg-gray-700 disabled:border-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed disabled:scale-100 disabled:hover:scale-100 w-full"
+                                    >
+                                        <div className="absolute inset-0 bg-white/20 skew-x-12 -translate-x-full group-hover:animate-[shimmer_1s_forwards]"></div>
+                                        <span className="relative z-10 flex items-center gap-2">
+                                            <span className="text-2xl">🚀</span> INICIAR
+                                        </span>
+                                    </button>
+                                    
+                                    {playerCount < 1 && (
+                                        <div className="absolute top-full mt-3 left-1/2 -translate-x-1/2 opacity-0 group-hover/tooltip:opacity-100 transition-all duration-300 bg-slate-900/95 backdrop-blur-md text-white font-black text-[11px] px-4 py-2.5 rounded-2xl shadow-2xl whitespace-nowrap pointer-events-none border border-white/10 flex items-center gap-1.5 animate-bounce-short z-30">
+                                            <span className="text-sm">💡</span> Debe haber mínimo 1 jugador
+                                        </div>
+                                    )}
+                                </div>
                             )}
                         </>
                     )}

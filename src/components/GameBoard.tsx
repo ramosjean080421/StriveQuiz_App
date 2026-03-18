@@ -197,12 +197,21 @@ export default function GameBoard({ gameId }: GameBoardProps) {
         };
         fetchGameData();
 
-        const channel = supabase.channel(`game_${gameId}`)
+        const channel = supabase.channel(`game_${gameId}`, {
+            config: { presence: { key: "board" } }
+        })
             .on("postgres_changes", { event: "INSERT", schema: "public", table: "game_players", filter: `game_id=eq.${gameId}` }, (payload) => {
                 setPlayers((prev) => [...prev, payload.new as Player]);
             })
             .on("postgres_changes", { event: "UPDATE", schema: "public", table: "game_players", filter: `game_id=eq.${gameId}` }, (payload) => {
                 const newPlayer = payload.new as Player & { correct_answers?: number, incorrect_answers?: number, game_id?: string };
+                
+                // Si el alumno se salda voluntariamente (-1), lo removemos
+                if (newPlayer.current_position === -1) {
+                    setPlayers((prev) => prev.filter(p => p.id !== newPlayer.id));
+                    return;
+                }
+
                 const oldPlayer = playersRef.current.find(p => p.id === newPlayer.id);
                 
                 if (oldPlayer) {
@@ -219,6 +228,34 @@ export default function GameBoard({ gameId }: GameBoardProps) {
                     }
                 }
                 setPlayers((prev) => prev.map((p) => p.id === payload.new.id ? (payload.new as Player) : p));
+            })
+            .on("postgres_changes", { event: "DELETE", schema: "public", table: "game_players", filter: `game_id=eq.${gameId}` }, (payload) => {
+                setPlayers((prev) => prev.filter((p) => p.id !== payload.old.id));
+            })
+            .on("presence", { event: "leave" }, ({ leftPresences }) => {
+                leftPresences.forEach(async (p: any) => {
+                    // Soporte para lectura plana, objeto o array en .state
+                    const id = p.player_id || p.state?.player_id || p.state?.[0]?.player_id;
+                    const secret = p.secret || p.state?.secret || p.state?.[0]?.secret;
+                    const name = p.player_name || p.state?.player_name || p.state?.[0]?.player_name;
+
+                    if (id && secret) {
+                        try {
+                            console.log(`[PRESENCE_LEAVE] Borrando alumno definitivo: ${name || id}`);
+                            
+                            // Usar la ruta API segura que ejecuta el borrado definitivo en servidor para reportes
+                            fetch('/api/leave_player', {
+                                method: 'POST',
+                                keepalive: true,
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ id, secret })
+                            });
+
+                            // Dejar EXACTAMENTE igual el borrado de la lista local (que ya funciona bien)
+                            setPlayers((prev) => prev.filter(pl => pl.id !== id));
+                        } catch (e) { console.error("Error on presence leave delete:", e); }
+                    }
+                });
             })
             .subscribe();
         return () => { supabase.removeChannel(channel); };
@@ -238,20 +275,30 @@ export default function GameBoard({ gameId }: GameBoardProps) {
         }
     }, [players, gameMode, ludoTeamsCount]);
 
-    // Efecto para que los avatares "caminen" casilla a casilla
+    // Efecto para que los avatares "caminen" casilla a casilla (Corregido: Evita carrera de estados)
     useEffect(() => {
-        players.forEach(p => {
-            const currentUI = uiPositions[p.id] ?? p.current_position;
-            if (currentUI < p.current_position) {
-                const timer = setTimeout(() => {
-                    setUiPositions(prev => ({ ...prev, [p.id]: currentUI + 1 }));
-                }, 500); // 500ms para un caminar más pausado y premium
-                return () => clearTimeout(timer);
-            } else if (currentUI > p.current_position) {
-                setUiPositions(prev => ({ ...prev, [p.id]: p.current_position }));
-            }
-        });
-    }, [players, uiPositions]);
+        const timer = setInterval(() => {
+            setUiPositions(prev => {
+                const nextUi = { ...prev };
+                let hasChanges = false;
+                
+                players.forEach(p => {
+                    const currentUI = prev[p.id] ?? p.current_position;
+                    if (currentUI < p.current_position) {
+                        nextUi[p.id] = currentUI + 1;
+                        hasChanges = true;
+                    } else if (currentUI > p.current_position) {
+                        nextUi[p.id] = p.current_position;
+                        hasChanges = true;
+                    }
+                });
+                
+                return hasChanges ? nextUi : prev;
+            });
+        }, 350); // Tiempo por paso
+        
+        return () => clearInterval(timer);
+    }, [players]);
 
     if (loading) return (
         <div className="flex flex-col items-center justify-center min-h-[70vh] text-white">
@@ -329,17 +376,22 @@ export default function GameBoard({ gameId }: GameBoardProps) {
                         const teamIdx = teamNames.indexOf(teamName || "");
                         const path = getLudoPath(teamIdx >= 0 ? teamIdx : 0);
                         
-                        // Usamos uiPositions para el renderizado suave
                         const currentPos = uiPositions[player.id] ?? player.current_position;
                         const progress = Math.min(currentPos / (totalQuestions || 1), 1);
                         const vIdx = progress * (path.length - 1);
                         const iA = Math.floor(vIdx);
                         const iB = Math.min(iA + 1, path.length - 1);
                         const w = vIdx - iA;
-                        coordinate = { 
-                            x: path[iA].x + (path[iB].x - path[iA].x) * w, 
-                            y: path[iA].y + (path[iB].y - path[iA].y) * w 
-                        };
+                        
+                        if (path[iA] && path[iB]) {
+                            coordinate = { 
+                                x: path[iA].x + (path[iB].x - path[iA].x) * w, 
+                                y: path[iA].y + (path[iB].y - path[iA].y) * w 
+                            };
+                        }
+
+                        // Debug log para ver por qué no se mueven
+                        console.log(`[COORD_DEBUG] ${player.player_name} ({uiPositions[player.id] ?? player.current_position}/{totalQuestions}): currPos=${currentPos}, totalQ=${totalQuestions}, vIdx=${vIdx.toFixed(2)}, x=${coordinate.x.toFixed(1)}%, y=${coordinate.y.toFixed(1)}%`);
                     } else if (boardPath.length > 0) {
                         const currentPos = uiPositions[player.id] ?? player.current_position;
                         const safeIdx = Math.min(Math.max(0, currentPos), boardPath.length - 1);

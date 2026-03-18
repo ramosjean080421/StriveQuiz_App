@@ -99,7 +99,7 @@ export default function Home() {
         .single();
 
       if (gameError || !game) throw new Error("PIN de sala no válido o partida no encontrada.");
-      if (game.status === "finished") throw new Error("La partida ya ha finalizado.");
+      if (game.status !== "waiting") throw new Error("No puedes ingresar, la partida ya ha iniciado o finalizado.");
 
       // Verificar si el nombre ya está registrado en la sala (Case-Insensitive)
       const { data: existingPlayer } = await supabase

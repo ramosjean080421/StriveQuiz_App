@@ -72,17 +72,38 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         } catch (e) { }
     };
 
-    // Sistema anti cerrado accidental
+    // Sistema anti cerrado accidental + descarga descarga datos
     useEffect(() => {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
             if ((gameStatus === "active" || gameStatus === "paused") && !hasFinishedAll) {
                 e.preventDefault();
-                e.returnValue = ""; // Standard para navegadores modernos
+                e.returnValue = ""; 
             }
         };
 
+        const handleUnload = () => {
+             const savedPlayerId = localStorage.getItem("currentPlayerId");
+             const savedSecret = localStorage.getItem("playerSecret");
+             if (savedPlayerId && savedSecret) {
+                  const data = JSON.stringify({ id: savedPlayerId, secret: savedSecret });
+                  fetch('/api/leave_player', {
+                      method: 'POST',
+                      keepalive: true,
+                      headers: { 'Content-Type': 'application/json' },
+                      body: data
+                  });
+             }
+        };
+
         window.addEventListener("beforeunload", handleBeforeUnload);
-        return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+        window.addEventListener("pagehide", handleUnload);
+        window.addEventListener("unload", handleUnload);
+
+        return () => {
+            window.removeEventListener("beforeunload", handleBeforeUnload);
+            window.removeEventListener("pagehide", handleUnload);
+            window.removeEventListener("unload", handleUnload);
+        };
     }, [gameStatus, hasFinishedAll]);
 
     // Cronómetro visual
@@ -132,6 +153,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
     useEffect(() => {
         // 1. Recuperar la ID del Jugador del localStorage
+
         const savedPlayerId = localStorage.getItem("currentPlayerId");
         const savedSecret = localStorage.getItem("playerSecret");
         if (!savedPlayerId) {
@@ -215,7 +237,15 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                     }
                 }
             )
-            .subscribe();
+            .subscribe(async (status) => {
+                if (status === "SUBSCRIBED") {
+                    const savedPlayerId = localStorage.getItem("currentPlayerId");
+                    if (savedPlayerId) {
+                        const savedSecret = localStorage.getItem("playerSecret");
+                        await channel.track({ player_id: savedPlayerId, secret: savedSecret });
+                    }
+                }
+            });
 
         return () => { supabase.removeChannel(channel); };
     }, [gameId]);
@@ -313,14 +343,14 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
 
                 if (isCorrect) {
-                    if (mode === "classic" || mode === "race" || mode === "ludo") {
+                    if (mode === "classic" || mode === "race" || mode.startsWith("ludo")) {
                         nextPos += 1;
                     }
 
                     newScore += 100 + timeLeft * 10;
                     newCorrect += 1;
                 } else {
-                    if (mode === "classic" || mode === "race" || mode === "ludo") {
+                    if (mode === "classic" || mode === "race" || mode.startsWith("ludo")) {
                         // Retrocede una posición si se equivoca, mínimo en 0
                         nextPos = Math.max(0, nextPos - 1);
                     }
@@ -341,62 +371,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 if (pError || count === 0) {
                     console.error("Error updating player record (Secret mismatch or DB error):", pError, "Rows affected:", count);
                 } else {
-                     // --- LÓGICA DE "COMER" (KICK MECHANIC) ---
-                     // Solo en modo LUDO (si está activado), si avanzamos (isCorrect) y no estamos en la meta
-                     if (mode.startsWith('ludo') && !mode.includes('nokick') && isCorrect && nextPos > 0 && nextPos < totalQuestions) {
-                         const checkCollision = async () => {
-                            // Obtener coordenadas de todos los jugadores si es Ludo, o solo posiciones si es Carrera
-                            const currentPlayers = players.filter(p => p.id !== playerId);
-
-                            for (const other of currentPlayers) {
-                                let isCollision = false;
-
-                                if (mode === 'ludo') {
-                                    // Helper para obtener coord de Ludo (debe coincidir con GameBoard)
-                                    const getLudoCoord = (p: any, pos: number) => {
-                                        const commonCircuit = [[1, 6], [2, 6], [3, 6], [4, 6], [5, 6], [6, 5], [6, 4], [6, 3], [6, 2], [6, 1], [6, 0], [7, 0], [8, 0], [8, 1], [8, 2], [8, 3], [8, 4], [8, 5], [9, 6], [10, 6], [11, 6], [12, 6], [13, 6], [14, 6], [14, 7], [14, 8], [13, 8], [12, 8], [11, 8], [10, 8], [9, 8], [8, 9], [8, 10], [8, 11], [8, 12], [8, 13], [8, 14], [7, 14], [6, 14], [6, 13], [6, 12], [6, 11], [6, 10], [6, 9], [5, 8], [4, 8], [3, 8], [2, 8], [1, 8], [0, 8], [0, 7], [0, 6]];
-                                        const teamOffsets = [0, 13, 26, 39];
-                                        
-                                        // ESCALADO IGUAL QUE EN GAMEBOARD (Pregunta / Total)
-                                        const progress = Math.min(pos / (totalQuestions || 1), 1);
-                                        const pathIndex = Math.floor(progress * 58); // Bases(1) + Circuito(52) + Finales(6) = 59 celdas. Índices 0-58.
-
-                                        const sorted = [...players, { id: playerId, ...pData }].sort((a, b) => a.id.localeCompare(b.id));
-                                        const idx = sorted.findIndex(pl => pl.id === p.id);
-                                        const teamIdx = idx % ludoTeamsCount;
-                                        const offset = teamOffsets[teamIdx];
-
-                                        if (pathIndex === 0) return `base_${teamIdx}`; // Safe at base
-                                        if (pathIndex >= 53) return `final_${teamIdx}_${pathIndex}`; // Safe at finals
-
-                                        const loopIdx = (pathIndex - 1 + offset) % 52;
-                                        return `${commonCircuit[loopIdx][0]},${commonCircuit[loopIdx][1]}`;
-                                    };
-
-                                    const myCoord = getLudoCoord({ id: playerId }, nextPos);
-                                    const otherCoord = getLudoCoord(other, other.current_position);
-
-                                    // No se puede comer en bases ni en finales
-                                    if (myCoord === otherCoord && !myCoord.startsWith('base') && !myCoord.startsWith('final')) {
-                                        isCollision = true;
-                                    }
-                                } else {
-                                    // Carrera clásica: si caigo exactamente en la misma casilla
-                                    if (other.current_position === nextPos && nextPos !== 0) {
-                                        isCollision = true;
-                                    }
-                                }
-
-                                if (isCollision) {
-                                    // ¡BANG! Mandamos al otro al inicio
-                                    await supabase.from("game_players").update({ current_position: 0 }).eq("id", other.id);
-                                    // Notificar (Opcional: podrías añadir un mensaje en el tablero)
-                                    console.log(`¡Jugador ${other.player_name} comido por ${pData.player_name}!`);
-                                }
-                            }
-                        };
-                        checkCollision();
-                    }
+                    // Lógica de colisión eliminada.
 
                     // Si terminó todas las preguntas y el autoEnd está activo, cerramos el juego para todos
                     if (currentQuestionIdx >= questions.length - 1 && gData?.auto_end) {
@@ -526,11 +501,12 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
     return (
         <div className="h-screen w-screen flex flex-col bg-gray-100 overflow-y-auto relative font-sans custom-scrollbar select-none">
-
-
             {/* Header Mini - Progreso */}
             <div className="bg-white px-4 py-3 flex justify-between items-center z-10 sticky top-0 border-b border-gray-100">
-                <div className="font-black text-xl text-transparent bg-clip-text bg-indigo-600 tracking-tight">StriveQuiz</div>
+                <div className="flex items-center gap-3">
+                    <div className="font-black text-xl text-transparent bg-clip-text bg-indigo-600 tracking-tight leading-none">StriveQuiz</div>
+                    
+                </div>
                 <div className="flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100">
                     <span className="text-xs font-bold text-indigo-800 uppercase tracking-widest">Pregunta</span>
                     <span className="bg-indigo-600 text-white text-xs font-black px-2.5 h-7 flex items-center justify-center rounded-lg">{currentQuestionIdx + 1}/{questions.length}</span>
