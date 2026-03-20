@@ -40,7 +40,7 @@ export default function Home() {
     };
     
     loadAvatars();
-    const interval = setInterval(loadAvatars, 3000); // Polling cada 3 segundos
+    const interval = setInterval(loadAvatars, 30000); // Polling cada 30 segundos
     return () => clearInterval(interval);
   }, []);
 

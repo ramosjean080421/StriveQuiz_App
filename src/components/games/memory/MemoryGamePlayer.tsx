@@ -186,12 +186,13 @@ export default function MemoryGamePlayer({
                 setFlipped([]);
                 setLockBoard(false);
 
-                onSubmit(100, currentPairsFound);
-
+                let pointsToAdd = 100;
                 if (currentPairsFound === questions.length) {
                     setIsFinished(true);
-                    onSubmit(1000 + (timeLeft * 10), currentPairsFound); 
+                    pointsToAdd += 1000 + (timeLeft * 10);
                 }
+                
+                onSubmit(pointsToAdd, currentPairsFound);
             } else {
                 setShakeCards([...newFlipped]);
                 setTimeout(() => {

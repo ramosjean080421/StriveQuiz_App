@@ -457,11 +457,23 @@ export default function TeacherDashboard() {
                             {quizzes.map((quiz) => (
                                 <div key={quiz.id} className="bg-white/80 backdrop-blur-lg rounded-[2rem] border border-white transition-all duration-300 group flex flex-col overflow-hidden transform hover:-translate-y-1">
                                                 {/* Cabecera de Tarjeta con Fondo de Mapa */}
-                                                <div className="px-6 py-8 flex-1 relative overflow-hidden">
+                                                <div 
+                                                    className="px-6 py-8 flex-1 relative overflow-hidden cursor-pointer group/header"
+                                                    onClick={() => {
+                                                        const userEmail = user?.email?.toLowerCase() || "";
+                                                        const isOwner = quiz.teacher_id === user?.id;
+                                                        const isEditor = quiz.editors_emails?.some(e => e.toLowerCase() === userEmail);
+                                                        if (isOwner || isEditor) {
+                                                            router.push(`/teacher/quiz/builder?editId=${quiz.id}`);
+                                                        } else {
+                                                            showToast("Acceso de Solo Lectura. Solicita permiso de editor al dueño para modificar.", "error");
+                                                        }
+                                                    }}
+                                                >
                                                     {/* Imagen de Fondo Borrosa */}
                                                     {quiz.board_image_url && (
                                                         <div
-                                                            className={`absolute inset-0 z-0 opacity-20 group-hover:opacity-40 transition-opacity duration-500 blur-[2px] scale-110 group-hover:scale-125 ${quiz.board_image_url === '/LUDO_PROCEDURAL' ? 'bg-gradient-to-br from-red-500 via-blue-500 to-emerald-500' : ''}`}
+                                                            className={`absolute inset-0 z-0 opacity-20 group-hover/header:opacity-40 transition-opacity duration-500 blur-[2px] scale-110 group-hover/header:scale-125 ${quiz.board_image_url === '/LUDO_PROCEDURAL' ? 'bg-gradient-to-br from-red-500 via-blue-500 to-emerald-500' : ''}`}
                                                             style={quiz.board_image_url !== '/LUDO_PROCEDURAL' ? {
                                                                 backgroundImage: `url(${quiz.board_image_url})`,
                                                                 backgroundSize: 'cover',

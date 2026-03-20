@@ -137,20 +137,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         }
     }, [currentQuestionIdx, questions, questionDuration]);
 
-    if (errorMessage) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-950 p-6 text-center">
-                <div className="bg-red-500/10 border border-red-500/30 p-10 rounded-[3rem] backdrop-blur-xl animate-bounce-short">
-                    <div className="text-6xl mb-6">🚫</div>
-                    <h2 className="text-2xl font-black text-white mb-4 uppercase tracking-tighter">¡Ups! Algo salió mal</h2>
-                    <p className="text-red-400 font-bold text-sm leading-relaxed">{errorMessage}</p>
-                    <div className="mt-8 flex justify-center">
-                        <div className="w-12 h-1 border-t-4 border-red-500/30 border-dashed animate-pulse"></div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
+
 
     useEffect(() => {
         // 1. Recuperar la ID del Jugador del localStorage
@@ -407,6 +394,21 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
             <span className="text-3xl font-black text-indigo-400">Cargando Aventura...</span>
         </div>
     );
+
+    if (errorMessage) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-950 p-6 text-center">
+                <div className="bg-red-500/10 border border-red-500/30 p-10 rounded-[3rem] backdrop-blur-xl animate-bounce-short">
+                    <div className="text-6xl mb-6">🚫</div>
+                    <h2 className="text-2xl font-black text-white mb-4 uppercase tracking-tighter">¡Ups! Algo salió mal</h2>
+                    <p className="text-red-400 font-bold text-sm leading-relaxed">{errorMessage}</p>
+                    <div className="mt-8 flex justify-center">
+                        <div className="w-12 h-1 border-t-4 border-red-500/30 border-dashed animate-pulse"></div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     if (gameStatus === "waiting") {
         return (

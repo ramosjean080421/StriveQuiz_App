@@ -13,6 +13,19 @@ export async function POST(req: Request) {
 
         const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+        // 0. Validar que el ID y el Secreto coinciden (Seguridad)
+        const { data: validPlayer, error: authError } = await supabase
+            .from("game_players")
+            .select("id")
+            .eq("id", id)
+            .eq("secret_token", secret)
+            .single();
+
+        if (authError || !validPlayer) {
+            console.error(`[ROUTE_API] Unauthorized leave attempt for id=${id}`);
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         // 1. Borrar respuestas asociadas para evitar errores de clave foránea (Manual Cascade)
         await supabase.from("game_responses")
             .delete()
@@ -26,8 +39,7 @@ export async function POST(req: Request) {
         // 3. Borrar de la base de datos para que no salga en reportes
         const { error } = await supabase.from("game_players")
             .delete()
-            .eq("id", id)
-            .eq("secret_token", secret);
+            .eq("id", id);
 
         if (error) console.error("Error deleting player on exit route:", error);
 
