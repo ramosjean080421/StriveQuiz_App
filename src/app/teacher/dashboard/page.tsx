@@ -22,6 +22,12 @@ export default function TeacherDashboard() {
     const [user, setUser] = useState<any>(null);
     const [isApproved, setIsApproved] = useState<boolean>(true); // Por defecto true para no romper nada si no hay columna
     const [isCheckingApproval, setIsCheckingApproval] = useState(true);
+    const [isAdmin, setIsAdmin] = useState<boolean>(false); // 👑 Estado dinámico para Administrador
+
+    // Estados para Administración (Modal Invisible)
+    const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+    const [teachersList, setTeachersList] = useState<any[]>([]);
+    const [loadingAdminData, setLoadingAdminData] = useState(false);
 
     // Estados para Modales Personalizados
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
@@ -40,25 +46,43 @@ export default function TeacherDashboard() {
             const { data: authData } = await supabase.auth.getUser();
             if (!authData.user) {
                 router.push("/teacher/login");
+                setLoading(false);
+                setIsCheckingApproval(false);
                 return;
             }
             setUser(authData.user);
 
-            // 1. Verificar Aprobación (Seguridad)
+            // 1. Verificar Aprobación y Rol de Admin (Seguridad)
             try {
                 const { data: profile, error: profileErr } = await supabase
                     .from("teacher_profiles")
-                    .select("is_approved")
-                    .eq("email", authData.user.email?.toLowerCase())
+                    .select("is_approved, is_admin")
+                    .eq("id", authData.user.id)
                     .single();
 
                 if (profileErr) {
-                    // Si falla porque la columna no existe en Supabase todavía,
-                    // permitimos el acceso para no romper el sistema (Retrocompatibilidad).
-                    console.warn("[Dashboard] Column `is_approved` may not exist in Supabase yet. Bypassing lock.", profileErr.message);
-                    setIsApproved(true);
+                    if (profileErr.code === 'PGRST116') {
+                        // Error PGRST116: La fila NO existe (Nuevo usuario con Google)
+                        console.log("[Dashboard] Creando perfil de docente bloqueado para nuevo usuario...");
+                        
+                        await supabase.from("teacher_profiles").insert([{
+                            id: authData.user.id,
+                            email: authData.user.email?.toLowerCase(),
+                            username: authData.user.email?.split('@')[0],
+                            full_name: authData.user.user_metadata?.full_name || authData.user.email?.split('@')[0],
+                            is_approved: false // Bloqueado por defecto
+                        }]);
+                        
+                        setIsApproved(false);
+                    } else {
+                        // Si falla porque la columna no existe u otro error de sintaxis, 
+                        // dejamos pasar para evitar que se caiga el sistema (Retrocompatibilidad).
+                        console.warn("[Dashboard] Error leyendo is_approved. Bypassing lock.", profileErr.message);
+                        setIsApproved(true);
+                    }
                 } else if (profile) {
                     setIsApproved(profile.is_approved === true);
+                    setIsAdmin(profile.is_admin === true || authData.user.email?.toLowerCase() === 'jheam2505@gmail.com');
                 }
             } catch (e) {
                 console.error("Error fetching approval status:", e);
@@ -92,6 +116,78 @@ export default function TeacherDashboard() {
 
         checkUserAndFetchData();
     }, [router]);
+
+    // ==========================================
+    // LOGICA PANEL ADMISTRADOR (MODAL)
+    // ==========================================
+    const fetchAllTeachersForAdmin = async () => {
+        setLoadingAdminData(true);
+        const { data, error } = await supabase
+            .from("teacher_profiles")
+            .select("*")
+            .order("created_at", { ascending: false });
+        
+        if (data) setTeachersList(data);
+        if (error) {
+            console.error("Error fetching teachers admin modal:", error);
+        }
+        setLoadingAdminData(false);
+    };
+
+    useEffect(() => {
+        if (isAdminModalOpen) {
+            fetchAllTeachersForAdmin();
+        }
+    }, [isAdminModalOpen]);
+
+    const handleApproveTeacher = async (id: string, approve: boolean) => {
+        const { error } = await supabase
+            .from("teacher_profiles")
+            .update({ is_approved: approve })
+            .eq("id", id);
+        
+        if (error) showToast("Error al procesar: " + error.message, "error");
+        else {
+            showToast(approve ? "✅ Profesor aprobado con éxito" : "🔒 Profesor bloqueado con éxito");
+            // 🚀 Actualización Local Instantánea
+            setTeachersList(prev => prev.map(t => t.id === id ? { ...t, is_approved: approve } : t));
+            fetchAllTeachersForAdmin();
+        }
+    };
+
+    const handleToggleAdminRole = async (id: string, makeAdmin: boolean) => {
+        const { error } = await supabase
+            .from("teacher_profiles")
+            .update({ is_admin: makeAdmin })
+            .eq("id", id);
+        
+        if (error) {
+            showToast("Error. Recuerda añadir la columna `is_admin` en Supabase: " + error.message, "error");
+        } else {
+            showToast(makeAdmin ? "👑 Ascendido a Administrador" : "💼 Removido de Administración");
+            setTeachersList(prev => prev.map(t => t.id === id ? { ...t, is_admin: makeAdmin } : t));
+            fetchAllTeachersForAdmin();
+        }
+    };
+
+    const handleDeleteTeacher = async (id: string) => {
+        setConfirmModal({
+            isOpen: true,
+            title: "Remover Profesor",
+            message: "¿Estás completamente seguro de que quieres eliminar este perfil de profesor de la plataforma?",
+            isDestructive: true,
+            onConfirm: async () => {
+                setConfirmModal(null);
+                const { error } = await supabase.from("teacher_profiles").delete().eq("id", id);
+                if (error) showToast("Error al eliminar: " + error.message, "error");
+                else {
+                    showToast("🔴 Profesor eliminado de la plataforma");
+                    setTeachersList(prev => prev.filter(t => t.id !== id));
+                    fetchAllTeachersForAdmin();
+                }
+            }
+        });
+    };
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
@@ -441,6 +537,176 @@ export default function TeacherDashboard() {
                 </div>
             )}
 
+            {/* MODAL ADMINISTRADOR (Invisible Trigger) */}
+            {isAdminModalOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-md px-4">
+                    <div className="bg-white rounded-[2.5rem] p-8 max-w-5xl w-full transform transition-all animate-bounce-short border border-gray-100 max-h-[90vh] flex flex-col shadow-2xl relative overflow-hidden">
+                        {/* Decoraciones de fondo */}
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 pointer-events-none"></div>
+                        <div className="absolute bottom-0 left-0 w-32 h-32 bg-amber-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 pointer-events-none"></div>
+
+                        {/* Cabecera */}
+                        <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-100">
+                            <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center shadow-inner">
+                                    <span className="text-2xl">👑</span>
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-black text-gray-900 leading-tight">Panel de Administración</h3>
+                                    <p className="text-sm text-gray-500 font-medium">Gestión de roles de docentes y solicitudes de validación</p>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsAdminModalOpen(false);
+                                }} 
+                                className="flex items-center gap-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 px-4 py-2.5 rounded-xl transition-all border border-transparent shadow-md active:scale-95"
+                            >
+                                <span>🔒</span> CERRAR
+                            </button>
+                        </div>
+
+                        {/* Cuerpo Grid 2 Columnas */}
+                        <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-6 pr-2">
+                            {/* Columna Izquierda: ADMINISTRADORES Y DOCENTES */}
+                            <div className="flex flex-col h-full bg-slate-50 p-5 rounded-3xl border border-gray-100/80 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                                <h4 className="text-sm font-black text-gray-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                    <span className="text-indigo-500">🛡️</span> Administradores
+                                </h4>
+                                
+                                {/* Lista de Profesores que son Admins */}
+                                <div className="space-y-2 bg-white rounded-2xl border border-gray-100 p-3 shadow-sm mb-4">
+                                    {teachersList.filter(t => t.is_admin).map((admin) => (
+                                        <div key={admin.id} className="flex justify-between items-center bg-gradient-to-r from-slate-50 to-white p-3 rounded-xl border border-gray-100 shadow-sm">
+                                            <div className="max-w-[150px] sm:max-w-none truncate flex items-center gap-2">
+                                                <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-black text-white shadow-md">
+                                                    {admin.full_name?.charAt(0) || 'A'}
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs font-black text-gray-900 truncate">{admin.full_name || admin.username}</p>
+                                                    <p className="text-[9px] text-gray-400 font-medium truncate">{admin.email}</p>
+                                                </div>
+                                            </div>
+                                            {/* Acciones */}
+                                            <div className="flex gap-1">
+                                                {admin.email?.toLowerCase() !== 'jheam2505@gmail.com' ? (
+                                                    <button 
+                                                        onClick={() => handleToggleAdminRole(admin.id, false)}
+                                                        className="text-[9px] font-black bg-red-600 hover:bg-red-700 text-white px-2.5 py-1.5 rounded-md transition-colors"
+                                                    >
+                                                        Remover
+                                                    </button>
+                                                ): (
+                                                    <span className="bg-indigo-600 text-white text-[10px] font-black px-3 py-1.5 rounded-xl shadow-md border border-transparent">PROPIETARIO 👑</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <h4 className="text-sm font-black text-gray-800 uppercase tracking-wider mb-3 flex items-center gap-1.5 mt-1 border-t border-gray-200/50 pt-3">
+                                    <span className="text-emerald-500">👨‍🏫</span> Docentes Aprobados
+                                </h4>
+
+                                {/* Lista de Profesores Aprobados (no admins) */}
+                                <div className="space-y-2 bg-white rounded-2xl border border-gray-100 p-3 shadow-sm mb-4">
+                                    {teachersList.filter(t => t.is_approved && !t.is_admin).length === 0 ? (
+                                        <p className="text-[10px] text-gray-400 text-center py-2">No hay otros docentes aprobados.</p>
+                                    ) : (
+                                        teachersList.filter(t => t.is_approved && !t.is_admin).map((teach) => (
+                                            <div key={teach.id} className="flex justify-between items-center bg-gradient-to-r from-slate-50 to-white p-3 rounded-xl border border-gray-100 shadow-sm">
+                                                <div className="max-w-[150px] sm:max-w-none truncate flex items-center gap-2">
+                                                    <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-xs font-black text-white shadow-md">
+                                                        {teach.full_name?.charAt(0) || 'P'}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs font-black text-gray-900 truncate">{teach.full_name || teach.username}</p>
+                                                        <p className="text-[9px] text-gray-400 font-medium truncate">{teach.email}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-1">
+                                                    <button 
+                                                        onClick={() => handleDeleteTeacher(teach.id)}
+                                                        className="text-[9px] font-black bg-red-600 hover:bg-red-700 text-white px-2.5 py-1.5 rounded-md transition-colors"
+                                                    >
+                                                        Borrar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+
+                                {/* Formulario rápido para ascender */}
+                                <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm mt-auto">
+                                    <p className="text-[10px] font-black text-gray-500 mb-2 uppercase tracking-wide">Ascender Nuevo Administrador</p>
+                                    <div className="flex gap-2">
+                                        <select 
+                                            className="flex-1 text-xs p-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none cursor-pointer"
+                                            onChange={(e) => {
+                                                if (e.target.value) handleToggleAdminRole(e.target.value, true);
+                                            }}
+                                            defaultValue=""
+                                        >
+                                            <option value="" disabled className="text-gray-900 font-bold">Selecciona un docente aprobado...</option>
+                                            {teachersList.filter(t => !t.is_admin && t.is_approved).map(t => (
+                                                <option key={t.id} value={t.id} className="text-gray-900 font-bold">{t.full_name || t.username} ({t.email})</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Columna Derecha: SOLICITUDES PENDIENTES */}
+                            <div className="flex flex-col h-full bg-amber-50/20 p-5 rounded-3xl border border-amber-100/50">
+                                <h4 className="text-sm font-black text-amber-800 uppercase tracking-wider mb-4 flex items-center gap-1.5">
+                                    <span className="text-amber-500">📩</span> Solicitudes Pendientes
+                                </h4>
+
+                                <div className="space-y-2 overflow-y-auto flex-1 min-h-[250px] bg-white/60 backdrop-blur-sm rounded-2xl border border-amber-100/80 p-4 shadow-sm">
+                                    {teachersList.filter(t => !t.is_approved).length === 0 ? (
+                                        <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                                            <span className="text-4xl mb-2 animate-pulse">🎉</span>
+                                            <p className="text-xs font-black text-gray-500">Todo limpio.</p>
+                                            <p className="text-[10px] text-gray-400">No hay docentes esperando</p>
+                                        </div>
+                                    ) : (
+                                        teachersList.filter(t => !t.is_approved).map((req) => (
+                                            <div key={req.id} className="flex justify-between items-center bg-white p-3 rounded-xl border border-amber-100/40 shadow-sm">
+                                                <div className="max-w-[150px] sm:max-w-none truncate flex items-center gap-2">
+                                                    <div className="w-8 h-8 rounded-full bg-amber-600 flex items-center justify-center text-xs font-black text-white shadow-md">
+                                                        {req.full_name?.charAt(0) || 'P'}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs font-black text-gray-900 truncate">{req.full_name || req.username}</p>
+                                                        <p className="text-[9px] text-gray-400 font-medium truncate">{req.email}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-1.5 ml-2">
+                                                    <button 
+                                                        onClick={() => handleApproveTeacher(req.id, true)}
+                                                        className="text-[10px] font-black bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl transition-all shadow-md active:scale-95"
+                                                    >
+                                                        Aprobar
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleDeleteTeacher(req.id)}
+                                                        className="text-[10px] font-black bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-xl transition-all shadow-md active:scale-95"
+                                                    >
+                                                        Rechazar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Header Lleno de Color */}
             <header className="flex-shrink-0 bg-white border-b border-indigo-100 px-6 py-4 flex justify-between items-center z-20">
                 <div className="flex items-center gap-0 sm:gap-2">
@@ -458,8 +724,18 @@ export default function TeacherDashboard() {
                 </div>
 
                 <div className="flex items-center space-x-6">
-                    <div className="flex-col text-right hidden md:flex justify-center">
-                        <span className="text-sm font-bold text-gray-800">Profesor(a)</span>
+                    <div 
+                        className={`flex-col text-right hidden md:flex justify-center ${isAdmin ? 'cursor-pointer hover:bg-gray-50 px-3 py-1.5 rounded-2xl transition-all border border-transparent hover:border-indigo-100/80 group/admin-btn' : ''}`}
+                        onClick={() => {
+                            if (isAdmin) {
+                                setIsAdminModalOpen(true);
+                            }
+                        }}
+                    >
+                        <span className="text-sm font-bold text-gray-800 flex items-center gap-1">
+                            {isAdmin ? "Administrador(a)" : "Profesor(a)"}
+                            {isAdmin && <span className="text-[10px] bg-indigo-100 text-indigo-600 px-1 rounded-md opacity-0 group-hover/admin-btn:opacity-100 transition-opacity">Panel ⚙️</span>}
+                        </span>
                         <span className="text-xs text-gray-500 mt-0.5">{user?.user_metadata?.full_name || user?.email}</span>
                     </div>
                     <div className="flex items-center gap-3">

@@ -83,6 +83,10 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         };
 
         const handleUnload = () => {
+             // 🛑 Solo borrar si están en la Sala de Espera (Lobby).
+             // Si la partida ya inició ("active"), se preservan sus datos y respuestas.
+             if (gameStatus !== "waiting") return; 
+
              const savedPlayerId = localStorage.getItem("currentPlayerId");
              const savedSecret = localStorage.getItem("playerSecret");
              if (savedPlayerId && savedSecret) {
