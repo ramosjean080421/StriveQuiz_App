@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import MemoryGameBoard from "@/components/games/memory/MemoryGameBoard";
 
 type BoardCoordinate = {
     x: number;
@@ -124,7 +125,7 @@ export default function GameBoard({ gameId }: GameBoardProps) {
     const [boardPath, setBoardPath] = useState<BoardCoordinate[]>([]);
     const [players, setPlayers] = useState<Player[]>([]);
     const [loading, setLoading] = useState(true);
-    const [gameMode, setGameMode] = useState<"classic" | "race" | "ludo">("classic");
+    const [gameMode, setGameMode] = useState<"classic" | "race" | "ludo" | "memory">("classic");
     const [ludoTeamsCount, setLudoTeamsCount] = useState<number>(4);
     const [totalQuestions, setTotalQuestions] = useState<number>(10);
     const [attackAnims, setAttackAnims] = useState<AttackAnim[]>([]);
@@ -306,6 +307,10 @@ export default function GameBoard({ gameId }: GameBoardProps) {
             <p className="text-xl font-black animate-pulse uppercase tracking-widest text-indigo-400">Invocando el Tablero...</p>
         </div>
     );
+
+    if (gameMode === "memory") {
+        return <MemoryGameBoard gameId={gameId} players={players} totalQuestions={totalQuestions} />;
+    }
 
     const isLudo = gameMode?.startsWith("ludo");
 

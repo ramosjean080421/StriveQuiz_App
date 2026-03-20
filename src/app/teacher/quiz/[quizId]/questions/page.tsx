@@ -15,7 +15,7 @@ if (typeof window !== "undefined") {
 
 interface Question {
     id: string;
-    type?: 'multiple_choice' | 'true_false' | 'fill_in_the_blank' | 'matching';
+    type?: 'multiple_choice' | 'true_false' | 'fill_in_the_blank' | 'matching' | 'memory_pair';
     question_text: string;
     options: string[];
     correct_option_index: number;
@@ -30,6 +30,7 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
     const [loading, setLoading] = useState(true);
     const [canEdit, setCanEdit] = useState(false);
     const [user, setUser] = useState<any>(null);
+    const [gameMode, setGameMode] = useState<string>('classic');
 
     const [newText, setNewText] = useState("");
     const [qType, setQType] = useState<'multiple_choice' | 'true_false' | 'fill_in_the_blank' | 'matching'>('multiple_choice');
@@ -45,6 +46,46 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
     const [bulkImportOpen, setBulkImportOpen] = useState(false);
     const [editQuestionId, setEditQuestionId] = useState<string | null>(null);
     const [bulkText, setBulkText] = useState("");
+
+    // --- Estado para el Deck Builder de Memoria ---
+    const [memoryPairs, setMemoryPairs] = useState<{ cardA: string; cardB: string }[]>([{ cardA: "", cardB: "" }]);
+    const [memoryEditId, setMemoryEditId] = useState<string | null>(null);
+
+    const handleAddMemoryPair = async () => {
+        const pair = memoryPairs[memoryPairs.length - 1];
+        if (!pair || !pair.cardA.trim() || !pair.cardB.trim()) {
+            showToast("Ambas cartas deben tener texto.", "error"); return;
+        }
+        setSaving(true);
+        const newQ: any = {
+            quiz_id: quizId,
+            question_text: pair.cardA.trim(),
+            type: 'memory_pair',
+            options: [],
+            correct_option_index: 0,
+            correct_answer: pair.cardB.trim(),
+            matching_pairs: null
+        };
+
+        if (memoryEditId) {
+            const { data, error } = await supabase.from("questions").update(newQ).eq("id", memoryEditId).select().single();
+            if (!error && data) {
+                setQuestions(questions.map(q => q.id === memoryEditId ? data : q));
+                setMemoryEditId(null);
+                showToast("Pareja actualizada.", "success");
+            } else { showToast("Error: " + error?.message, "error"); }
+        } else {
+            const isDuplicate = questions.some(q => q.question_text.trim().toLowerCase() === pair.cardA.trim().toLowerCase());
+            if (isDuplicate) { showToast("Esta pareja ya existe.", "error"); setSaving(false); return; }
+            const { data, error } = await supabase.from("questions").insert([newQ]).select().single();
+            if (!error && data) {
+                setQuestions([...questions, data]);
+                showToast("¡Pareja guardada!", "success");
+            } else { showToast("Error: " + error?.message, "error"); }
+        }
+        setMemoryPairs([{ cardA: "", cardB: "" }]);
+        setSaving(false);
+    };
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
         setToast({ message, type });
@@ -65,7 +106,7 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
             // 1. Verificar si el usuario tiene permiso sobre este quiz
             const { data: quizData, error: quizError } = await supabase
                 .from("quizzes")
-                .select("teacher_id, editors_emails")
+                .select("teacher_id, editors_emails, game_mode")
                 .eq("id", quizId)
                 .single();
 
@@ -88,6 +129,7 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
             }
 
             setCanEdit(true);
+            if (quizData.game_mode) setGameMode(quizData.game_mode);
 
             // 2. Cargar preguntas solo si tiene permiso
             const { data } = await supabase
@@ -678,8 +720,8 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                                 {questions.map((q, idx) => (
                                     <div key={q.id} className="p-5 rounded-2xl border border-gray-200 bg-white transition-shadow relative group">
                                         <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                                            <button onClick={() => handleEditQuestion(q)} className="text-indigo-600 hover:bg-indigo-50 p-2 rounded-lg" title="Editar pregunta">✏️</button>
-                                            <button onClick={() => handleDelete(q.id)} className="text-red-500 hover:bg-red-50 p-2 rounded-lg" title="Borrar pregunta">🗑️</button>
+                                            <button onClick={() => { if (gameMode === 'memory') { setMemoryEditId(q.id); setMemoryPairs([{ cardA: q.question_text, cardB: q.correct_answer || "" }]); } else { handleEditQuestion(q); } }} className="text-indigo-600 hover:bg-indigo-50 p-2 rounded-lg" title="Editar">✏️</button>
+                                            <button onClick={() => handleDelete(q.id)} className="text-red-500 hover:bg-red-50 p-2 rounded-lg" title="Borrar">🗑️</button>
                                         </div>
                                         <div className="flex items-start gap-4 pr-8">
                                             <span className="w-8 h-8 shrink-0 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-black text-sm">{idx + 1}</span>
@@ -688,7 +730,8 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                                                     <span className="bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border border-indigo-200">
                                                         {q.type === 'true_false' ? 'Verdadero o Falso' :
                                                             q.type === 'fill_in_the_blank' ? 'Para Llenar' :
-                                                                q.type === 'matching' ? 'Pareo' : 'Opción Múltiple'}
+                                                                q.type === 'matching' ? 'Pareo' :
+                                                                    q.type === 'memory_pair' ? '🧠 Pareja Memoria' : 'Opción Múltiple'}
                                                     </span>
                                                 </div>
                                                 <h4 className="text-lg font-bold text-gray-900 mb-3 leading-tight whitespace-pre-line">{q.question_text}</h4>
@@ -736,9 +779,99 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                         </div>
                     </div>
 
-                {/* Panel Derecho - Creador Fijo */}
+                {/* Panel Derecho - Creador Fijo / Deck Builder Memoria */}
                 <div className="w-1/2 h-full bg-gray-50 p-8 overflow-y-auto">
                     <div className="max-w-xl mx-auto">
+
+                    {gameMode === 'memory' ? (
+                        /* ====== DECK BUILDER DE MEMORIA ====== */
+                        <div className="bg-white p-8 rounded-3xl border border-gray-100">
+                            <div className="flex items-center gap-3 mb-2">
+                                <span className="text-3xl">🧠</span>
+                                <h2 className="text-2xl font-extrabold text-gray-900">{memoryEditId ? '✏️ Editar Pareja' : 'El Tarjetero'}</h2>
+                            </div>
+                            <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-6">Crea parejas de cartas para el juego de memoria</p>
+
+                            {/* Resumen del Mazo */}
+                            <div className="flex items-center justify-between bg-gradient-to-r from-indigo-50 to-purple-50 p-4 rounded-2xl border border-indigo-100 mb-6">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-lg">📊</span>
+                                    <span className="text-sm font-bold text-indigo-800">Mazo:</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className="bg-indigo-600 text-white text-xs font-black px-3 py-1 rounded-full">{questions.length} Parejas</span>
+                                    <span className="text-gray-400 text-xs font-bold">=</span>
+                                    <span className="bg-purple-600 text-white text-xs font-black px-3 py-1 rounded-full">{questions.length * 2} Cartas</span>
+                                </div>
+                            </div>
+
+                            {questions.length >= 8 && (
+                                <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold p-3 rounded-xl mb-4">
+                                    💡 Recomendamos un máximo de 8 parejas (16 cartas) para pantallas móviles.
+                                </div>
+                            )}
+
+                            {/* Vista Espejo - Carta A ↔ Carta B */}
+                            <div className="space-y-4">
+                                <div className="flex gap-4 items-start">
+                                    {/* Carta A */}
+                                    <div className="flex-1">
+                                        <label className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-2 block">🔵 Carta A — Concepto / Pregunta</label>
+                                        <textarea
+                                            value={memoryPairs[0]?.cardA || ""}
+                                            onChange={(e) => setMemoryPairs([{ ...memoryPairs[0], cardA: e.target.value }])}
+                                            rows={3}
+                                            placeholder="Ej. 2 + 2"
+                                            className="w-full px-4 py-3 bg-indigo-50 border-2 border-indigo-200 rounded-2xl text-indigo-900 font-bold focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all resize-none"
+                                        />
+                                    </div>
+
+                                    {/* Enlace Visual */}
+                                    <div className="flex flex-col items-center justify-center pt-7 gap-1">
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg transition-all duration-300 ${memoryPairs[0]?.cardA?.trim() && memoryPairs[0]?.cardB?.trim() ? 'bg-emerald-100 text-emerald-600 scale-110 ring-4 ring-emerald-200' : 'bg-gray-100 text-gray-400'}`}>
+                                            🔗
+                                        </div>
+                                        <span className={`text-[9px] font-black uppercase tracking-wider transition-colors ${memoryPairs[0]?.cardA?.trim() && memoryPairs[0]?.cardB?.trim() ? 'text-emerald-500' : 'text-gray-300'}`}>
+                                            {memoryPairs[0]?.cardA?.trim() && memoryPairs[0]?.cardB?.trim() ? 'Enlazado' : 'Vacío'}
+                                        </span>
+                                    </div>
+
+                                    {/* Carta B */}
+                                    <div className="flex-1">
+                                        <label className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-2 block">🟢 Carta B — Resultado / Respuesta</label>
+                                        <textarea
+                                            value={memoryPairs[0]?.cardB || ""}
+                                            onChange={(e) => setMemoryPairs([{ ...memoryPairs[0], cardB: e.target.value }])}
+                                            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddMemoryPair(); } }}
+                                            rows={3}
+                                            placeholder="Ej. 4"
+                                            className="w-full px-4 py-3 bg-amber-50 border-2 border-amber-200 rounded-2xl text-amber-900 font-bold focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all resize-none"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-2">
+                                    {memoryEditId && (
+                                        <button type="button" onClick={() => { setMemoryEditId(null); setMemoryPairs([{ cardA: "", cardB: "" }]); }}
+                                            className="flex-1 py-4 bg-gray-100 hover:bg-gray-200 text-gray-600 font-black rounded-xl transition-all">
+                                            Cancelar
+                                        </button>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={handleAddMemoryPair}
+                                        disabled={saving || !memoryPairs[0]?.cardA?.trim() || !memoryPairs[0]?.cardB?.trim()}
+                                        className="flex-[2] py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-xl shadow-xl transition-all active:scale-95 disabled:opacity-50"
+                                    >
+                                        {saving ? "Guardando..." : memoryEditId ? "💾 Actualizar Pareja" : "➕ Guardar Pareja"}
+                                    </button>
+                                </div>
+
+                                <p className="text-[10px] text-gray-400 text-center font-bold italic mt-2">Tip: Presiona <kbd className="bg-gray-200 px-1.5 py-0.5 rounded text-gray-600 not-italic">Enter</kbd> en la Carta B para guardar y seguir creando rápidamente.</p>
+                            </div>
+                        </div>
+                    ) : (
+                        /* ====== CREADOR ESTÁNDAR DE PREGUNTAS ====== */
                         <div className="bg-white p-8 rounded-3xl border border-gray-100">
                             <div className="flex items-center gap-3 mb-8">
                                 <span className="text-3xl">✨</span>
@@ -902,6 +1035,7 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                                 </div>
                             </form>
                         </div>
+                    )}
                     </div>
                 </div>
 

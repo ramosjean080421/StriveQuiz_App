@@ -85,7 +85,7 @@ function QuizBuilderContent() {
     const [localMaps, setLocalMaps] = useState<{ id: number, name: string, url: string }[]>([]);
     const [selectedMap, setSelectedMap] = useState<any>(null);
     const [boardPath, setBoardPath] = useState<Coordinate[]>([]);
-    const [gameMode, setGameMode] = useState<"classic" | "race" | "ludo">("classic");
+    const [gameMode, setGameMode] = useState<"classic" | "race" | "ludo" | "memory">("classic");
     const [ludoTeamsCount, setLudoTeamsCount] = useState<number>(4);
     const [ludoPathType, setLudoPathType] = useState<'bases' | 'circuit' | 'red' | 'blue' | 'green' | 'yellow'>('bases');
     const [ludoPathData, setLudoPathData] = useState<any>({
@@ -285,11 +285,11 @@ function QuizBuilderContent() {
             showToast("Por favor ingresa un título para la aventura.", "error");
             return;
         }
-        if (gameMode !== 'ludo' && boardPath.length < 2) {
+        if (gameMode !== 'ludo' && gameMode !== 'memory' && boardPath.length < 2) {
             showToast("Por favor traza al menos 2 casillas en el tablero.", "error");
             return;
         }
-        if (gameMode !== 'ludo' && !selectedMap) {
+        if (gameMode !== 'ludo' && gameMode !== 'memory' && !selectedMap) {
             showToast("Por favor selecciona un escenario.", "error");
             return;
         }
@@ -301,8 +301,8 @@ function QuizBuilderContent() {
             if (!user) throw new Error("No autenticado");
             const payload = {
                 title,
-                board_image_url: gameMode === 'ludo' ? '/LUDO_PROCEDURAL' : selectedMap.url,
-                board_path: gameMode === 'ludo' ? [] : boardPath,
+                board_image_url: gameMode === 'ludo' ? '/LUDO_PROCEDURAL' : gameMode === 'memory' ? '/reversocarta.png' : selectedMap.url,
+                board_path: (gameMode === 'ludo' || gameMode === 'memory') ? [] : boardPath,
                 game_mode: gameMode,
                 ludo_teams_count: gameMode === 'ludo' ? ludoTeamsCount : null,
                 ludo_path_data: null,
@@ -398,7 +398,8 @@ function QuizBuilderContent() {
                                 {[
                                     { id: 'classic', icon: '🏃', name: 'Clásico' },
                                     { id: 'race', icon: '🏎️', name: 'Carreras' },
-                                    { id: 'ludo', icon: '🎲', name: 'Ludo' }
+                                    { id: 'ludo', icon: '🎲', name: 'Ludo' },
+                                    { id: 'memory', icon: '🧠', name: 'Memoria' }
                                 ].map((mode) => (
                                     <button
                                         key={mode.id}
@@ -445,8 +446,8 @@ function QuizBuilderContent() {
                             </div>
                         )}
 
-                        {/* 2. Selector de Escenario (Mapa) - Solo si NO es Ludo */}
-                        {gameMode !== 'ludo' && (
+                        {/* 2. Selector de Escenario (Mapa) - Solo si NO es Ludo ni Memoria */}
+                        {gameMode !== 'ludo' && gameMode !== 'memory' && (
                             <div className="pt-4 border-t border-gray-100">
                                 <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-3 block">2. Elige dónde jugar (Escenario)</label>
                                 {localMaps.length === 0 ? (
@@ -507,13 +508,17 @@ function QuizBuilderContent() {
                     {/* Sección 3: Instrucciones / Controles de Ruta */}
                     <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-4 rounded-2xl border border-indigo-100/50 mt-6">
                         <h3 className="font-bold text-indigo-900 text-sm mb-3 flex items-center gap-2">
-                            <span className="text-lg">⚙️</span> Trazar Ruta
+                            <span className="text-lg">{gameMode === 'memory' ? '🧠' : '⚙️'}</span> {gameMode === 'memory' ? 'Dinámica del Juego' : gameMode === 'ludo' ? 'Configuración Mapa' : 'Trazar Ruta'}
                         </h3>
 
-                        {gameMode === 'ludo' ? (
+                        {gameMode === 'ludo' || gameMode === 'memory' ? (
                             <div className="bg-amber-50 p-4 rounded-xl border border-amber-200">
                                 <p className="text-xs text-amber-800 font-bold leading-relaxed">
-                                    ✨ <strong>Modo Ludo Automático:</strong> El tablero se generará por código siguiendo las reglas clásicas. No necesitas trazar ninguna ruta manualmente. ¡Todo está listo para jugar!
+                                    {gameMode === 'memory' ? (
+                                        <>🧠 <strong>Modo Memoria:</strong> Pon a prueba tu retentiva. Al iniciar el juego se creará un tablero con cartas de preguntas y respuestas. ¡El alumno tendrá que encontrar todas las parejas antes de que se acabe el tiempo para ganar la máxima puntuación!</>
+                                    ) : (
+                                        <>✨ <strong>Modo Ludo Automático:</strong> El tablero se generará por código siguiendo las reglas clásicas. No necesitas trazar ninguna ruta manualmente. ¡Todo está listo para jugar!</>
+                                    )}
                                 </p>
                             </div>
                         ) : boardPath.length === 0 ? (
@@ -542,8 +547,8 @@ function QuizBuilderContent() {
                         disabled={
                             saving ||
                             !title ||
-                            (gameMode !== 'ludo' && !selectedMap) ||
-                            (gameMode !== 'ludo' && boardPath.length < 2)
+                            (gameMode !== 'ludo' && gameMode !== 'memory' && !selectedMap) ||
+                            (gameMode !== 'ludo' && gameMode !== 'memory' && boardPath.length < 2)
                         }
                         className="w-full flex items-center justify-center gap-2 py-4 px-4 text-base font-bold rounded-2xl text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5 active:scale-95 transition-all outline-none"
                     >
@@ -573,6 +578,14 @@ function QuizBuilderContent() {
                         <div className="bg-indigo-600/20 backdrop-blur-md border border-indigo-500/30 px-6 py-3 rounded-2xl flex items-center gap-3">
                             <span className="text-2xl animate-bounce">🎲</span>
                             <span className="text-white font-black uppercase tracking-widest text-sm">Previsualización de Mapa Procedural</span>
+                        </div>
+                    </div>
+                ) : gameMode === 'memory' ? (
+                    <div className="relative z-10 w-full flex flex-col items-center gap-6 animate-fade-in-up">
+                        <div className="aspect-[3/4] w-64 border-8 border-[#2d1810] rounded-[2rem] shadow-2xl relative overflow-hidden bg-cover bg-center" style={{ backgroundImage: "url('/reversocarta.png')" }}></div>
+                        <div className="bg-indigo-600/20 backdrop-blur-md border border-indigo-500/30 px-6 py-3 rounded-2xl flex items-center gap-3">
+                            <span className="text-2xl animate-bounce">🧠</span>
+                            <span className="text-white font-black uppercase tracking-widest text-sm">Previsualización de Memoria Automática</span>
                         </div>
                     </div>
                 ) : selectedMap ? (

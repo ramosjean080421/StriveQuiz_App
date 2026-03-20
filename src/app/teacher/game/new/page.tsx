@@ -19,11 +19,15 @@ function StartGameContent() {
     const [autoEnd, setAutoEnd] = useState(false);
     const [enableGameTimer, setEnableGameTimer] = useState(false);
     const [enableQuestionTimer, setEnableQuestionTimer] = useState(true);
-    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'ludo'>('classic');
+    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'ludo' | 'memory'>('classic');
     
     const [dataLoaded, setDataLoaded] = useState(false);
     const [gameDuration, setGameDuration] = useState(10); // Minutos
     const [questionDuration, setQuestionDuration] = useState(20); // Segundos
+
+    // Memoria: Tiempo extra por acierto
+    const [enableBonusTime, setEnableBonusTime] = useState(false);
+    const [bonusTimePerMatch, setBonusTimePerMatch] = useState(5); // Segundos
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -60,7 +64,8 @@ function StartGameContent() {
                 auto_end: autoEnd,
                 game_mode: gameMode,
                 game_duration: (enableGameTimer && !autoEnd) ? gameDuration : null,
-                question_duration: enableQuestionTimer ? questionDuration : 0
+                question_duration: gameMode === 'memory' ? 0 : (enableQuestionTimer ? questionDuration : 0),
+                bonus_time_per_match: (gameMode === 'memory' && enableBonusTime) ? bonusTimePerMatch : null
             };
 
             // Primer intento: con todas las columnas
@@ -197,25 +202,52 @@ function StartGameContent() {
                         </div>
                     )}
 
-                    {/* Duración de la Pregunta */}
-                    <div className="p-4 rounded-[1.8rem] bg-white/[0.02] border border-white/5 space-y-3">
-                        <div onClick={() => setEnableQuestionTimer(!enableQuestionTimer)} className="flex items-center justify-between cursor-pointer px-1">
-                            <span className="text-left text-xs font-bold text-gray-400 uppercase tracking-widest">⏱️ Activar Tiempo por Pregunta</span>
-                            <div className={`w-12 h-6 rounded-full p-1 flex items-center transition-colors ${enableQuestionTimer ? 'bg-indigo-500' : 'bg-gray-800'}`}>
-                                <div className={`w-4 h-4 bg-white rounded-full transition-transform ${enableQuestionTimer ? 'translate-x-6' : 'translate-x-0'}`} />
+                    {/* Duración de la Pregunta (Solo para juegos NO memoria) */}
+                    {gameMode !== 'memory' && (
+                        <div className="p-4 rounded-[1.8rem] bg-white/[0.02] border border-white/5 space-y-3">
+                            <div onClick={() => setEnableQuestionTimer(!enableQuestionTimer)} className="flex items-center justify-between cursor-pointer px-1">
+                                <span className="text-left text-xs font-bold text-gray-400 uppercase tracking-widest">⏱️ Activar Tiempo por Pregunta</span>
+                                <div className={`w-12 h-6 rounded-full p-1 flex items-center transition-colors ${enableQuestionTimer ? 'bg-indigo-500' : 'bg-gray-800'}`}>
+                                    <div className={`w-4 h-4 bg-white rounded-full transition-transform ${enableQuestionTimer ? 'translate-x-6' : 'translate-x-0'}`} />
+                                </div>
                             </div>
+                            {enableQuestionTimer && (
+                                <input 
+                                    type="number" 
+                                    min="5" max="120"
+                                    value={questionDuration === 0 ? "" : questionDuration}
+                                    placeholder="Ingresa los segundos..."
+                                    onChange={(e) => setQuestionDuration(e.target.value === "" ? 0 : Number(e.target.value))}
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm font-black focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                />
+                            )}
                         </div>
-                        {enableQuestionTimer && (
-                            <input 
-                                type="number" 
-                                min="5" max="120"
-                                value={questionDuration === 0 ? "" : questionDuration}
-                                placeholder="Ingresa los segundos..."
-                                onChange={(e) => setQuestionDuration(e.target.value === "" ? 0 : Number(e.target.value))}
-                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm font-black focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                            />
-                        )}
-                    </div>
+                    )}
+
+                    {/* Tiempo Extra por Acierto (Solo Memoria + Solo si hay tiempo de partida activo) */}
+                    {gameMode === 'memory' && !autoEnd && enableGameTimer && (
+                        <div className="p-4 rounded-[1.8rem] bg-white/[0.02] border border-white/5 space-y-3">
+                            <div onClick={() => setEnableBonusTime(!enableBonusTime)} className="flex items-center justify-between cursor-pointer px-1">
+                                <span className="text-left text-xs font-bold text-gray-400 uppercase tracking-widest">⏱️ Tiempo Extra por Acierto</span>
+                                <div className={`w-12 h-6 rounded-full p-1 flex items-center transition-colors ${enableBonusTime ? 'bg-cyan-500' : 'bg-gray-800'}`}>
+                                    <div className={`w-4 h-4 bg-white rounded-full transition-transform ${enableBonusTime ? 'translate-x-6' : 'translate-x-0'}`} />
+                                </div>
+                            </div>
+                            {enableBonusTime && (
+                                <div className="space-y-2">
+                                    <input 
+                                        type="number" 
+                                        min="1" max="30"
+                                        value={bonusTimePerMatch === 0 ? "" : bonusTimePerMatch}
+                                        placeholder="Segundos extra por acierto..."
+                                        onChange={(e) => setBonusTimePerMatch(e.target.value === "" ? 0 : Number(e.target.value))}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm font-black focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                                    />
+                                    <p className="text-[10px] text-cyan-400/60 font-bold text-center">Cada pareja acertada sumará {bonusTimePerMatch}s al reloj</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
  
                 </div>
 

@@ -14,7 +14,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
     const [podium, setPodium] = useState<any[]>([]);
     const [allPlayers, setAllPlayers] = useState<any[]>([]);
     const [playerCount, setPlayerCount] = useState(0);
-    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'ludo'>('classic');
+    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'ludo' | 'memory'>('classic');
     const [gameDuration, setGameDuration] = useState(0); 
     const [timeLeftSession, setTimeLeftSession] = useState(0);
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
@@ -139,8 +139,6 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
             setTimeLeftSession(gameDuration * 60);
         }
         setGameStatus(newStatus);
-
-        // Intentar reproducir música
         const audio = document.getElementById('bg-music') as HTMLAudioElement;
         if (audio) {
             audio.volume = 0.4;
@@ -168,21 +166,21 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
     );
 
     return (
-        <div className="h-screen w-screen overflow-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900 via-gray-900 to-black text-white font-sans flex flex-col relative">
-
-            {/* Elementos Decorativos Espaciales/Neón */}
+        <div className="h-screen w-screen overflow-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900 via-gray-900 to-black text-white font-sans flex flex-col relative">            {/* Elementos Decorativos Espaciales/Neón */}
             <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-purple-600/20 rounded-full blur-[120px] pointer-events-none mix-blend-screen"></div>
             <div className="absolute bottom-0 left-0 w-[800px] h-[800px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none mix-blend-screen"></div>
 
             {/* Header / Top Bar (Más compacto y eficiente) */}
             <header className="relative z-20 flex-shrink-0 flex justify-between items-center px-6 py-3 bg-white/5 backdrop-blur-md border-b border-white/10 shadow-lg">
                 <div className="flex items-center gap-6">
-                    <div className="bg-gradient-to-r from-pink-500 to-orange-400 px-4 py-2 rounded-xl shadow-lg border border-white/20 transform -rotate-1">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-white/80 mb-0.5 leading-none">CÓDIGO:</p>
-                        <h1 className="text-4xl sm:text-5xl font-black text-white tracking-widest drop-shadow-md">
-                            {pin}
-                        </h1>
-                    </div>
+                    {gameStatus !== "waiting" && (
+                        <div className="bg-gradient-to-r from-pink-500 to-orange-400 px-4 py-2 rounded-xl shadow-lg border border-white/20 transform -rotate-1">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-white/80 mb-0.5 leading-none">CÓDIGO:</p>
+                            <h1 className="text-4xl sm:text-5xl font-black text-white tracking-widest drop-shadow-md">
+                                {pin}
+                            </h1>
+                        </div>
+                    )}
 
                     {/* Master Timer Session */}
                     {gameStatus === "active" && timeLeftSession > 0 && (
@@ -220,23 +218,27 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                                     navigator.clipboard.writeText(url);
                                     showToast("¡Enlace de invitación copiado!", "success");
                                 }}
-                                className="px-5 py-3 bg-[#4a5568] hover:bg-[#2d3748] rounded-2xl font-bold text-xs transition-all text-white border border-white/10 flex items-center gap-2 shadow-lg"
+                                className="group px-5 py-3 bg-white/[0.06] hover:bg-white/[0.12] backdrop-blur-md rounded-2xl font-bold text-xs transition-all text-white border border-white/10 hover:border-white/25 flex items-center gap-2.5 shadow-lg hover:shadow-xl active:scale-95"
                             >
-                                <span>🔗</span> Copiar Link de Invitación
+                                <span className="w-7 h-7 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center text-sm shadow-md shadow-blue-500/20 group-hover:scale-110 transition-transform">🔗</span>
+                                <span className="uppercase tracking-wider">Copiar Link</span>
                             </button>
 
                             {canControl && (
                                 <div className="relative group/tooltip">
-                                    <button onClick={startGame} disabled={playerCount < 1} className="group relative px-8 py-3.5 bg-green-500 hover:bg-green-600 rounded-xl font-black shadow-lg text-lg transition-all hover:scale-[1.03] active:scale-95 border-2 border-green-400 overflow-hidden disabled:bg-gray-700 disabled:border-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed disabled:scale-100 disabled:hover:scale-100 w-full"
+                                    <button 
+                                        onClick={startGame} 
+                                        disabled={playerCount < 1} 
+                                        className="group relative px-8 py-3.5 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 rounded-2xl font-black shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 text-lg transition-all hover:scale-[1.03] active:scale-95 border border-emerald-300/30 overflow-hidden disabled:from-gray-700 disabled:to-gray-600 disabled:border-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed disabled:scale-100 disabled:hover:scale-100 disabled:shadow-none"
                                     >
-                                        <div className="absolute inset-0 bg-white/20 skew-x-12 -translate-x-full group-hover:animate-[shimmer_1s_forwards]"></div>
-                                        <span className="relative z-10 flex items-center gap-2">
+                                        <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+                                        <span className="relative z-10 flex items-center gap-2.5">
                                             <span className="text-2xl">🚀</span> INICIAR
                                         </span>
                                     </button>
                                     
                                     {playerCount < 1 && (
-                                        <div className="absolute top-full mt-3 left-1/2 -translate-x-1/2 opacity-0 group-hover/tooltip:opacity-100 transition-all duration-300 bg-slate-900/95 backdrop-blur-md text-white font-black text-[11px] px-4 py-2.5 rounded-2xl shadow-2xl whitespace-nowrap pointer-events-none border border-white/10 flex items-center gap-1.5 animate-bounce-short z-30">
+                                        <div className="absolute top-full mt-3 left-1/2 -translate-x-1/2 opacity-0 group-hover/tooltip:opacity-100 transition-all duration-300 bg-slate-900/95 backdrop-blur-md text-white font-black text-[11px] px-4 py-2.5 rounded-2xl shadow-2xl whitespace-nowrap pointer-events-none border border-white/10 flex items-center gap-1.5 z-30">
                                             <span className="text-sm">💡</span> Debe haber mínimo 1 jugador
                                         </div>
                                     )}
@@ -400,13 +402,40 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                             </div>
                         </div>
                     </div>
+                ) : gameStatus === 'waiting' ? (
+                    /* ====== Lobby Premium del Profesor ====== */
+                    <div className="flex flex-col items-center justify-center w-full h-full relative">
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+                            <img src="/logotransparente.png" alt="" className="w-[120vw] max-w-[1000px] opacity-[0.04] blur-[6px] select-none" draggable={false} />
+                        </div>
+                        <div className="relative z-10 flex flex-col items-center gap-8">
+                            <img src="/logotransparente.png" alt="StriveQuiz" className="w-48 h-48 object-contain drop-shadow-2xl" />
+                            <div className="bg-white/[0.04] backdrop-blur-2xl border border-white/10 px-12 py-8 rounded-[3rem] flex flex-col items-center shadow-[0_20px_80px_rgba(79,70,229,0.15)]">
+                                <div className="flex items-center gap-4 mb-4">
+                                    <span className="relative flex h-4 w-4">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500"></span>
+                                    </span>
+                                    <span className="text-emerald-400 font-black uppercase tracking-[0.2em] text-sm">Sala Abierta</span>
+                                </div>
+                                <h2 className="text-6xl sm:text-7xl font-black text-white tracking-[0.3em] mb-3 drop-shadow-md">{pin}</h2>
+                                <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">Comparte este código a tus alumnos</p>
+                            </div>
+                            <div className="flex items-center gap-3 opacity-30">
+                                <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                                <span className="text-indigo-300/50 text-[10px] font-black uppercase tracking-[0.3em] ml-2">Esperando para iniciar</span>
+                            </div>
+                        </div>
+                    </div>
                 ) : (
                     <GameBoard gameId={gameId} />
                 )}
-            </main >
+            </main>
 
             {/* Música de Juego */}
-            < audio id="bg-music" loop src="https://cdns-preview-f.dzcdn.net/stream/c-f458e0aae13fa26ea7f2c69bb128deba-3.mp3" ></audio >
+            <audio id="bg-music" loop src="https://cdns-preview-f.dzcdn.net/stream/c-f458e0aae13fa26ea7f2c69bb128deba-3.mp3"></audio>
 
             {/* TOAST FLOTANTE PERSONALIZADO */}
             {toast && (
@@ -421,7 +450,6 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
             )}
 
             <style jsx global>{`
-                /* Scrollbar mágico */  
                 .custom-scrollbar::-webkit-scrollbar {
                     width: 10px;
                 }
@@ -437,6 +465,6 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                     background: linear-gradient(to bottom, rgba(99, 102, 241, 0.9), rgba(168, 85, 247, 0.9));
                 }
             `}</style>
-        </div >
+        </div>
     );
 }

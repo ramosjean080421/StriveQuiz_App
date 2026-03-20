@@ -3,6 +3,7 @@
 // Vista móvil del Estudiante durante una partida activa
 import { useEffect, useState, use } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import MemoryGamePlayer from "@/components/games/memory/MemoryGamePlayer";
 
 interface Question {
     id: string;
@@ -21,7 +22,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     const [questions, setQuestions] = useState<Question[]>([]);
     const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
     const [gameStatus, setGameStatus] = useState("waiting");
-    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'ludo'>('classic');
+    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'ludo' | 'memory'>('classic');
     const [players, setPlayers] = useState<any[]>([]);
     const [totalQuestions, setTotalQuestions] = useState(10);
     const [ludoTeamsCount, setLudoTeamsCount] = useState(4);
@@ -234,6 +235,8 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                         setPlayers(prev => [...prev, payload.new]);
                     } else if (payload.eventType === 'UPDATE') {
                         setPlayers(prev => prev.map(p => p.id === payload.new.id ? payload.new : p));
+                    } else if (payload.eventType === 'DELETE') {
+                        setPlayers(prev => prev.filter(p => p.id !== payload.old.id));
                     }
                 }
             )
@@ -407,22 +410,42 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
     if (gameStatus === "waiting") {
         return (
-            <div className={`h-screen w-screen overflow-hidden flex flex-col items-center justify-center p-6 text-center relative transition-all duration-700 bg-gradient-to-br from-indigo-600 via-purple-700 to-pink-600`}>
-                {/* Elementos Decorativos */}
-                <div className="absolute top-10 left-10 w-32 h-32 bg-white rounded-full mix-blend-overlay filter blur-[40px] opacity-40 animate-pulse"></div>
-                <div className="absolute bottom-10 right-10 w-40 h-40 bg-pink-400 rounded-full mix-blend-overlay filter blur-[50px] opacity-40 animate-pulse animation-delay-2000"></div>
+            <div className={`h-screen w-screen overflow-hidden flex flex-col items-center justify-center p-6 text-center relative bg-gray-950`}>
+                {/* Logo Borroso de Fondo */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+                    <img src="/logotransparente.png" alt="" className="w-[160vw] max-w-[1200px] opacity-[0.07] blur-[8px] select-none" draggable={false} />
+                </div>
+                {/* Gradiente encima */}
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/80 via-gray-950/90 to-purple-950/80 z-[1]"></div>
+                {/* Orbes de Neón */}
+                <div className="absolute top-[-5%] left-[-5%] w-[40%] h-[40%] bg-indigo-600/20 rounded-full blur-[100px] pointer-events-none z-[2] animate-pulse"></div>
+                <div className="absolute bottom-[-5%] right-[-5%] w-[40%] h-[40%] bg-purple-600/15 rounded-full blur-[100px] pointer-events-none z-[2] animate-pulse" style={{ animationDelay: '1.5s' }}></div>
 
-                <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-8 sm:p-12 rounded-[3.5rem] z-10 w-full max-w-sm flex flex-col items-center">
-                    <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mb-6 animate-bounce text-4xl">
-                        🎮
+                <div className="relative z-10 flex flex-col items-center gap-6 w-full max-w-sm">
+                    {/* Logo Pequeño */}
+                    <img src="/logotransparente.png" alt="StriveQuiz" className="w-40 h-40 object-contain drop-shadow-2xl" />
+
+                    {/* Card Principal */}
+                    <div className="bg-white/[0.04] backdrop-blur-2xl border border-white/10 p-8 sm:p-10 rounded-[3rem] w-full flex flex-col items-center shadow-[0_20px_80px_rgba(79,70,229,0.15)]">
+                        <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-[1.2rem] flex items-center justify-center mb-5 shadow-lg shadow-emerald-500/30 rotate-6">
+                            <span className="text-3xl -rotate-6">✅</span>
+                        </div>
+                        <h1 className="text-3xl font-black text-white mb-2 tracking-tight">
+                            ¡Estás Dentro!
+                        </h1>
+                        <p className="text-indigo-200/60 font-medium text-sm leading-relaxed mb-6">
+                            Prepárate... la batalla comenzará cuando el profesor lo decida.
+                        </p>
+
                     </div>
-                    <h1 className="text-3xl font-black text-white mb-2 tracking-tight">
-                        ¡Estás Dentro!
-                    </h1>
 
-                    <p className="text-lg text-indigo-100 font-medium leading-tight">
-                        Prepárate... la batalla comenzará pronto.
-                    </p>
+                    {/* Indicador de Carga */}
+                    <div className="flex items-center gap-3 opacity-40">
+                        <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                        <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                        <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                        <span className="text-indigo-300/50 text-[10px] font-black uppercase tracking-[0.3em] ml-2">Esperando al profesor</span>
+                    </div>
                 </div>
             </div>
         );
@@ -498,6 +521,153 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     });
 
     const miPuesto = sortedPlayers.findIndex(p => p.id === playerId) + 1;
+
+    if (gameMode === 'memory') {
+        return (
+            <div className="h-screen w-screen flex bg-gray-950 overflow-hidden relative font-sans select-none">
+                
+                {/* Logo Borroso de Fondo */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+                    <img src="/logotransparente.png" alt="" className="w-[140vw] max-w-[1000px] opacity-[0.14] blur-[3px] select-none" draggable={false} />
+                </div>
+
+                {/* Gradiente encima */}
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/50 via-gray-950/85 to-purple-950/50 z-[1] pointer-events-none"></div>
+                {/* Segundo gradiente para profundidad */}
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,_var(--tw-gradient-stops))] from-violet-900/10 via-transparent to-transparent z-[1] pointer-events-none"></div>
+
+                {/* Sidebar de Ranking Premium - Desktop/Tablet */}
+                <div className="hidden md:flex w-64 lg:w-72 border-r border-white/[0.06] bg-black/50 backdrop-blur-xl flex-col z-20 relative">
+                    {/* Header del sidebar */}
+                    <div className="p-4 border-b border-white/[0.06] flex justify-between items-center bg-gradient-to-r from-indigo-500/[0.06] to-transparent">
+                        <h3 className="text-[11px] font-black text-indigo-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                            <span className="w-5 h-5 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-lg flex items-center justify-center text-[10px] shadow-md shadow-yellow-500/20">🏆</span>
+                            RANKING
+                        </h3>
+                        <span className="bg-white/[0.06] text-gray-400 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-white/[0.06]">
+                            {sortedPlayers.length}
+                        </span>
+                    </div>
+                    
+                    {/* Lista de jugadores */}
+                    <div className="flex-1 overflow-y-auto custom-scrollbar-memory p-3 space-y-1">
+                        {sortedPlayers.map((p, idx) => {
+                            const isMe = p.id === playerId;
+                            const pairsFound = p.current_position || 0;
+                            const questionsTotal = questions.length || 1;
+                            const pProgress = questionsTotal > 0 ? (pairsFound / questionsTotal) * 100 : 0;
+
+                            return (
+                                <div 
+                                    key={p.id} 
+                                    className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-all duration-300 ${
+                                        isMe 
+                                            ? 'bg-gradient-to-r from-indigo-500/15 to-purple-500/10 border-indigo-400/30 shadow-[0_0_20px_rgba(99,102,241,0.12)] ring-1 ring-indigo-500/20' 
+                                            : idx === 0 ? 'bg-gradient-to-r from-yellow-500/[0.06] to-transparent border-yellow-500/10'
+                                            : idx === 1 ? 'bg-gradient-to-r from-gray-400/[0.04] to-transparent border-gray-400/10'
+                                            : idx === 2 ? 'bg-gradient-to-r from-orange-500/[0.04] to-transparent border-orange-400/10'
+                                            : 'border-transparent hover:bg-white/[0.02]'
+                                    }`}
+                                >
+                                    {/* Posición */}
+                                    <div className="w-7 flex items-center justify-center shrink-0">
+                                        {idx === 0 ? <span className="text-base drop-shadow-md">🥇</span> 
+                                        : idx === 1 ? <span className="text-base drop-shadow-md">🥈</span> 
+                                        : idx === 2 ? <span className="text-base drop-shadow-md">🥉</span> 
+                                        : <span className="text-[10px] font-black text-gray-600 bg-white/[0.04] w-6 h-6 rounded-lg flex items-center justify-center">#{idx + 1}</span>
+                                        }
+                                    </div>
+
+                                    {/* Avatar */}
+                                    <div className={`relative w-8 h-8 rounded-full border-2 overflow-hidden shrink-0 transition-all ${isMe ? 'border-indigo-400 shadow-md shadow-indigo-500/20' : idx < 3 ? 'border-white/15' : 'border-white/5'}`}>
+                                        <img src={p.avatar_gif_url || "/api/avatars"} className="w-full h-full object-cover" alt="" />
+                                    </div>
+
+                                    {/* Info */}
+                                    <div className="flex-1 min-w-0">
+                                        <div className={`text-[11px] font-black truncate leading-tight ${isMe ? 'text-indigo-300' : 'text-gray-200'}`}>
+                                            {p.player_name || "Anónimo"} {isMe && <span className="text-[8px] text-indigo-500/60 font-bold">(tú)</span>}
+                                        </div>
+                                        {/* Mini barra de progreso */}
+                                        <div className="flex items-center gap-1.5 mt-1">
+                                            <div className="flex-1 h-1 bg-white/[0.06] rounded-full overflow-hidden">
+                                                <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-cyan-400 transition-all duration-500" style={{ width: `${pProgress}%` }}></div>
+                                            </div>
+                                            <span className="text-[8px] text-gray-500 font-bold shrink-0">{pairsFound}/{questionsTotal}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Puntaje */}
+                                    <div className="text-right shrink-0">
+                                        <div className={`text-xs font-black tabular-nums ${isMe ? 'text-indigo-300' : idx === 0 ? 'text-yellow-400' : 'text-gray-300'}`}>
+                                            {p.score || 0}
+                                        </div>
+                                        <div className="text-[7px] text-gray-600 uppercase tracking-widest font-black">pts</div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Widget de Ranking para Móviles */}
+                <div className="md:hidden absolute top-3 left-3 z-30 bg-black/70 backdrop-blur-xl border border-white/[0.08] px-3.5 py-2 rounded-2xl flex items-center gap-2.5 shadow-xl">
+                    <div className="w-7 h-7 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-lg flex items-center justify-center shadow-md shadow-yellow-500/20">
+                        <span className="text-xs">🏆</span>
+                    </div>
+                    <div>
+                        <div className="text-[8px] text-gray-500 uppercase font-black tracking-widest">Tu puesto</div>
+                        <div className="text-sm font-black text-white leading-none">#{miPuesto}</div>
+                    </div>
+                    <div className="w-px h-6 bg-white/10"></div>
+                    <div>
+                        <div className="text-[8px] text-gray-500 uppercase font-black tracking-widest">Puntos</div>
+                        <div className="text-sm font-black text-indigo-400 leading-none">{players.find(p => p.id === playerId)?.score || 0}</div>
+                    </div>
+                </div>
+
+                {/* Área de Juego */}
+                <div className="flex-1 h-full flex flex-col relative z-10 overflow-hidden">
+                    <MemoryGamePlayer 
+                        questions={questions}
+                        currentQuestionIdx={currentQuestionIdx}
+                        gameId={gameId}
+                        playerId={playerId}
+                        playerSecret={playerSecret}
+                        timeLeft={timeLeft}
+                        questionDuration={questionDuration}
+                        answering={answering}
+                        onSubmit={async (scoreDelta, pairsFound) => {
+                            if (!playerId) return;
+                            
+                            const { data: pData } = await supabase.from("game_players").select("score").eq("id", playerId).single();
+                            const currentScore = pData?.score || 0;
+
+                            await supabase.from("game_players")
+                                .update({
+                                    score: currentScore + scoreDelta,
+                                    current_position: pairsFound,
+                                    correct_answers: pairsFound
+                                })
+                                .eq("id", playerId)
+                                .eq("secret_token", playerSecret);
+                                
+                            if (pairsFound === questions.length) {
+                                 setHasFinishedAll(true);
+                            }
+                        }}
+                    />
+                </div>
+
+                <style jsx global>{`
+                    .custom-scrollbar-memory::-webkit-scrollbar { width: 4px; }
+                    .custom-scrollbar-memory::-webkit-scrollbar-track { background: transparent; }
+                    .custom-scrollbar-memory::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.15); border-radius: 10px; }
+                    .custom-scrollbar-memory::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.35); }
+                `}</style>
+            </div>
+        );
+    }
 
     return (
         <div className="h-screen w-screen flex flex-col bg-gray-100 overflow-y-auto relative font-sans custom-scrollbar select-none">
