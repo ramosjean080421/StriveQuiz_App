@@ -20,6 +20,8 @@ export default function TeacherDashboard() {
     const [quizzes, setQuizzes] = useState<Quiz[]>([]);
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState<any>(null);
+    const [isApproved, setIsApproved] = useState<boolean>(true); // Por defecto true para no romper nada si no hay columna
+    const [isCheckingApproval, setIsCheckingApproval] = useState(true);
 
     // Estados para Modales Personalizados
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
@@ -41,6 +43,29 @@ export default function TeacherDashboard() {
                 return;
             }
             setUser(authData.user);
+
+            // 1. Verificar Aprobación (Seguridad)
+            try {
+                const { data: profile, error: profileErr } = await supabase
+                    .from("teacher_profiles")
+                    .select("is_approved")
+                    .eq("email", authData.user.email?.toLowerCase())
+                    .single();
+
+                if (profileErr) {
+                    // Si falla porque la columna no existe en Supabase todavía,
+                    // permitimos el acceso para no romper el sistema (Retrocompatibilidad).
+                    console.warn("[Dashboard] Column `is_approved` may not exist in Supabase yet. Bypassing lock.", profileErr.message);
+                    setIsApproved(true);
+                } else if (profile) {
+                    setIsApproved(profile.is_approved === true);
+                }
+            } catch (e) {
+                console.error("Error fetching approval status:", e);
+                setIsApproved(true);
+            } finally {
+                setIsCheckingApproval(false);
+            }
 
             // Fetch Quizzes del profesor y los compartidos con el
             const userEmail = authData.user.email?.toLowerCase();
@@ -238,7 +263,7 @@ export default function TeacherDashboard() {
         }
     };
 
-    if (loading) return (
+    if (loading || isCheckingApproval) return (
         <div className="h-screen w-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-100 overflow-hidden">
             <div className="flex flex-col items-center">
                 <div className="w-16 h-16 border-4 border-indigo-400 border-t-indigo-600 rounded-full animate-spin"></div>
@@ -246,6 +271,39 @@ export default function TeacherDashboard() {
             </div>
         </div>
     );
+
+    if (!isApproved) {
+        return (
+            <div className="h-screen w-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 overflow-hidden p-6 relative">
+                {/* Elementos decorativos */}
+                <div className="absolute top-10 left-10 w-64 h-64 bg-amber-200 rounded-full mix-blend-multiply filter blur-[80px] opacity-30 animate-blob"></div>
+                <div className="absolute bottom-10 right-10 w-64 h-64 bg-indigo-200 rounded-full mix-blend-multiply filter blur-[80px] opacity-30 animate-blob animation-delay-2000"></div>
+
+                <div className="max-w-md w-full bg-white/80 backdrop-blur-xl p-10 rounded-[2.5rem] border border-white/50 shadow-2xl text-center flex flex-col items-center relative z-10">
+                    <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-3xl flex items-center justify-center text-3xl mb-6 shadow-inner transform hover:rotate-6 transition-transform">
+                        🔒
+                    </div>
+                    <h2 className="text-3xl font-black text-gray-900 tracking-tight mb-3">Cuenta en Revisión</h2>
+                    <p className="text-sm text-gray-500 font-medium leading-relaxed mb-6">
+                        Tu cuenta de profesor ha sido creada con éxito. Sin embargo, para mantener la seguridad de las salas, un Administrador debe verificar tu identidad antes de que puedas usar el sistema.
+                    </p>
+                    
+                    <div className="w-full bg-amber-50 border border-amber-200/50 rounded-2xl p-4 mb-8">
+                        <p className="text-xs text-amber-800 font-bold flex items-center justify-center gap-2">
+                             <span>📩</span> Se te notificará por correo cuando sea activada.
+                        </p>
+                    </div>
+
+                    <button 
+                        onClick={handleLogout}
+                        className="w-full py-4 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-2xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
+                    >
+                        <span>🚪</span> Cerrar Sesión
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col h-screen w-screen overflow-hidden bg-gradient-to-br from-indigo-50 via-white to-purple-50 font-sans relative">
