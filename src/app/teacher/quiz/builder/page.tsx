@@ -85,7 +85,7 @@ function QuizBuilderContent() {
     const [localMaps, setLocalMaps] = useState<{ id: number, name: string, url: string }[]>([]);
     const [selectedMap, setSelectedMap] = useState<any>(null);
     const [boardPath, setBoardPath] = useState<Coordinate[]>([]);
-    const [gameMode, setGameMode] = useState<"classic" | "race" | "ludo" | "memory">("classic");
+    const [gameMode, setGameMode] = useState<"classic" | "race" | "ludo" | "memory" | "roblox">("classic");
     const [ludoTeamsCount, setLudoTeamsCount] = useState<number>(4);
     const [ludoPathType, setLudoPathType] = useState<'bases' | 'circuit' | 'red' | 'blue' | 'green' | 'yellow'>('bases');
     const [ludoPathData, setLudoPathData] = useState<any>({
@@ -285,11 +285,11 @@ function QuizBuilderContent() {
             showToast("Por favor ingresa un título para la aventura.", "error");
             return;
         }
-        if (gameMode !== 'ludo' && gameMode !== 'memory' && boardPath.length < 2) {
+        if (gameMode !== 'ludo' && gameMode !== 'memory' && gameMode !== 'roblox' && boardPath.length < 2) {
             showToast("Por favor traza al menos 2 casillas en el tablero.", "error");
             return;
         }
-        if (gameMode !== 'ludo' && gameMode !== 'memory' && !selectedMap) {
+        if (gameMode !== 'ludo' && gameMode !== 'memory' && gameMode !== 'roblox' && !selectedMap) {
             showToast("Por favor selecciona un escenario.", "error");
             return;
         }
@@ -301,8 +301,8 @@ function QuizBuilderContent() {
             if (!user) throw new Error("No autenticado");
             const payload = {
                 title,
-                board_image_url: gameMode === 'ludo' ? '/LUDO_PROCEDURAL' : gameMode === 'memory' ? '/reversocarta.png' : selectedMap.url,
-                board_path: (gameMode === 'ludo' || gameMode === 'memory') ? [] : boardPath,
+                board_image_url: gameMode === 'ludo' ? '/LUDO_PROCEDURAL' : gameMode === 'memory' ? '/reversocarta.png' : gameMode === 'roblox' ? '/robloxbg.png' : selectedMap.url,
+                board_path: (gameMode === 'ludo' || gameMode === 'memory' || gameMode === 'roblox') ? [] : boardPath,
                 game_mode: gameMode,
                 ludo_teams_count: gameMode === 'ludo' ? ludoTeamsCount : null,
                 ludo_path_data: null,
@@ -399,7 +399,8 @@ function QuizBuilderContent() {
                                     { id: 'classic', icon: '🏃', name: 'Clásico' },
                                     { id: 'race', icon: '🏎️', name: 'Carreras' },
                                     { id: 'ludo', icon: '🎲', name: 'Ludo' },
-                                    { id: 'memory', icon: '🧠', name: 'Memoria' }
+                                    { id: 'memory', icon: '🧠', name: 'Memoria' },
+                                    { id: 'roblox', icon: '🟥', name: 'Obby' }
                                 ].map((mode) => (
                                     <button
                                         key={mode.id}
@@ -446,8 +447,8 @@ function QuizBuilderContent() {
                             </div>
                         )}
 
-                        {/* 2. Selector de Escenario (Mapa) - Solo si NO es Ludo ni Memoria */}
-                        {gameMode !== 'ludo' && gameMode !== 'memory' && (
+                        {/* 2. Selector de Escenario (Mapa) - Solo si NO es Ludo ni Memoria ni Roblox */}
+                        {gameMode !== 'ludo' && gameMode !== 'memory' && gameMode !== 'roblox' && (
                             <div className="pt-4 border-t border-gray-100">
                                 <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-3 block">2. Elige dónde jugar (Escenario)</label>
                                 {localMaps.length === 0 ? (
@@ -521,6 +522,12 @@ function QuizBuilderContent() {
                                     )}
                                 </p>
                             </div>
+                        ) : gameMode === 'roblox' ? (
+                            <div className="bg-red-50 p-4 rounded-xl border border-red-200">
+                                <p className="text-xs text-red-800 font-bold leading-relaxed">
+                                    🟥 <strong>Modo Obby (Roblox):</strong> Tus alumnos jugarán en un entorno 3D, saltando de isla en isla. Tú verás la vista isométrica y ellos un teclado estilizado.
+                                </p>
+                            </div>
                         ) : boardPath.length === 0 ? (
                             <p className="text-xs text-indigo-700/80 leading-relaxed font-medium bg-white/50 p-3 rounded-xl border border-indigo-100">
                                 Haz clic en el mapa para trazar los pasos. <strong>¡Tu primer clic será el inicio!</strong>
@@ -547,8 +554,8 @@ function QuizBuilderContent() {
                         disabled={
                             saving ||
                             !title ||
-                            (gameMode !== 'ludo' && gameMode !== 'memory' && !selectedMap) ||
-                            (gameMode !== 'ludo' && gameMode !== 'memory' && boardPath.length < 2)
+                            (gameMode !== 'ludo' && gameMode !== 'memory' && gameMode !== 'roblox' && !selectedMap) ||
+                            (gameMode !== 'ludo' && gameMode !== 'memory' && gameMode !== 'roblox' && boardPath.length < 2)
                         }
                         className="w-full flex items-center justify-center gap-2 py-4 px-4 text-base font-bold rounded-2xl text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5 active:scale-95 transition-all outline-none"
                     >
@@ -586,6 +593,16 @@ function QuizBuilderContent() {
                         <div className="bg-indigo-600/20 backdrop-blur-md border border-indigo-500/30 px-6 py-3 rounded-2xl flex items-center gap-3">
                             <span className="text-2xl animate-bounce">🧠</span>
                             <span className="text-white font-black uppercase tracking-widest text-sm">Previsualización de Memoria Automática</span>
+                        </div>
+                    </div>
+                ) : gameMode === 'roblox' ? (
+                    <div className="relative z-10 w-full flex flex-col items-center gap-6 animate-fade-in-up">
+                        <div className="w-64 h-64 border-8 border-red-500 rounded-[3rem] shadow-2xl relative overflow-hidden bg-slate-900 flex items-center justify-center">
+                             <div className="text-8xl">🟥</div>
+                        </div>
+                        <div className="bg-red-600/20 backdrop-blur-md border border-red-500/30 px-6 py-3 rounded-2xl flex items-center gap-3">
+                            <span className="text-2xl animate-bounce text-red-500">🧱</span>
+                            <span className="text-white font-black uppercase tracking-widest text-sm">Previsualización Obby 3D</span>
                         </div>
                     </div>
                 ) : selectedMap ? (

@@ -216,12 +216,12 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                                 onClick={() => {
                                     const url = `${window.location.origin}/?pin=${pin}`;
                                     navigator.clipboard.writeText(url);
-                                    showToast("¡Enlace de invitación copiado!", "success");
+                                    showToast("¡Enlace copiado al instante!", "success");
                                 }}
-                                className="group px-5 py-3 bg-white/[0.06] hover:bg-white/[0.12] backdrop-blur-md rounded-2xl font-bold text-xs transition-all text-white border border-white/10 hover:border-white/25 flex items-center gap-2.5 shadow-lg hover:shadow-xl active:scale-95"
+                                className="px-6 py-3.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-black rounded-2xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2.5 border-b-4 border-blue-800"
                             >
-                                <span className="w-7 h-7 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center text-sm shadow-md shadow-blue-500/20 group-hover:scale-110 transition-transform">🔗</span>
-                                <span className="uppercase tracking-wider">Copiar Link</span>
+                                <span className="text-xl">🔗</span>
+                                <span className="uppercase tracking-widest text-sm">Copiar Link</span>
                             </button>
 
                             {canControl && (
@@ -229,12 +229,10 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                                     <button 
                                         onClick={startGame} 
                                         disabled={playerCount < 1} 
-                                        className="group relative px-8 py-3.5 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 rounded-2xl font-black shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 text-lg transition-all hover:scale-[1.03] active:scale-95 border border-emerald-300/30 overflow-hidden disabled:from-gray-700 disabled:to-gray-600 disabled:border-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed disabled:scale-100 disabled:hover:scale-100 disabled:shadow-none"
+                                        className="px-8 py-3.5 bg-green-500 hover:bg-green-600 active:bg-green-700 rounded-2xl font-black shadow-lg text-lg text-white transition-all active:scale-95 border-b-4 border-green-700 disabled:bg-gray-700 disabled:border-gray-800 disabled:text-gray-400 disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none flex items-center gap-2.5"
                                     >
-                                        <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
-                                        <span className="relative z-10 flex items-center gap-2.5">
-                                            <span className="text-2xl">🚀</span> INICIAR
-                                        </span>
+                                        <span className="text-2xl">🚀</span> 
+                                        <span className="uppercase tracking-widest mt-1">INICIAR</span>
                                     </button>
                                     
                                     {playerCount < 1 && (

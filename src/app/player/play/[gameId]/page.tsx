@@ -4,6 +4,7 @@
 import { useEffect, useState, use } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import MemoryGamePlayer from "@/components/games/memory/MemoryGamePlayer";
+import RobloxGamePlayer from "@/components/games/roblox/RobloxGamePlayer";
 
 interface Question {
     id: string;
@@ -22,7 +23,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     const [questions, setQuestions] = useState<Question[]>([]);
     const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
     const [gameStatus, setGameStatus] = useState("waiting");
-    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'ludo' | 'memory'>('classic');
+    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'ludo' | 'memory' | 'roblox'>('classic');
     const [players, setPlayers] = useState<any[]>([]);
     const [totalQuestions, setTotalQuestions] = useState(10);
     const [ludoTeamsCount, setLudoTeamsCount] = useState(4);
@@ -79,6 +80,9 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     // Sistema anti cerrado accidental + descarga descarga datos
     useEffect(() => {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            // Permitir salida inmediata si fue expulsado por sistema
+            if (localStorage.getItem("isKicked") === "true") return;
+            
             if ((gameStatus === "active" || gameStatus === "paused") && !hasFinishedAll) {
                 e.preventDefault();
                 e.returnValue = ""; 
@@ -195,7 +199,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         // 2. Obtener estado de la partida, preguntas y configuracion de recompensas
         const fetchGame = async () => {
             const { data: game } = await supabase.from("games").select(`
-                status, quiz_id, auto_end, game_mode, team_distribution_mode, question_duration,
+                status, quiz_id, auto_end, game_mode, team_distribution_mode, question_duration, boss_hp,
                 quizzes (rewards_enabled, reward_criteria, reward_text, board_path, ludo_teams_count)
             `).eq("id", gameId).single();
 
@@ -232,6 +236,8 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                     if ((mode === 'classic' || mode === 'race') && (boardPath && boardPath.length > 0)) {
                         shuffled = shuffled.slice(0, boardPath.length);
                         console.log("Slicing questions to board path length:", boardPath.length);
+                    } else if (mode === 'roblox' && game.boss_hp > 0) {
+                        shuffled = shuffled.slice(0, game.boss_hp);
                     }
 
                     setQuestions(shuffled);
@@ -270,14 +276,25 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                         setPlayers(prev => prev.map(p => p.id === payload.new.id ? payload.new : p));
                         
                         const savedPlayerId = localStorage.getItem("currentPlayerId");
-                        if (payload.new.id === savedPlayerId && payload.new.is_blocked === false) {
-                            setIsBlurred(false);
+                        if (payload.new.id === savedPlayerId) {
+                            // Si el profe lo asiló lógicamente (es la señal de expulsión forzada si RLS falló)
+                            if (payload.new.current_position === -999) {
+                                localStorage.setItem("isKicked", "true");
+                                window.location.href = "/?kicked=true";
+                                return;
+                            }
+                            
+                            // Si fue perdonado
+                            if (payload.new.is_blocked === false) {
+                                setIsBlurred(false);
+                            }
                         }
                     } else if (payload.eventType === 'DELETE') {
                         setPlayers(prev => prev.filter(p => p.id !== payload.old.id));
                         
                         const savedPlayerId = localStorage.getItem("currentPlayerId");
                         if (payload.old.id === savedPlayerId) {
+                            localStorage.setItem("isKicked", "true");
                             window.location.href = "/?kicked=true";
                         }
                     }
@@ -362,15 +379,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         }
         playSound(fbType);
         if (playerId) {
-            // REGISTRO PARA MAPA DE CALOR: Guardar si esta respuesta fue correcta o no
-            supabase.from("game_responses").insert([{
-                game_id: gameId,
-                player_id: playerId,
-                question_id: question.id,
-                is_correct: isCorrect
-            }]).then(({ error }) => {
-                if (error) console.error("Error logging response for heatmap:", error);
-            });
+            // Heatmap tracking removed per user request
 
             // Actualizar: avanzar/retroceder posición, sumar puntos y rachas
             const { data: pData } = await supabase.from("game_players").select("player_name, current_position, score, correct_answers, incorrect_answers, current_streak").eq("id", playerId).single();
@@ -389,14 +398,14 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
 
                 if (isCorrect) {
-                    if (mode === "classic" || mode === "race" || mode.startsWith("ludo")) {
+                    if (mode === "classic" || mode === "race" || mode === "roblox" || mode.startsWith("ludo")) {
                         nextPos += 1;
                     }
 
                     newScore += 100 + timeLeft * 10;
                     newCorrect += 1;
                 } else {
-                    if (mode === "classic" || mode === "race" || mode.startsWith("ludo")) {
+                    if (mode === "classic" || mode === "race" || mode === "roblox" || mode.startsWith("ludo")) {
                         // Retrocede una posición si se equivoca, mínimo en 0
                         nextPos = Math.max(0, nextPos - 1);
                     }
@@ -561,15 +570,15 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     // JUEGO ACTIVO
     const currentQ = questions[currentQuestionIdx];
 
-    // Paleta de Colores de Acción (Estilo Kahoot/Quizizz)
-    const optionColors = [
-        "bg-rose-500",      // Rojo/Rosa (A)
-        "bg-blue-500",      // Azul (B)
-        "bg-amber-500",    // Naranja/Amarillo (C)
-        "bg-emerald-500" // Verde (D)
+    // Paleta de Colores de Acción (Estilo Roblox/Grueso)
+    const optionStyles = [
+        { bg: "bg-rose-500", border: "border-rose-700", icon: "🔴" },
+        { bg: "bg-blue-600", border: "border-blue-800", icon: "🔷" },
+        { bg: "bg-yellow-500", border: "border-yellow-700", icon: "⭐" },
+        { bg: "bg-emerald-500", border: "border-emerald-700", icon: "🟩" }
     ];
-
-    const optionIcons = ["🔺", "🔷", "🟡", "🟩"]; // Símbolos visuales intuitivos
+    
+    const bgPattern = "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0)";
 
     const sortedPlayers = [...players].sort((a, b) => {
         if (b.current_position !== a.current_position) {
@@ -748,8 +757,25 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         );
     }
 
+    if (gameMode === 'roblox') {
+        return (
+            <RobloxGamePlayer
+                currentQ={currentQ}
+                answering={answering}
+                handleAnswerSubmit={handleAnswerSubmit}
+                feedback={feedback}
+                timeLeft={timeLeft}
+                questionDuration={questionDuration}
+                isBlurred={isBlurred}
+                setIsBlurred={setIsBlurred}
+                players={players}
+                playerId={playerId}
+            />
+        );
+    }
+
     return (
-        <div className="h-screen w-screen flex flex-col bg-gray-100 overflow-y-auto relative font-sans custom-scrollbar select-none">
+        <div className="h-screen w-screen flex flex-col bg-[#111827] overflow-y-auto relative font-sans custom-scrollbar select-none" style={{ backgroundImage: bgPattern, backgroundSize: '24px 24px' }}>
             {/* Overlay Anti-Trampas */}
             {isBlurred && (
                 <div className="fixed inset-0 z-[9999] bg-gray-950/95 flex flex-col items-center justify-center p-6 text-center backdrop-blur-xl">
@@ -772,20 +798,25 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
             )}
 
             {/* Header Mini - Progreso */}
-            <div className="bg-white px-4 py-3 flex justify-between items-center z-10 sticky top-0 border-b border-gray-100">
+            <div className="bg-slate-900 px-4 py-4 flex justify-between items-center z-10 sticky top-0 border-b-4 border-slate-950 shadow-md">
                 <div className="flex items-center gap-3">
-                    <div className="font-black text-xl text-transparent bg-clip-text bg-indigo-600 tracking-tight leading-none">StriveQuiz</div>
-                    
+                    <div className="w-10 h-10 bg-slate-800 rounded-xl border-2 border-slate-700 flex items-center justify-center shadow-inner">
+                        <span className="text-xl font-black text-white">{miPuesto}</span>
+                    </div>
+                    <div className="flex flex-col">
+                        <span className="text-slate-400 text-[10px] font-bold uppercase">POSICIÓN GLOBAL</span>
+                        <span className="font-black text-lg text-white tracking-tight leading-none uppercase">{gameMode} Mode</span>
+                    </div>
                 </div>
-                <div className="flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100">
-                    <span className="text-xs font-bold text-indigo-800 uppercase tracking-widest">Pregunta</span>
-                    <span className="bg-indigo-600 text-white text-xs font-black px-2.5 h-7 flex items-center justify-center rounded-lg">{currentQuestionIdx + 1}/{questions.length}</span>
+                <div className="flex items-center gap-2 bg-slate-800 px-3 py-2 rounded-xl border-2 border-slate-700">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pregunta</span>
+                    <span className="bg-blue-600 text-white text-xs font-black px-2.5 h-6 flex items-center justify-center rounded-md border-b-2 border-blue-800">{currentQuestionIdx + 1}/{questions.length}</span>
                 </div>
             </div>
 
             {/* Cronómetro Barra */}
             {questionDuration > 0 && (
-                <div className="w-full bg-gray-200 h-2">
+                <div className="w-full bg-slate-900 h-2 flex">
                     <div
                         className="h-full transition-all duration-1000 linear"
                         style={{
@@ -820,13 +851,16 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
             </div>
 
             {/* Tarjeta de Pregunta Central */}
-            <div className="flex items-center justify-center px-4 py-4 sm:py-6">
-                <div className="w-full max-w-4xl bg-white rounded-3xl p-6 sm:p-10 border-b-4 border-indigo-500 text-center relative overflow-hidden">
-                    {questionDuration > 0 && (
-                        <div className="absolute top-0 right-0 p-4 font-black text-3xl opacity-10">⏳ {timeLeft}</div>
-                    )}
-                    <div className="absolute -top-4 -left-4 w-16 h-16 bg-indigo-100 rounded-full blur-xl opacity-60"></div>
-                    <h2 className="text-2xl sm:text-3xl md:text-3xl font-extrabold text-gray-900 leading-snug break-words relative z-10 mt-2">
+            <div className="flex items-center justify-center px-4 py-6 sm:py-8 relative">
+                {questionDuration > 0 && (
+                     <div className="absolute top-1 right-6 z-20 px-4 py-2 bg-slate-800 border-2 border-slate-700 rounded-xl flex items-center gap-2 shadow-lg">
+                         <span className="text-xl">⏳</span>
+                         <span className={`text-2xl font-black tabular-nums ${timeLeft <= 5 ? 'text-red-500 animate-pulse' : 'text-white'}`}>{timeLeft}</span>
+                     </div>
+                )}
+                <div className="w-full max-w-4xl bg-white rounded-[2rem] p-6 sm:p-10 border-b-[8px] border-slate-300 shadow-xl text-center relative mt-4">
+                    <div className="absolute -top-5 -left-5 w-14 h-14 bg-blue-500 rounded-xl rotate-12 flex items-center justify-center font-black text-white border-b-4 border-blue-700 shadow-lg text-3xl">?</div>
+                    <h2 className="text-2xl sm:text-3xl md:text-3xl font-black text-slate-800 leading-snug break-words uppercase tracking-tight">
                         {currentQ.question_text}
                     </h2>
                 </div>
@@ -850,12 +884,12 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                                     key={i}
                                     disabled={answering}
                                     onClick={() => handleAnswerSubmit(i)}
-                                    className={`touch-manipulation relative focus:outline-none rounded-2xl sm:rounded-3xl font-black text-xl sm:text-2xl transition-all duration-300 flex flex-col items-center justify-center p-6 text-white active:translate-y-2 transform ${currentQ.type === 'true_false' ? (i === 0 ? 'bg-emerald-500' : 'bg-rose-500') : optionColors[i % 4]} ${opacityClass}`}
+                                    className={`relative ${currentQ.type === 'true_false' ? (i === 0 ? optionStyles[3].bg : optionStyles[0].bg) : optionStyles[i % 4].bg} border-b-8 ${currentQ.type === 'true_false' ? (i === 0 ? optionStyles[3].border : optionStyles[0].border) : optionStyles[i % 4].border} rounded-2xl p-6 flex flex-col items-center justify-center shadow-lg active:border-b-0 active:translate-y-2 transition-all duration-100 ${opacityClass}`}
                                 >
-                                    <span className="absolute top-4 left-5 text-3xl opacity-50">
-                                        {currentQ.type === 'true_false' ? (i === 0 ? '✅' : '❌') : optionIcons[i % 4]}
+                                    <span className="text-4xl drop-shadow-md mb-2">
+                                        {currentQ.type === 'true_false' ? (i === 0 ? '✅' : '❌') : optionStyles[i % 4].icon}
                                     </span>
-                                    <span className="mt-4 break-words w-full px-4">
+                                    <span className="text-white font-black text-xl sm:text-2xl text-center uppercase drop-shadow-md leading-tight break-words w-full">
                                         {opt}
                                     </span>
                                 </button>
@@ -865,19 +899,24 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 )}
 
                 {currentQ.type === 'fill_in_the_blank' && (
-                    <div className="flex flex-col items-center justify-center h-full w-full max-w-xl mx-auto space-y-6 bg-white/50 p-8 rounded-3xl backdrop-blur-sm border border-white">
+                    <div className="flex flex-col flex-1 items-center justify-center gap-4 max-w-xl mx-auto w-full">
                         <input
                             type="text"
                             disabled={answering}
                             value={blankAnswer}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !answering && (e.target as HTMLInputElement).value.trim()) {
+                                    handleAnswerSubmit((e.target as HTMLInputElement).value);
+                                }
+                            }}
                             onChange={(e) => setBlankAnswer(e.target.value)}
                             placeholder="Escribe tu respuesta aquí..."
-                            className="w-full text-center px-6 py-5 rounded-2xl text-2xl font-black text-indigo-900 bg-white border-4 border-indigo-200 focus:border-indigo-500 outline-none transition-all uppercase placeholder-indigo-300"
+                            className="bg-slate-900 border-4 border-slate-700 text-white font-black text-2xl p-6 rounded-2xl w-full text-center outline-none focus:border-blue-500 focus:bg-slate-800 transition-colors placeholder-slate-600 uppercase"
                         />
                         <button
                             disabled={answering || !blankAnswer.trim()}
                             onClick={() => handleAnswerSubmit(blankAnswer)}
-                            className="touch-manipulation w-full py-5 rounded-2xl bg-indigo-600 text-white font-black text-2xl active:translate-y-2 transform transition-all disabled:opacity-50 disabled:active:translate-y-0"
+                            className="w-full py-5 rounded-2xl bg-blue-600 border-b-8 border-blue-800 text-white font-black text-2xl active:translate-y-2 active:border-b-0 transition-all disabled:opacity-50"
                         >
                             ENVIAR RESPUESTA
                         </button>

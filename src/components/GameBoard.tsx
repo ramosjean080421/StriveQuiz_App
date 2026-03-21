@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import MemoryGameBoard from "@/components/games/memory/MemoryGameBoard";
+import RobloxGameBoard from "@/components/games/roblox/RobloxGameBoard";
 
 type BoardCoordinate = {
     x: number;
@@ -126,7 +127,7 @@ export default function GameBoard({ gameId }: GameBoardProps) {
     const [boardPath, setBoardPath] = useState<BoardCoordinate[]>([]);
     const [players, setPlayers] = useState<Player[]>([]);
     const [loading, setLoading] = useState(true);
-    const [gameMode, setGameMode] = useState<"classic" | "race" | "ludo" | "memory">("classic");
+    const [gameMode, setGameMode] = useState<"classic" | "race" | "ludo" | "memory" | "roblox">("classic");
     const [ludoTeamsCount, setLudoTeamsCount] = useState<number>(4);
     const [totalQuestions, setTotalQuestions] = useState<number>(10);
     const [attackAnims, setAttackAnims] = useState<AttackAnim[]>([]);
@@ -182,16 +183,23 @@ export default function GameBoard({ gameId }: GameBoardProps) {
 
     useEffect(() => {
         const fetchGameData = async () => {
-            const { data: gameConfig } = await supabase.from("games").select(`game_mode, quiz_id, quizzes (board_image_url, board_path, ludo_teams_count)`).eq("id", gameId).single();
+            const { data: gameConfig } = await supabase.from("games").select(`game_mode, quiz_id, boss_hp, quizzes (board_image_url, board_path, ludo_teams_count)`).eq("id", gameId).single();
             if (gameConfig) {
                 setGameMode(gameConfig.game_mode as any || "classic");
                 const quizData: any = Array.isArray(gameConfig.quizzes) ? gameConfig.quizzes[0] : gameConfig.quizzes;
                 setBoardImageUrl(quizData?.board_image_url || "/default-board.png");
                 setBoardPath(quizData?.board_path as BoardCoordinate[] || []);
                 setLudoTeamsCount(quizData?.ludo_teams_count || 4);
+                
                 const { count } = await supabase.from("questions").select("*", { count: 'exact', head: true }).eq("quiz_id", gameConfig.quiz_id);
-                if (count) setTotalQuestions(count);
-                else setTotalQuestions(10); // Fallback robusto
+                
+                if (gameConfig.game_mode === 'roblox' && gameConfig.boss_hp > 0) {
+                     setTotalQuestions(gameConfig.boss_hp);
+                } else if (count) {
+                     setTotalQuestions(count);
+                } else {
+                     setTotalQuestions(10); // Fallback robusto
+                }
             }
             const { data: initialPlayers } = await supabase.from("game_players").select("*").eq("game_id", gameId);
             if (initialPlayers) setPlayers(initialPlayers as Player[]);
@@ -311,6 +319,10 @@ export default function GameBoard({ gameId }: GameBoardProps) {
 
     if (gameMode === "memory") {
         return <MemoryGameBoard gameId={gameId} players={players} totalQuestions={totalQuestions} />;
+    }
+
+    if (gameMode === "roblox") {
+        return <RobloxGameBoard gameId={gameId} players={players} totalQuestions={totalQuestions} />;
     }
 
     const isLudo = gameMode?.startsWith("ludo");
@@ -439,41 +451,50 @@ export default function GameBoard({ gameId }: GameBoardProps) {
             
             {/* ALERTA DE ALUMNOS BLOQUEADOS (TRAMPA DETECTADA) */}
             {players.filter(p => p.is_blocked).length > 0 && (
-                <div className="absolute inset-0 z-[9999] pointer-events-none flex flex-col items-center justify-start pt-20">
-                    <div className="pointer-events-auto flex flex-col items-center gap-4 w-full max-w-2xl">
-                        {players.filter(p => p.is_blocked).map(cheater => (
-                            <div key={cheater.id} className="bg-red-600/90 backdrop-blur-xl border-4 border-red-500 p-6 rounded-[2rem] shadow-[0_30px_60px_rgba(220,38,38,0.5)] flex items-center justify-between w-full animate-bounce-subtle">
-                                <div className="flex items-center gap-4">
-                                    <div className="text-5xl">🚨</div>
-                                    <div className="text-left text-white">
-                                        <h3 className="text-2xl font-black uppercase tracking-widest leading-none mb-1">VENTANA ABANDONADA</h3>
-                                        <p className="font-bold text-red-200">
-                                            <span className="text-white bg-black/30 px-2 py-0.5 rounded-md mr-2">{cheater.player_name}</span> 
-                                            ha cambiado de pestaña (posible trampa).
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <button 
-                                        onClick={async () => {
-                                            await supabase.from("game_players").update({ is_blocked: false }).eq("id", cheater.id);
-                                        }}
-                                        className="bg-white text-red-700 font-black px-4 py-2 rounded-xl text-sm hover:bg-red-50 transition-colors shadow-lg active:scale-95"
-                                    >
-                                        PERDONAR
-                                    </button>
-                                    <button 
-                                        onClick={async () => {
-                                            await supabase.from("game_players").delete().eq("id", cheater.id);
-                                        }}
-                                        className="bg-black/40 hover:bg-black/60 text-white font-black px-4 py-2 rounded-xl text-sm transition-colors border border-white/20 active:scale-95"
-                                    >
-                                        EXPULSAR
-                                    </button>
+                <div className="absolute top-4 right-4 z-[9999] pointer-events-none flex flex-col gap-3 w-80">
+                    {players.filter(p => p.is_blocked).map(cheater => (
+                        <div key={cheater.id} className="pointer-events-auto bg-red-600/95 backdrop-blur-xl border-2 border-red-500 p-4 rounded-2xl shadow-[0_10px_30px_rgba(220,38,38,0.4)] flex flex-col animate-fade-in transition-all duration-300 transform scale-100">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="text-3xl drop-shadow-md animate-bounce" style={{animationDuration: '2s'}}>🚨</div>
+                                <div className="text-left text-white leading-tight">
+                                    <h3 className="text-sm font-black uppercase tracking-widest text-red-200">Abandono</h3>
+                                    <p className="font-bold text-sm">
+                                        <span className="text-white bg-black/30 px-1.5 py-0.5 rounded-md mr-1">{cheater.player_name}</span> 
+                                        salió.
+                                    </p>
                                 </div>
                             </div>
-                        ))}
-                    </div>
+                            <div className="flex gap-2 w-full">
+                                <button 
+                                    onClick={async () => {
+                                        // OPTIMISTIC UPDATE: se oculta al instante
+                                        setPlayers(prev => prev.map(p => p.id === cheater.id ? { ...p, is_blocked: false } : p));
+                                        await supabase.from("game_players").update({ is_blocked: false }).eq("id", cheater.id);
+                                    }}
+                                    className="flex-1 bg-white text-red-700 font-black px-2 py-1.5 rounded-lg text-xs hover:bg-red-50 transition-colors shadow-md active:scale-95"
+                                >
+                                    PERDONAR
+                                </button>
+                                <button 
+                                    onClick={async () => {
+                                        // Update state locally immediately
+                                        setPlayers(prev => prev.filter(p => p.id !== cheater.id));
+                                        
+                                        // Borrarlo con API local usando la sesion actual del profesor (Fallback delete)
+                                        if (cheater.id) {
+                                            // 1. Forzar señal de update letal en vivo para el alumno
+                                            await supabase.from("game_players").update({ current_position: -999, is_blocked: true }).eq("id", cheater.id);
+                                            // 2. Destruir registro final
+                                            await supabase.from("game_players").delete().eq("id", cheater.id);
+                                        }
+                                    }}
+                                    className="flex-1 bg-black/40 hover:bg-black/60 text-white font-black px-2 py-1.5 rounded-lg text-xs transition-colors border border-white/20 active:scale-95"
+                                >
+                                    EXPULSAR
+                                </button>
+                            </div>
+                        </div>
+                    ))}
                 </div>
             )}
             

@@ -19,7 +19,7 @@ function StartGameContent() {
     const [autoEnd, setAutoEnd] = useState(false);
     const [enableGameTimer, setEnableGameTimer] = useState(false);
     const [enableQuestionTimer, setEnableQuestionTimer] = useState(true);
-    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'ludo' | 'memory'>('classic');
+    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'ludo' | 'memory' | 'roblox'>('classic');
     
     const [dataLoaded, setDataLoaded] = useState(false);
     const [gameDuration, setGameDuration] = useState(10); // Minutos
@@ -29,6 +29,9 @@ function StartGameContent() {
     const [enableBonusTime, setEnableBonusTime] = useState(false);
     const [bonusTimePerMatch, setBonusTimePerMatch] = useState(5); // Segundos
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+
+    // Roblox: Límite de preguntas / islas generadas
+    const [customQuestionCount, setCustomQuestionCount] = useState<number | ''>(10);
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
         setToast({ message, type });
@@ -65,7 +68,8 @@ function StartGameContent() {
                 game_mode: gameMode,
                 game_duration: (enableGameTimer && !autoEnd) ? gameDuration : null,
                 question_duration: gameMode === 'memory' ? 0 : (enableQuestionTimer ? questionDuration : 0),
-                bonus_time_per_match: (gameMode === 'memory' && enableBonusTime) ? bonusTimePerMatch : null
+                bonus_time_per_match: (gameMode === 'memory' && enableBonusTime) ? bonusTimePerMatch : null,
+                boss_hp: gameMode === 'roblox' ? Number(customQuestionCount) : 0
             };
 
             // Primer intento: con todas las columnas
@@ -246,6 +250,28 @@ function StartGameContent() {
                                     <p className="text-[10px] text-cyan-400/60 font-bold text-center">Cada pareja acertada sumará {bonusTimePerMatch}s al reloj</p>
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {/* Límite de Islas y Aleatorización (Solo Roblox) */}
+                    {gameMode === 'roblox' && (
+                        <div className="p-4 rounded-[1.8rem] bg-indigo-900/10 border border-indigo-500/30 space-y-3 shadow-inner">
+                            <div className="flex flex-col text-left px-1 mb-2">
+                                <span className="text-xs font-bold text-indigo-300 uppercase tracking-widest">🎲 Límite de Plataformas (Obby)</span>
+                            </div>
+                            <div className="space-y-2 mt-2 pt-2 border-t border-indigo-500/20">
+                                <input 
+                                    type="number" 
+                                    min="1" max="200"
+                                    value={customQuestionCount === 0 ? "" : customQuestionCount}
+                                    placeholder="Ej. 10 islas..."
+                                    onChange={(e) => setCustomQuestionCount(e.target.value === "" ? "" : Number(e.target.value))}
+                                    className="w-full bg-indigo-950/40 border border-indigo-500/30 rounded-xl px-4 py-3 text-white text-sm font-black focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400"
+                                />
+                                <p className="text-[10px] text-indigo-300/80 font-bold leading-relaxed text-center mt-2 border-t border-indigo-500/10 pt-2">
+                                    Se sortearán de tu banco principal y <span className="text-indigo-200 font-black">cada alumno tendrá preguntas y orden diferentes</span> de forma permanente.
+                                </p>
+                            </div>
                         </div>
                     )}
  

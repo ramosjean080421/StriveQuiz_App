@@ -53,6 +53,16 @@ export default function Home() {
         setPin(urlPin.toUpperCase());
         setActiveTab("student");
       }
+      
+      // Si el alumno fue expulsado
+      if (urlParams.get('kicked') === 'true') {
+        setActiveTab("student");
+        setError("⚠️ Has sido expulsado de la partida por interactuar con otras ventanas (Detectado por módulo Anti-Trampas).");
+        // Limpiamos la url para no molestar si recarga
+        window.history.replaceState({}, document.title, "/");
+        // Limpiamos la bandera que evadió el anti-cierre
+        localStorage.removeItem("isKicked");
+      }
     }
   }, []);
 

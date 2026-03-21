@@ -26,10 +26,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        // 1. Borrar respuestas asociadas para evitar errores de clave foránea (Manual Cascade)
-        await supabase.from("game_responses")
-            .delete()
-            .eq("player_id", id);
+        // Heatmap tracking deleted per user request
 
         // 2. Actualizar con posición -1 para visualización segura en tablero (Backdoor)
         await supabase.from("game_players")
