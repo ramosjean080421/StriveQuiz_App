@@ -178,8 +178,13 @@ export default function TeacherDashboard() {
             isDestructive: true,
             onConfirm: async () => {
                 setConfirmModal(null);
-                const { error } = await supabase.from("teacher_profiles").delete().eq("id", id);
-                if (error) showToast("Error al eliminar: " + error.message, "error");
+                const { data, error } = await supabase.from("teacher_profiles").delete().eq("id", id).select();
+                if (error) {
+                    showToast("Error al eliminar: " + error.message, "error");
+                }
+                else if (!data || data.length === 0) {
+                    showToast("Error: No se pudo eliminar el profesor. Revisa los permisos.", "error");
+                }
                 else {
                     showToast("🔴 Profesor eliminado de la plataforma");
                     setTeachersList(prev => prev.filter(t => t.id !== id));
@@ -415,7 +420,7 @@ export default function TeacherDashboard() {
 
             {/* MODAL CONFIRMACION */}
             {confirmModal && confirmModal.isOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
                     <div className="bg-white rounded-3xl p-8 max-w-sm w-full transform transition-all animate-bounce-short text-center border border-gray-100">
                         <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 ${confirmModal.isDestructive ? 'bg-red-100 text-red-500' : 'bg-indigo-100 text-indigo-500'}`}>
                             <span className="text-3xl">{confirmModal.isDestructive ? '🗑️' : '📋'}</span>
@@ -436,7 +441,7 @@ export default function TeacherDashboard() {
 
             {/* MODAL GESTOR DE ACCESOS (Compartir / Descompartir) */}
             {shareModal && shareModal.isOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+                <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
                     <div className="bg-white rounded-3xl p-6 max-w-lg w-full transform transition-all animate-bounce-short border border-gray-100 max-h-[90vh] flex flex-col">
                         <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
                             <div className="w-12 h-12 bg-blue-100 text-blue-500 rounded-full flex items-center justify-center shrink-0">

@@ -16,6 +16,7 @@ type Player = {
     avatar_gif_url: string;
     current_position: number;
     score: number;
+    is_blocked?: boolean; // NUEVA COLUMNA
 };
 
 interface GameBoardProps {
@@ -435,6 +436,46 @@ export default function GameBoard({ gameId }: GameBoardProps) {
                     );
                 })}
             </div>
+            
+            {/* ALERTA DE ALUMNOS BLOQUEADOS (TRAMPA DETECTADA) */}
+            {players.filter(p => p.is_blocked).length > 0 && (
+                <div className="absolute inset-0 z-[9999] pointer-events-none flex flex-col items-center justify-start pt-20">
+                    <div className="pointer-events-auto flex flex-col items-center gap-4 w-full max-w-2xl">
+                        {players.filter(p => p.is_blocked).map(cheater => (
+                            <div key={cheater.id} className="bg-red-600/90 backdrop-blur-xl border-4 border-red-500 p-6 rounded-[2rem] shadow-[0_30px_60px_rgba(220,38,38,0.5)] flex items-center justify-between w-full animate-bounce-subtle">
+                                <div className="flex items-center gap-4">
+                                    <div className="text-5xl">🚨</div>
+                                    <div className="text-left text-white">
+                                        <h3 className="text-2xl font-black uppercase tracking-widest leading-none mb-1">VENTANA ABANDONADA</h3>
+                                        <p className="font-bold text-red-200">
+                                            <span className="text-white bg-black/30 px-2 py-0.5 rounded-md mr-2">{cheater.player_name}</span> 
+                                            ha cambiado de pestaña (posible trampa).
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <button 
+                                        onClick={async () => {
+                                            await supabase.from("game_players").update({ is_blocked: false }).eq("id", cheater.id);
+                                        }}
+                                        className="bg-white text-red-700 font-black px-4 py-2 rounded-xl text-sm hover:bg-red-50 transition-colors shadow-lg active:scale-95"
+                                    >
+                                        PERDONAR
+                                    </button>
+                                    <button 
+                                        onClick={async () => {
+                                            await supabase.from("game_players").delete().eq("id", cheater.id);
+                                        }}
+                                        className="bg-black/40 hover:bg-black/60 text-white font-black px-4 py-2 rounded-xl text-sm transition-colors border border-white/20 active:scale-95"
+                                    >
+                                        EXPULSAR
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
             
             <style jsx global>{`
                 @keyframes bounce-subtle {

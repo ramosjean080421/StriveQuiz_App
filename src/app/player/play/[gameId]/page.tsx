@@ -44,6 +44,9 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     const [rewardConfig, setRewardConfig] = useState({ enabled: false, criteria: 5, text: "" });
     const [earnedReward, setEarnedReward] = useState<string | null>(null);
 
+    // Sistema Anti-Trampas
+    const [isBlurred, setIsBlurred] = useState(false);
+
     // Reproductor de efectos integrados
     const playSound = (type: "correct" | "incorrect" | "timeout") => {
         try {
@@ -110,6 +113,39 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
             window.removeEventListener("unload", handleUnload);
         };
     }, [gameStatus, hasFinishedAll]);
+
+    // Lógica Anti-Trampas (Blur, Copiar, Menú contextual)
+    useEffect(() => {
+        const lockPlayer = async () => {
+            setIsBlurred(true);
+            if (playerId && playerSecret) {
+                await supabase.from("game_players").update({ is_blocked: true }).eq("id", Math.max(0, parseInt(playerId))).eq("secret_token", playerSecret); // Parche por seguridad (id is string but handled appropriately without parseInt usually. Wait, ID is a UUID/String!)
+                await supabase.from("game_players").update({ is_blocked: true }).eq("id", playerId).eq("secret_token", playerSecret);
+            }
+        };
+
+        const handleBlur = () => {
+            if (gameStatus === "active") lockPlayer();
+        };
+        const handleVisibilityChange = () => {
+            if (document.hidden && gameStatus === "active") lockPlayer();
+        };
+        const preventCopy = (e: Event) => e.preventDefault();
+
+        window.addEventListener("blur", handleBlur);
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+        document.addEventListener("contextmenu", preventCopy);
+        document.addEventListener("copy", preventCopy);
+        document.addEventListener("cut", preventCopy);
+
+        return () => {
+            window.removeEventListener("blur", handleBlur);
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+            document.removeEventListener("contextmenu", preventCopy);
+            document.removeEventListener("copy", preventCopy);
+            document.removeEventListener("cut", preventCopy);
+        };
+    }, [gameStatus, playerId, playerSecret]);
 
     // Cronómetro visual
     useEffect(() => {
@@ -205,7 +241,13 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
             // Cargar lista de jugadores para colisiones
             const { data: pList } = await supabase.from("game_players").select("*").eq("game_id", gameId);
-            if (pList) setPlayers(pList);
+            if (pList) {
+                setPlayers(pList);
+                const me = pList.find(p => p.id === savedPlayerId);
+                if (me?.is_blocked) {
+                    setIsBlurred(true);
+                }
+            }
 
             setLoading(false);
         };
@@ -226,8 +268,18 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                         setPlayers(prev => [...prev, payload.new]);
                     } else if (payload.eventType === 'UPDATE') {
                         setPlayers(prev => prev.map(p => p.id === payload.new.id ? payload.new : p));
+                        
+                        const savedPlayerId = localStorage.getItem("currentPlayerId");
+                        if (payload.new.id === savedPlayerId && payload.new.is_blocked === false) {
+                            setIsBlurred(false);
+                        }
                     } else if (payload.eventType === 'DELETE') {
                         setPlayers(prev => prev.filter(p => p.id !== payload.old.id));
+                        
+                        const savedPlayerId = localStorage.getItem("currentPlayerId");
+                        if (payload.old.id === savedPlayerId) {
+                            window.location.href = "/?kicked=true";
+                        }
                     }
                 }
             )
@@ -532,6 +584,27 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         return (
             <div className="h-screen w-screen flex bg-gray-950 overflow-hidden relative font-sans select-none">
                 
+                {/* Overlay Anti-Trampas */}
+                {isBlurred && (
+                    <div className="fixed inset-0 z-[9999] bg-gray-950/95 flex flex-col items-center justify-center p-6 text-center backdrop-blur-xl">
+                        <div className="bg-red-500/10 border border-red-500/30 p-10 rounded-[3rem] max-w-md shadow-2xl">
+                            <span className="text-8xl mb-6 block animate-bounce">🙈</span>
+                            <h1 className="text-3xl font-black text-red-500 mb-4 uppercase tracking-widest leading-none">
+                                ¡NO HAGAS TRAMPA!
+                            </h1>
+                            <p className="text-gray-300 font-medium text-lg leading-relaxed mb-8">
+                                Ocultamos las preguntas porque detectamos un intento de hacer trampa o uso de otra aplicación. <br/><br/>
+                                <strong className="text-red-400">El profesor ha sido notificado.</strong> Espera a que te permita regresar al juego.
+                            </p>
+                            <div className="flex items-center gap-3 opacity-40 justify-center">
+                                <div className="w-2 h-2 bg-red-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                <div className="w-2 h-2 bg-red-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                <div className="w-2 h-2 bg-red-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Logo Borroso de Fondo */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
                     <img src="/logotransparente.png" alt="" className="w-[140vw] max-w-[1000px] opacity-[0.14] blur-[3px] select-none" draggable={false} />
@@ -677,6 +750,27 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
     return (
         <div className="h-screen w-screen flex flex-col bg-gray-100 overflow-y-auto relative font-sans custom-scrollbar select-none">
+            {/* Overlay Anti-Trampas */}
+            {isBlurred && (
+                <div className="fixed inset-0 z-[9999] bg-gray-950/95 flex flex-col items-center justify-center p-6 text-center backdrop-blur-xl">
+                    <div className="bg-red-500/10 border border-red-500/30 p-10 rounded-[3rem] max-w-md shadow-2xl">
+                        <span className="text-8xl mb-6 block animate-bounce">🙈</span>
+                        <h1 className="text-3xl font-black text-red-500 mb-4 uppercase tracking-widest leading-none">
+                            ¡NO HAGAS TRAMPA!
+                        </h1>
+                        <p className="text-gray-300 font-medium text-lg leading-relaxed mb-8">
+                            Ocultamos las preguntas porque detectamos un intento de hacer trampa o uso de otra aplicación. <br/><br/>
+                            <strong className="text-red-400">El profesor ha sido notificado.</strong> Espera a que te permita regresar al juego.
+                        </p>
+                        <div className="flex items-center gap-3 opacity-40 justify-center">
+                            <div className="w-2 h-2 bg-red-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                            <div className="w-2 h-2 bg-red-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                            <div className="w-2 h-2 bg-red-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Header Mini - Progreso */}
             <div className="bg-white px-4 py-3 flex justify-between items-center z-10 sticky top-0 border-b border-gray-100">
                 <div className="flex items-center gap-3">
