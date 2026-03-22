@@ -2,9 +2,11 @@
 
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Text, Float, Billboard, Environment, Sky, MeshDistortMaterial, Sparkles } from '@react-three/drei';
+import { OrbitControls, Text, Float, Billboard, Environment, Grid, Sparkles } from '@react-three/drei';
 import * as THREE from 'three';
 import { supabase } from "@/lib/supabaseClient";
+import confetti from 'canvas-confetti';
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 
 type Player = {
     id: string;
@@ -23,15 +25,26 @@ interface RobloxGameBoardProps {
 }
 
 // Generates an Obby island trajectory
-const getIslandPosition = (index: number) => {
-    // A long wavy race track moving deep into the screen (negative Z axis)
-    const spacingZ = -6;
-    // Wavy pattern along the X axis
-    const wobbleX = Math.sin(index * 0.5) * 6;
-    // Slowly ascend to avoid the rising lava
-    const heightY = index * 0.3;
-    
-    return new THREE.Vector3(wobbleX, heightY, index * spacingZ);
+const getIslandPosition = (index: number, isSpiral: boolean) => {
+    if (isSpiral) {
+        // 🌀 TOWER SPIRAL (Ascendente real)
+        const radius = 3 + index * 0.8; 
+        const angle = index * (Math.PI / 4); 
+        const heightY = index * 1.5; 
+        return new THREE.Vector3(Math.cos(angle) * radius, heightY, Math.sin(angle) * radius);
+    } else {
+        // ⚡ SNAKE GRID (ZIG ZAG) - Super clean for the camera
+        const columns = 6;
+        const spacing = 5.5;
+        const row = Math.floor(index / columns);
+        // Alternate direction every row
+        const col = row % 2 === 0 ? (index % columns) : (columns - 1 - (index % columns));
+        
+        const offsetX = (col - (columns / 2.5)) * spacing;
+        const offsetZ = -row * spacing;
+        const heightY = index * 0.15; // Ligerísima elevación 
+        return new THREE.Vector3(offsetX, heightY, offsetZ);
+    }
 };
 
 // Colors mapping for Roblox style
@@ -44,15 +57,18 @@ const PlayerAvatar = ({ player, index, totalQuestions }: { player: Player, index
     const leftLegRef = useRef<THREE.Mesh>(null);
     const rightLegRef = useRef<THREE.Mesh>(null);
     const targetPosRef = useRef(new THREE.Vector3());
+
+    const isSpiral = totalQuestions < 0;
+    const absTotal = Math.abs(totalQuestions);
     
     useEffect(() => {
-        const safePos = Math.max(0, Math.min(player.current_position, totalQuestions));
-        const basePos = getIslandPosition(safePos);
+        const safePos = Math.max(0, Math.min(player.current_position, absTotal));
+        const basePos = getIslandPosition(safePos, isSpiral);
         
-        console.log(`[Avatar ${player.player_name}] Pos:${player.current_position} Total:${totalQuestions} Safe:${safePos}`);
+        console.log(`[Avatar ${player.player_name}] Pos:${player.current_position} Total:${absTotal} Safe:${safePos}`);
 
         // Offset determinístico para que los jugadores en la misma isla no se superpongan (excepto inicio/meta)
-        if (safePos > 0 && safePos < totalQuestions) {
+        if (safePos > 0 && safePos < absTotal) {
             const angle = index * 2.3999; // Golden ratio approx para dispersión
             const radius = 0.6 + (Math.abs(Math.sin(index)) * 0.8);
             const offset = new THREE.Vector3(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
@@ -60,7 +76,7 @@ const PlayerAvatar = ({ player, index, totalQuestions }: { player: Player, index
         } else {
             targetPosRef.current.copy(basePos);
         }
-    }, [player.current_position, totalQuestions, index, player.player_name]);
+    }, [player.current_position, absTotal, index, player.player_name, isSpiral]);
     
     // Smooth movement mapping (lerp)
     useFrame((state, delta) => {
@@ -209,8 +225,8 @@ const JumpPads = ({ start, end }: { start: THREE.Vector3, end: THREE.Vector3 }) 
     );
 };
 
-const ObbyIsland = ({ index, isEnd = false }: { index: number, isEnd?: boolean }) => {
-    const pos = getIslandPosition(index);
+const ObbyIsland = ({ index, isEnd = false, isSpiral = false }: { index: number, isEnd?: boolean, isSpiral?: boolean }) => {
+    const pos = getIslandPosition(index, isSpiral);
     const meshRef = useRef<THREE.Group>(null);
     
     // Patrones y tipos de obstáculo
@@ -308,55 +324,69 @@ const ObbyIsland = ({ index, isEnd = false }: { index: number, isEnd?: boolean }
 };
 
 export default function RobloxGameBoard({ gameId, players, totalQuestions }: RobloxGameBoardProps) {
-    const islands = useMemo(() => Array.from({ length: totalQuestions + 1 }).map((_, i) => i), [totalQuestions]);
+    const isSpiral = totalQuestions < 0;
+    const absTotal = Math.abs(totalQuestions);
+    const islands = useMemo(() => Array.from({ length: absTotal + 1 }).map((_, i) => i), [absTotal]);
     const [hiddenCheaters, setHiddenCheaters] = useState<string[]>([]);
     const [localForgivenOrders, setLocalForgivenOrders] = useState<string[]>([]);
+    const controlsRef = useRef<OrbitControlsImpl>(null);
     
     // Render the podium ranking sidebar
     const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+
+    // Confetti Logic
+    const playersAtFinish = players.filter(p => !hiddenCheaters.includes(p.id) && p.current_position >= absTotal).length;
+    useEffect(() => {
+        if (playersAtFinish > 0) {
+            confetti({
+                particleCount: 150,
+                spread: 120,
+                origin: { y: 0.4 },
+                colors: ['#fcd34d', '#3b82f6', '#10b981', '#ef4444', '#8b5cf6'],
+                zIndex: 9999
+            });
+        }
+    }, [playersAtFinish]);
 
     return (
         <div className="w-full h-full flex flex-col md:flex-row bg-[#0a0a0a] relative overflow-hidden font-sans">
             {/* 3D Viewport */}
             <div className="flex-1 h-full relative">
-                <Canvas shadows camera={{ position: [0, 5, 10], fov: 60 }}>
-                    <Sky distance={450000} sunPosition={[0, 1, 0]} inclination={0} azimuth={0.25} turbidity={10} rayleigh={2} mieCoefficient={0.005} mieDirectionalG={0.8} />
-                    <ambientLight intensity={0.4} />
+                <Canvas shadows camera={{ position: [0, 15, 20], fov: 50 }}>
+                    <color attach="background" args={["#0f172a"]} /> {/* Dark Slate */}
+                    <ambientLight intensity={0.6} />
                     <directionalLight
-                        position={[10, 20, 10]}
+                        position={[20, 30, 20]}
                         intensity={1.5}
                         castShadow
                         shadow-mapSize={[2048, 2048]}
+                        shadow-camera-bottom={-50}
+                        shadow-camera-top={50}
+                        shadow-camera-left={-50}
+                        shadow-camera-right={50}
                     />
                     
-                    {/* The Void (Distorted Lava layer) */}
+                    {/* The Void -> Beautiful glowing Grid and darkness */}
                     <mesh position={[0, -5, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-                        <planeGeometry args={[200, 200, 64, 64]} />
-                        <MeshDistortMaterial
-                            color="#ff4500"
-                            emissive="#ff0000"
-                            emissiveIntensity={0.8}
-                            roughness={0.2}
-                            metalness={0.8}
-                            distort={0.4}
-                            speed={2}
-                        />
+                        <planeGeometry args={[500, 500]} />
+                        <meshStandardMaterial color="#020617" roughness={0.1} />
                     </mesh>
+                    <Grid infiniteGrid fadeDistance={100} sectionColor="#6366f1" cellColor="#312e81" position={[0, -4.9, 0]} sectionSize={5} cellThickness={0.5} />
 
-                    {/* Magic Sparkles around the islands */}
-                    <Sparkles count={500} scale={[25, 10, totalQuestions * 6]} position={[0, 5, -(totalQuestions * 3)]} color="#fcd34d" size={4} speed={0.4} opacity={0.5} />
+                     {/* Magic Sparkles around the islands */}
+                    <Sparkles count={500} scale={[25, 10, absTotal * 6]} position={[0, 5, isSpiral ? 0 : -(absTotal * 3)]} color="#fcd34d" size={4} speed={0.4} opacity={0.5} />
 
                     {/* Generate paths (Jump pads) between islands */}
                     {islands.map((i) => {
                         if (i === 0) return null;
-                        const start = getIslandPosition(i - 1);
-                        const end = getIslandPosition(i);
+                        const start = getIslandPosition(i - 1, isSpiral);
+                        const end = getIslandPosition(i, isSpiral);
                         return <JumpPads key={`path-${i}`} start={start} end={end} />
                     })}
 
                     {/* Generate islands up to finish line */}
                     {islands.map((i) => (
-                        <ObbyIsland key={i} index={i} isEnd={i === totalQuestions} />
+                        <ObbyIsland key={i} index={i} isEnd={i === absTotal} isSpiral={isSpiral} />
                     ))}
 
                     {/* Generate Players */}
@@ -364,9 +394,78 @@ export default function RobloxGameBoard({ gameId, players, totalQuestions }: Rob
                         <PlayerAvatar key={p.id} player={p} index={idx} totalQuestions={totalQuestions} />
                     ))}
 
-                    <OrbitControls makeDefault target={[0, (totalQuestions*0.3)/2, -(totalQuestions*3)]} />
-                    <Environment preset="city" />
+                    <OrbitControls 
+                        ref={controlsRef}
+                        makeDefault
+                        enableDamping
+                        dampingFactor={0.05}
+                        panSpeed={0.5}
+                        rotateSpeed={0.4}
+                        zoomSpeed={0.8}
+                        maxDistance={150}
+                        maxPolarAngle={Math.PI / 2 - 0.05}
+                        target={isSpiral 
+                            ? [0, (absTotal * 1.5) / 2, 0] 
+                            : [0, (absTotal * 0.15) / 2, -(Math.floor(absTotal / 6) * 5.5) / 2]
+                        } 
+                    />
+                    <Environment preset="night" />
                 </Canvas>
+                
+                {/* Overlay Tooling */}
+                <div className="absolute bottom-6 left-6 z-40 flex flex-col gap-2">
+                    <button
+                        onClick={() => {
+                            if (controlsRef.current) {
+                                // 1. Target al Centro
+                                controlsRef.current.target.set(
+                                    0,
+                                    isSpiral ? (absTotal * 1.5) / 2 : (absTotal * 0.15) / 2,
+                                    isSpiral ? 0 : -(Math.floor(absTotal / 6) * 5.5) / 2
+                                );
+                                
+                                // 2. Alejar la Cámara para que entre TODO en el encuadre
+                                const camera = controlsRef.current.object;
+                                if (isSpiral) {
+                                    // Espiral: Depende de Altura y Radio
+                                    const maxR = 3 + absTotal * 0.8;
+                                    const maxH = absTotal * 1.5;
+                                    camera.position.set(maxR * 1.2, maxH * 1.2 + 10, maxR * 1.5);
+                                } else {
+                                    // Grid: Depende de la Profundidad
+                                    const maxDepth = Math.floor(absTotal / 6) * 5.5;
+                                    // Cámara arriba al centro, enfocando hacia abajo y al fondo
+                                    camera.position.set(0, Math.max(25, maxDepth + 10), Math.max(20, maxDepth * 0.5 + 10));
+                                }
+                                
+                                controlsRef.current.update();
+                            }
+                        }}
+                        className="bg-indigo-600/90 hover:bg-indigo-500 text-white px-5 py-3 rounded-2xl font-black font-sans shadow-[0_4px_14px_0_rgba(79,70,229,0.39)] backdrop-blur-md flex items-center justify-center gap-2 border border-indigo-400/30 transition-all active:scale-95"
+                    >
+                        <span className="text-xl">🗺️</span>
+                        Ver Todo el Mapa
+                    </button>
+                    <button
+                         onClick={() => {
+                            if (controlsRef.current && sortedPlayers.length > 0) {
+                                const lider = sortedPlayers[0];
+                                const pos = getIslandPosition(Math.max(0, Math.min(lider.current_position, absTotal)), isSpiral);
+                                controlsRef.current.target.set(pos.x, pos.y, pos.z);
+                                
+                                const camera = controlsRef.current.object;
+                                // Acercar la cámara detrás y por encima del líder
+                                camera.position.set(pos.x, pos.y + 10, pos.z + 15);
+                                
+                                controlsRef.current.update();
+                            }
+                        }}
+                        className="bg-emerald-600/90 hover:bg-emerald-500 text-white px-5 py-3 rounded-2xl font-black font-sans shadow-[0_4px_14px_0_rgba(16,185,129,0.39)] backdrop-blur-md flex items-center justify-center gap-2 border border-emerald-400/30 transition-all active:scale-95"
+                    >
+                        <span className="text-xl">👀</span>
+                        Enfocar al Líder
+                    </button>
+                </div>
 
                 {/* ALERTA DE ALUMNOS BLOQUEADOS (TRAMPA DETECTADA) */}
                 {players.filter(p => p.is_blocked && !hiddenCheaters.includes(p.id) && !localForgivenOrders.includes(p.id)).length > 0 && (

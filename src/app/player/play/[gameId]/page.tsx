@@ -236,8 +236,8 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                     if ((mode === 'classic' || mode === 'race') && (boardPath && boardPath.length > 0)) {
                         shuffled = shuffled.slice(0, boardPath.length);
                         console.log("Slicing questions to board path length:", boardPath.length);
-                    } else if (mode === 'roblox' && game.boss_hp > 0) {
-                        shuffled = shuffled.slice(0, game.boss_hp);
+                    } else if (mode === 'roblox' && Math.abs(game.boss_hp || 0) > 0) {
+                        shuffled = shuffled.slice(0, Math.abs(game.boss_hp));
                     }
 
                     setQuestions(shuffled);

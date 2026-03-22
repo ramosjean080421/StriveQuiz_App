@@ -32,6 +32,7 @@ function StartGameContent() {
 
     // Roblox: Límite de preguntas / islas generadas
     const [customQuestionCount, setCustomQuestionCount] = useState<number | ''>(10);
+    const [mapTheme, setMapTheme] = useState<'linear' | 'spiral'>('linear');
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
         setToast({ message, type });
@@ -69,7 +70,7 @@ function StartGameContent() {
                 game_duration: (enableGameTimer && !autoEnd) ? gameDuration : null,
                 question_duration: gameMode === 'memory' ? 0 : (enableQuestionTimer ? questionDuration : 0),
                 bonus_time_per_match: (gameMode === 'memory' && enableBonusTime) ? bonusTimePerMatch : null,
-                boss_hp: gameMode === 'roblox' ? Number(customQuestionCount) : 0
+                boss_hp: gameMode === 'roblox' ? (mapTheme === 'spiral' ? -Number(customQuestionCount) : Number(customQuestionCount)) : 0
             };
 
             // Primer intento: con todas las columnas
@@ -255,11 +256,39 @@ function StartGameContent() {
 
                     {/* Límite de Islas y Aleatorización (Solo Roblox) */}
                     {gameMode === 'roblox' && (
-                        <div className="p-4 rounded-[1.8rem] bg-indigo-900/10 border border-indigo-500/30 space-y-3 shadow-inner">
-                            <div className="flex flex-col text-left px-1 mb-2">
-                                <span className="text-xs font-bold text-indigo-300 uppercase tracking-widest">🎲 Límite de Plataformas (Obby)</span>
+                        <div className="p-4 rounded-[1.8rem] bg-indigo-900/10 border border-indigo-500/30 space-y-4 shadow-inner">
+                            <div className="flex flex-col text-left px-1">
+                                <span className="text-xs font-bold text-indigo-300 uppercase tracking-widest">🗺️ Diseño del Mapa (Obby)</span>
+                                <div className="grid grid-cols-2 gap-2 mt-2">
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setMapTheme('linear')}
+                                        className={`p-3 rounded-xl border text-xs font-black uppercase transition-all ${
+                                            mapTheme === 'linear' 
+                                            ? 'bg-indigo-500 border-indigo-400 text-white shadow-lg shadow-indigo-500/30 scale-100' 
+                                            : 'bg-indigo-950/40 border-indigo-800 text-indigo-300/60 hover:border-indigo-500 scale-95'
+                                        }`}
+                                    >
+                                        Clásico
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setMapTheme('spiral')}
+                                        className={`p-3 rounded-xl border text-xs font-black uppercase transition-all ${
+                                            mapTheme === 'spiral' 
+                                            ? 'bg-gradient-to-tr from-fuchsia-500 to-indigo-500 border-fuchsia-400 text-white shadow-lg shadow-fuchsia-500/30 scale-100' 
+                                            : 'bg-indigo-950/40 border-indigo-800 text-indigo-300/60 hover:border-indigo-500 scale-95'
+                                        }`}
+                                    >
+                                        Spiral (Ascenso)
+                                    </button>
+                                </div>
                             </div>
-                            <div className="space-y-2 mt-2 pt-2 border-t border-indigo-500/20">
+
+                            <div className="flex flex-col text-left px-1 border-t border-indigo-500/20 pt-3">
+                                <span className="text-xs font-bold text-indigo-300 uppercase tracking-widest">🎲 Límite de Plataformas</span>
+                            </div>
+                            <div className="space-y-2 mt-1">
                                 <input 
                                     type="number" 
                                     min="1" max="200"

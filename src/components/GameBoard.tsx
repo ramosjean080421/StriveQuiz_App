@@ -193,7 +193,7 @@ export default function GameBoard({ gameId }: GameBoardProps) {
                 
                 const { count } = await supabase.from("questions").select("*", { count: 'exact', head: true }).eq("quiz_id", gameConfig.quiz_id);
                 
-                if (gameConfig.game_mode === 'roblox' && gameConfig.boss_hp > 0) {
+                if (gameConfig.game_mode === 'roblox' && (gameConfig.boss_hp || 0) !== 0) {
                      setTotalQuestions(gameConfig.boss_hp);
                 } else if (count) {
                      setTotalQuestions(count);
