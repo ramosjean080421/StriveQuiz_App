@@ -135,9 +135,28 @@ export default function TeacherDashboard() {
     };
 
     useEffect(() => {
+        let channel: any;
         if (isAdminModalOpen) {
             fetchAllTeachersForAdmin();
+
+            // 🔴 CANAL EN TIEMPO REAL: Escuchar cambios en la tabla de profesores
+            channel = supabase.channel('admin_teachers_realtime')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'teacher_profiles' }, (payload) => {
+                    console.log("Teacher profile changed:", payload);
+                    if (payload.event === 'UPDATE') {
+                        setTeachersList(prev => prev.map(t => t.id === payload.new.id ? (payload.new as any) : t));
+                    } else if (payload.event === 'DELETE') {
+                        setTeachersList(prev => prev.filter(t => t.id !== payload.old.id));
+                    } else if (payload.event === 'INSERT') {
+                        setTeachersList(prev => [payload.new as any, ...prev]);
+                    }
+                })
+                .subscribe();
         }
+
+        return () => {
+             if (channel) supabase.removeChannel(channel);
+        };
     }, [isAdminModalOpen]);
 
     const handleApproveTeacher = async (id: string, approve: boolean) => {
