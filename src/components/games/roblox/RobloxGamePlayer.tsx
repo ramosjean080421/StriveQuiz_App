@@ -98,7 +98,7 @@ export default function RobloxGamePlayer({
                 {/* Options Layout */}
                 {(!currentQ.type || currentQ.type === 'multiple_choice' || currentQ.type === 'true_false') && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
-                        {currentQ.options.map((opt: string, i: number) => {
+                        {currentQ.options?.map((opt: string, i: number) => {
                             const style = currentQ.type === 'true_false' 
                                 ? (i === 0 ? optionStyles[3] : optionStyles[0]) 
                                 : optionStyles[i % 4];

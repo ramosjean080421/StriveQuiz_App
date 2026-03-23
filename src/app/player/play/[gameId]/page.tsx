@@ -123,7 +123,6 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         const lockPlayer = async () => {
             setIsBlurred(true);
             if (playerId && playerSecret) {
-                await supabase.from("game_players").update({ is_blocked: true }).eq("id", Math.max(0, parseInt(playerId))).eq("secret_token", playerSecret); // Parche por seguridad (id is string but handled appropriately without parseInt usually. Wait, ID is a UUID/String!)
                 await supabase.from("game_players").update({ is_blocked: true }).eq("id", playerId).eq("secret_token", playerSecret);
             }
         };
@@ -250,6 +249,15 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
             if (pList) {
                 setPlayers(pList);
                 const me = pList.find(p => p.id === savedPlayerId);
+                if (!me) {
+                    // El jugador no existe en la BD (ej. fue eliminado al recargar en el lobby).
+                    // Lo regresamos a la pantalla de incio.
+                    localStorage.removeItem("currentPlayerId");
+                    localStorage.removeItem("playerSecret");
+                    setErrorMessage("Tu sesión se cerró. Por favor, vuelve a ingresar tu nombre.");
+                    setTimeout(() => { window.location.href = "/"; }, 3000);
+                    return;
+                }
                 if (me?.is_blocked) {
                     setIsBlurred(true);
                 }
@@ -870,7 +878,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
             <div className="flex-1 p-3 pb-6 sm:p-6 max-w-5xl mx-auto w-full flex flex-col justify-center">
                 {(!currentQ.type || currentQ.type === 'multiple_choice' || currentQ.type === 'true_false') && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full h-full">
-                        {currentQ.options.map((opt, i) => {
+                        {currentQ.options?.map((opt, i) => {
 
                             let opacityClass = "opacity-100";
                             if (feedback && i !== currentQ.correct_option_index) {

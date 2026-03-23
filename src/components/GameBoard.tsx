@@ -216,8 +216,8 @@ export default function GameBoard({ gameId }: GameBoardProps) {
             .on("postgres_changes", { event: "UPDATE", schema: "public", table: "game_players", filter: `game_id=eq.${gameId}` }, (payload) => {
                 const newPlayer = payload.new as Player & { correct_answers?: number, incorrect_answers?: number, game_id?: string };
                 
-                // Si el alumno se salda voluntariamente (-1), lo removemos
-                if (newPlayer.current_position === -1) {
+                // Si el alumno se salda voluntariamente o es expulsado (< 0), lo removemos
+                if (newPlayer.current_position < 0) {
                     setPlayers((prev) => prev.filter(p => p.id !== newPlayer.id));
                     return;
                 }

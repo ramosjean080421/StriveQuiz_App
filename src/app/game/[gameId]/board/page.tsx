@@ -4,6 +4,7 @@
 import { useEffect, useState, use } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import GameBoard from "@/components/GameBoard";
+import ConnectedPlayersModal from "@/components/ConnectedPlayersModal";
 import Link from "next/link";
 
 export default function GameRoomBoard({ params }: { params: Promise<{ gameId: string }> }) {
@@ -18,6 +19,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
     const [gameDuration, setGameDuration] = useState(0); 
     const [timeLeftSession, setTimeLeftSession] = useState(0);
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
     const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
         setToast({ message, type });
@@ -88,7 +90,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
 
         
         const refreshCount = async () => {
-            const { count } = await supabase.from('game_players').select('*', { count: 'exact', head: true }).eq('game_id', gameId);
+            const { count } = await supabase.from('game_players').select('*', { count: 'exact', head: true }).eq('game_id', gameId).gte("current_position", 0);
             setPlayerCount(count || 0);
         };
         const channel = supabase.channel(`game_room_status_${gameId}`)
@@ -105,7 +107,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
             ).subscribe();
 
         // Obtener el conteo inicial
-        supabase.from('game_players').select('*', { count: 'exact', head: true }).eq('game_id', gameId).then(({ count }) => {
+        supabase.from('game_players').select('*', { count: 'exact', head: true }).eq('game_id', gameId).gte('current_position', 0).then(({ count }) => {
             if (count) setPlayerCount(count);
         });
 
@@ -201,10 +203,13 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                         </div>
                     )}
                     {gameStatus === "waiting" && (
-                        <div className="hidden lg:flex items-center gap-2 bg-[#2d3748] px-4 py-2 rounded-xl text-white font-black border border-white/20 shadow-lg">
+                        <button 
+                            onClick={() => setIsModalOpen(true)}
+                            className="hidden lg:flex items-center gap-2 bg-[#2d3748] hover:bg-[#3f4a61] transition-all active:scale-95 px-4 py-2 rounded-xl text-white font-black border border-white/20 shadow-lg cursor-pointer"
+                        >
                             <span>👤</span>
                             {playerCount} Conectados
-                        </div>
+                        </button>
                     )}
                 </div>
 
@@ -431,6 +436,12 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                     <GameBoard gameId={gameId} />
                 )}
             </main>
+
+            <ConnectedPlayersModal
+                gameId={gameId}
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+            />
 
             {/* Música de Juego */}
             <audio id="bg-music" loop src="https://cdns-preview-f.dzcdn.net/stream/c-f458e0aae13fa26ea7f2c69bb128deba-3.mp3"></audio>

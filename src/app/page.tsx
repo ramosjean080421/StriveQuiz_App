@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 
@@ -54,10 +54,9 @@ export default function Home() {
         setActiveTab("student");
       }
       
-      // Si el alumno fue expulsado
       if (urlParams.get('kicked') === 'true') {
         setActiveTab("student");
-        setError("⚠️ Has sido expulsado de la partida por interactuar con otras ventanas (Detectado por módulo Anti-Trampas).");
+        setError("⚠️ Has sido expulsado de la sala (Posible nombre duplicado o interacción detectada). Por favor vuelve a ingresar.");
         // Limpiamos la url para no molestar si recarga
         window.history.replaceState({}, document.title, "/");
         // Limpiamos la bandera que evadió el anti-cierre
@@ -79,15 +78,19 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successModal, setSuccessModal] = useState<{ isOpen: boolean, title: string, message: string } | null>(null);
+  const isJoiningRef = useRef(false);
 
   const handleStudentJoin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isJoiningRef.current) return;
+    isJoiningRef.current = true;
     setError(null);
 
     // Validación de nombre y apellido
-    const trimmedName = playerName.trim();
+    const trimmedName = playerName.trim().replace(/\s+/g, ' ');
     if (trimmedName.split(/\s+/).length < 2) {
       setError("Debes colocar al menos tu nombre y un apellido.");
+      isJoiningRef.current = false;
       return;
     }
 
@@ -96,6 +99,7 @@ export default function Home() {
     const nameLower = trimmedName.toLowerCase();
     if (BAD_WORDS.some(word => nameLower.includes(word))) {
       setError("Por favor, usa un nombre apropiado y respetuoso.");
+      isJoiningRef.current = false;
       return;
     }
 
@@ -112,14 +116,22 @@ export default function Home() {
       if (game.status !== "waiting") throw new Error("No puedes ingresar, la partida ya ha iniciado o finalizado.");
 
       // Verificar si el nombre ya está registrado en la sala (Case-Insensitive)
-      const { data: existingPlayer } = await supabase
+      const { data: playersFound } = await supabase
         .from("game_players")
         .select("id")
         .eq("game_id", game.id)
-        .ilike("player_name", trimmedName)
-        .maybeSingle();
+        .ilike("player_name", trimmedName);
+
+      const existingPlayer = playersFound && playersFound.length > 0 ? playersFound[0] : null;
+
+      const savedPlayerId = localStorage.getItem("currentPlayerId");
 
       if (existingPlayer) {
+        if (savedPlayerId === existingPlayer.id) {
+          // Es el mismo jugador intentando reconectar (ej. recargó la página o regresó)
+          router.push(`/player/play/${game.id}`);
+          return;
+        }
         throw new Error("Ya hay un alumno con ese nombre en esta sala. Por favor, añade tu segundo apellido o inicial para diferenciarte.");
       }
 
@@ -138,8 +150,10 @@ export default function Home() {
       router.push(`/player/play/${game.id}`);
     } catch (err: any) {
       setError(err.message || "Error al intentar entrar a la sala.");
+      isJoiningRef.current = false;
     } finally {
       setLoading(false);
+      // Not resetting isJoiningRef here if successful, to prevent double joins while navigating.
     }
   };
 

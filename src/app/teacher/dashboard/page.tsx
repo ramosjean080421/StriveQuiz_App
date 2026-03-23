@@ -143,11 +143,11 @@ export default function TeacherDashboard() {
             channel = supabase.channel('admin_teachers_realtime')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'teacher_profiles' }, (payload) => {
                     console.log("Teacher profile changed:", payload);
-                    if (payload.event === 'UPDATE') {
+                    if (payload.eventType === 'UPDATE') {
                         setTeachersList(prev => prev.map(t => t.id === payload.new.id ? (payload.new as any) : t));
-                    } else if (payload.event === 'DELETE') {
+                    } else if (payload.eventType === 'DELETE') {
                         setTeachersList(prev => prev.filter(t => t.id !== payload.old.id));
-                    } else if (payload.event === 'INSERT') {
+                    } else if (payload.eventType === 'INSERT') {
                         setTeachersList(prev => [payload.new as any, ...prev]);
                     }
                 })
