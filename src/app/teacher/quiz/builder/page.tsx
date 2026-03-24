@@ -341,14 +341,14 @@ function QuizBuilderContent() {
         <div className="flex flex-col lg:flex-row h-[100dvh] w-screen overflow-hidden bg-gray-900 font-sans">
 
             {/* Panel Izquierdo - Herramientas y Configuraciones */}
-            <div className="w-full lg:w-[380px] h-full bg-white flex flex-col z-20 flex-shrink-0 border-r border-gray-200">
+            <div className="w-full lg:w-[380px] h-full bg-white dark:bg-slate-900 flex flex-col z-20 flex-shrink-0 border-r border-gray-200 dark:border-slate-800">
 
                 {/* Cabecera del Panel */}
-                <div className="p-5 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-white flex items-center justify-between">
+                <div className="p-5 border-b border-gray-100 dark:border-slate-800 bg-gradient-to-r from-indigo-50 to-white dark:from-slate-900 dark:to-slate-900 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <Link
                             href="/teacher/dashboard"
-                            className="group flex items-center gap-2 px-3 sm:px-4 py-2 bg-white hover:bg-gray-50 rounded-xl text-gray-500 hover:text-indigo-600 transition-all border border-gray-200"
+                            className="group flex items-center gap-2 px-3 sm:px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-xl text-white transition-all"
                             title="Volver al Panel"
                         >
                             <svg className="w-5 h-5 transform group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -356,7 +356,7 @@ function QuizBuilderContent() {
                             </svg>
                             <span className="font-bold text-sm hidden sm:block">Volver</span>
                         </Link>
-                        <h1 className="text-xl font-black tracking-tight text-gray-900">
+                        <h1 className="text-xl font-black tracking-tight text-gray-900 dark:text-white">
                             Forja de Tableros
                         </h1>
                     </div>
@@ -366,8 +366,8 @@ function QuizBuilderContent() {
                 <div className="flex-1 overflow-y-auto p-5 scrollbar-thin scrollbar-thumb-indigo-200">
 
                     {/* Sección 1: Título */}
-                    <div className="mb-6 bg-white p-4 rounded-2xl border border-gray-100">
-                        <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
+                    <div className="mb-6 bg-white dark:bg-slate-800 p-4 rounded-2xl border border-gray-100 dark:border-slate-700">
+                        <label className="flex items-center gap-2 text-sm font-bold text-gray-700 dark:text-slate-300 mb-3">
                             <span className="text-lg">📝</span> Nombre de la Aventura
                         </label>
                         <input
@@ -375,18 +375,18 @@ function QuizBuilderContent() {
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
                             placeholder="Ej. Bosque de Matemáticas"
-                            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                            className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl px-4 py-3 text-gray-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                         />
                     </div>
 
                     {/* SECCIÓN UNIFICADA: Configuración del Juego (Reglas + Mapa) */}
-                    <div className="mb-6 bg-white p-5 rounded-[2rem] border-2 border-indigo-500 shadow-xl shadow-indigo-100/30">
+                    <div className="mb-6 bg-white dark:bg-slate-800 p-5 rounded-[2rem] border-2 border-indigo-500 shadow-xl shadow-indigo-100/30 dark:shadow-indigo-900/10">
                         <div className="flex items-center gap-3 mb-5">
                             <div className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
                                 <span className="text-xl">🎮</span>
                             </div>
                             <div>
-                                <h2 className="text-sm font-black text-gray-900 leading-none">CONFIGURACIÓN</h2>
+                                <h2 className="text-sm font-black text-gray-900 dark:text-white leading-none">CONFIGURACIÓN</h2>
                                 <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-1">Reglas y Escenario</p>
                             </div>
                         </div>
@@ -400,7 +400,7 @@ function QuizBuilderContent() {
                                     { id: 'race', icon: '🏎️', name: 'Carreras' },
                                     { id: 'ludo', icon: '🎲', name: 'Ludo' },
                                     { id: 'memory', icon: '🧠', name: 'Memoria' },
-                                    { id: 'roblox', icon: '🟥', name: 'Obby' }
+                                    { id: 'roblox', icon: '🏝️', name: 'Obby' }
                                 ].map((mode) => (
                                     <button
                                         key={mode.id}
@@ -525,7 +525,7 @@ function QuizBuilderContent() {
                         ) : gameMode === 'roblox' ? (
                             <div className="bg-red-50 p-4 rounded-xl border border-red-200">
                                 <p className="text-xs text-red-800 font-bold leading-relaxed">
-                                    🟥 <strong>Modo Obby (Roblox):</strong> Tus alumnos jugarán en un entorno 3D, saltando de isla en isla. Tú verás la vista isométrica y ellos un teclado estilizado.
+                                    🏝️ <strong>Modo Obby (Roblox):</strong> Tus alumnos jugarán en un entorno 3D, saltando de isla en isla. Tú verás la vista isométrica y ellos un teclado estilizado.
                                 </p>
                             </div>
                         ) : boardPath.length === 0 ? (
@@ -539,8 +539,8 @@ function QuizBuilderContent() {
                                     <span className="text-sm bg-indigo-600 text-white px-2.5 py-0.5 rounded-full">{boardPath.length}</span>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2 mt-2">
-                                    <button onClick={handleUndo} className="p-2 border rounded-xl bg-amber-50 text-amber-700 font-bold text-xs hover:bg-amber-100">↩️ Deshacer</button>
-                                    <button onClick={() => setBoardPath([])} className="p-2 border rounded-xl bg-red-50 text-red-600 font-bold text-xs hover:bg-red-100">🧨 Limpiar</button>
+                                    <button onClick={handleUndo} className="p-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs">↩️ Deshacer</button>
+                                    <button onClick={() => setBoardPath([])} className="p-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs">🧨 Limpiar</button>
                                 </div>
                             </div>
                         )}
@@ -596,13 +596,71 @@ function QuizBuilderContent() {
                         </div>
                     </div>
                 ) : gameMode === 'roblox' ? (
-                    <div className="relative z-10 w-full flex flex-col items-center gap-6 animate-fade-in-up">
-                        <div className="w-64 h-64 border-8 border-red-500 rounded-[3rem] shadow-2xl relative overflow-hidden bg-slate-900 flex items-center justify-center">
-                             <div className="text-8xl">🟥</div>
+                    <div className="relative z-10 w-full flex flex-col items-center gap-5 animate-fade-in-up">
+                        {/* Mini escena del mapa Obby */}
+                        <div className="w-72 h-64 rounded-[2rem] border-2 border-indigo-500/30 shadow-2xl shadow-indigo-900/40 relative overflow-hidden bg-[#080f1e] flex items-end justify-center pb-5">
+                            {/* Cielo estrellado */}
+                            <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 0%, #1e1b4b 0%, #080f1e 70%)' }} />
+                            {[{x:15,y:12},{x:75,y:8},{x:45,y:20},{x:88,y:15},{x:25,y:25},{x:60,y:5},{x:35,y:30}].map((s,i) => (
+                                <div key={i} className="absolute w-1 h-1 rounded-full bg-white animate-pulse" style={{ left:`${s.x}%`, top:`${s.y}%`, opacity: 0.4 + (i%3)*0.2, animationDelay:`${i*0.4}s` }} />
+                            ))}
+                            {/* Grid suelo */}
+                            <div className="absolute bottom-0 left-0 right-0 h-16 opacity-20" style={{ backgroundImage: 'linear-gradient(#6366f1 1px, transparent 1px), linear-gradient(90deg, #6366f1 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+                            {/* Islas flotantes en perspectiva */}
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                {/* Isla START */}
+                                <div className="absolute" style={{ bottom: '28%', left: '8%' }}>
+                                    <div className="w-14 h-4 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/40 flex items-center justify-center">
+                                        <span className="text-[8px] font-black text-white">GO!</span>
+                                    </div>
+                                    <div className="w-12 h-3 mx-auto rounded-b-full bg-stone-700 opacity-80" />
+                                </div>
+                                {/* Isla Jungle */}
+                                <div className="absolute" style={{ bottom: '42%', left: '26%' }}>
+                                    <div className="w-12 h-3 rounded-full bg-green-600 shadow-md shadow-green-600/30 flex items-end justify-center pb-0.5">
+                                        <span className="text-[7px]">🌴</span>
+                                    </div>
+                                    <div className="w-10 h-2.5 mx-auto rounded-b-full bg-stone-700 opacity-80" />
+                                </div>
+                                {/* Isla Ice */}
+                                <div className="absolute" style={{ bottom: '56%', left: '46%' }}>
+                                    <div className="w-12 h-3 rounded-full bg-blue-400 shadow-md shadow-blue-400/40 flex items-end justify-center pb-0.5">
+                                        <span className="text-[7px]">❄️</span>
+                                    </div>
+                                    <div className="w-10 h-2.5 mx-auto rounded-b-full bg-blue-900 opacity-80" />
+                                </div>
+                                {/* Isla Neon */}
+                                <div className="absolute" style={{ bottom: '68%', left: '64%' }}>
+                                    <div className="w-12 h-3 rounded-full bg-violet-600 shadow-md shadow-violet-600/50 flex items-end justify-center pb-0.5">
+                                        <span className="text-[7px]">⚡</span>
+                                    </div>
+                                    <div className="w-10 h-2.5 mx-auto rounded-b-full bg-violet-950 opacity-80" />
+                                </div>
+                                {/* Isla FINISH */}
+                                <div className="absolute" style={{ bottom: '78%', right: '8%' }}>
+                                    <div className="w-16 h-4 rounded-full bg-amber-400 shadow-lg shadow-amber-400/60 flex items-center justify-center ring-1 ring-amber-300/60">
+                                        <span className="text-[8px] font-black text-amber-900">🏆</span>
+                                    </div>
+                                    <div className="w-14 h-3 mx-auto rounded-b-full bg-amber-800 opacity-80" />
+                                </div>
+                                {/* Puentes entre islas */}
+                                <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ overflow: 'visible' }}>
+                                    {[
+                                        { x1:'18%', y1:'68%', x2:'32%', y2:'55%', c:'#10b981' },
+                                        { x1:'38%', y1:'55%', x2:'52%', y2:'42%', c:'#60a5fa' },
+                                        { x1:'58%', y1:'42%', x2:'70%', y2:'30%', c:'#a78bfa' },
+                                        { x1:'76%', y1:'30%', x2:'88%', y2:'21%', c:'#fbbf24' },
+                                    ].map((l, i) => (
+                                        <line key={i} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={l.c} strokeWidth="2" strokeDasharray="4,3" opacity="0.7" />
+                                    ))}
+                                </svg>
+                                {/* Personajito */}
+                                <div className="absolute text-xl animate-bounce" style={{ bottom: '38%', left: '22%', animationDuration: '1.2s' }}>🏃</div>
+                            </div>
                         </div>
-                        <div className="bg-red-600/20 backdrop-blur-md border border-red-500/30 px-6 py-3 rounded-2xl flex items-center gap-3">
-                            <span className="text-2xl animate-bounce text-red-500">🧱</span>
-                            <span className="text-white font-black uppercase tracking-widest text-sm">Previsualización Obby 3D</span>
+                        <div className="bg-indigo-600/20 backdrop-blur-md border border-indigo-500/30 px-6 py-3 rounded-2xl flex items-center gap-3">
+                            <span className="text-2xl animate-bounce">🏝️</span>
+                            <span className="text-white font-black uppercase tracking-widest text-sm">Modo Obby 3D · Isla a Isla</span>
                         </div>
                     </div>
                 ) : selectedMap ? (

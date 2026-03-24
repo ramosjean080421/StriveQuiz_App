@@ -60,7 +60,7 @@ export default function Home() {
         // Limpiamos la url para no molestar si recarga
         window.history.replaceState({}, document.title, "/");
         // Limpiamos la bandera que evadió el anti-cierre
-        localStorage.removeItem("isKicked");
+        sessionStorage.removeItem("isKicked");
       }
     }
   }, []);
@@ -143,9 +143,9 @@ export default function Home() {
 
       if (playerError) throw playerError;
 
-      localStorage.setItem("currentPlayerId", player.id);
+      sessionStorage.setItem("currentPlayerId", player.id);
       if (player.secret_token) {
-        localStorage.setItem("playerSecret", player.secret_token);
+        sessionStorage.setItem("playerSecret", player.secret_token);
       }
       router.push(`/player/play/${game.id}`);
     } catch (err: any) {

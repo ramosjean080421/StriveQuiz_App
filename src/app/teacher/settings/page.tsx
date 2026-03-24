@@ -104,19 +104,19 @@ export default function SettingsPage() {
     };
 
     if (loading) return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex items-center justify-center p-6">
             <span className="text-xl font-bold text-indigo-500 animate-pulse">Cargando Ajustes...</span>
         </div>
     );
 
     return (
-        <div className="h-screen overflow-hidden bg-gray-50 flex flex-col font-sans">
+        <div className="h-screen overflow-hidden bg-gray-50 dark:bg-slate-950 flex flex-col font-sans">
             {/* Header Mágico */}
-            <header className="bg-white px-6 sm:px-10 py-5 flex items-center justify-between border-b border-gray-100 shadow-sm sticky top-0 z-50">
+            <header className="bg-white dark:bg-slate-900 px-6 sm:px-10 py-5 flex items-center justify-between border-b border-gray-100 dark:border-slate-800 shadow-sm sticky top-0 z-50">
                 <div className="flex items-center gap-4">
                     <Link
                         href="/teacher/dashboard"
-                        className="group flex items-center gap-2 px-3 sm:px-4 py-2 bg-white hover:bg-gray-50 rounded-xl text-gray-500 hover:text-indigo-600 transition-all border border-gray-200 shadow-sm"
+                        className="group flex items-center gap-2 px-3 sm:px-4 py-2 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-xl text-gray-500 dark:text-slate-400 hover:text-indigo-600 transition-all border border-gray-200 dark:border-slate-700 shadow-sm"
                         title="Volver al Panel"
                     >
                         <svg className="w-5 h-5 transform group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -125,7 +125,7 @@ export default function SettingsPage() {
                         <span className="font-bold text-sm hidden sm:block">Volver</span>
                     </Link>
                     <div>
-                        <h1 className="text-2xl font-black tracking-tight text-gray-900 border-l-4 border-indigo-500 pl-4 py-1">
+                        <h1 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white border-l-4 border-indigo-500 pl-4 py-1">
                             Ajustes de Perfil
                         </h1>
                     </div>
@@ -135,7 +135,7 @@ export default function SettingsPage() {
             {/* Dashboard Content */}
             <main className="flex-1 w-full max-w-2xl mx-auto px-6 py-4 flex flex-col justify-center min-h-0">
 
-                <div className="bg-white rounded-[2rem] shadow-[0_10px_40px_rgba(0,0,0,0.04)] border border-gray-100 overflow-hidden flex flex-col max-h-full">
+                <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-[0_10px_40px_rgba(0,0,0,0.04)] border border-gray-100 dark:border-slate-800 overflow-hidden flex flex-col max-h-full">
                     <div className="bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-6 relative overflow-hidden shrink-0">
                         <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white rounded-full opacity-10"></div>
                         <div className="absolute top-2 right-6 text-5xl opacity-20 filter drop-shadow-md">🛡️</div>
@@ -152,24 +152,24 @@ export default function SettingsPage() {
 
                         <form onSubmit={handleSave} className="space-y-4">
                             {/* Identidad de Usuario */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4 border-b border-gray-100">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4 border-b border-gray-100 dark:border-slate-800">
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5"><span className="text-sm text-gray-600">📝</span> Nombre Completo</label>
+                                    <label className="text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><span className="text-sm text-gray-600">📝</span> Nombre Completo</label>
                                     <input
                                         type="text"
                                         value={fullName}
                                         onChange={(e) => setFullName(e.target.value)}
-                                        className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-bold text-gray-800"
+                                        className="w-full px-3 py-2.5 rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-bold text-gray-800 dark:text-slate-200"
                                     />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5"><span className="text-sm text-gray-600">👤</span> Nombre de Usuario</label>
+                                    <label className="text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><span className="text-sm text-gray-600">👤</span> Nombre de Usuario</label>
                                     <input
                                         type="text"
                                         value={username}
                                         onChange={(e) => setUsername(e.target.value)}
                                         placeholder="Ej. profesor_mario"
-                                        className="w-full px-3 py-2.5 text-indigo-700 text-sm lowercase rounded-lg border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-bold"
+                                        className="w-full px-3 py-2.5 text-indigo-700 dark:text-indigo-400 text-sm lowercase rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-bold"
                                         required
                                     />
                                     <p className="text-[10px] text-gray-400 font-medium leading-tight">Puedes usar esto para iniciar sesión en vez de tu correo.</p>
@@ -178,33 +178,33 @@ export default function SettingsPage() {
 
                             {/* Seguridad */}
                             <div className="space-y-4 pt-1">
-                                <p className="text-xs font-bold text-indigo-900 border-l-2 border-indigo-400 pl-2 bg-indigo-50 py-1.5 uppercase tracking-wider">
+                                <p className="text-xs font-bold text-indigo-900 dark:text-indigo-400 border-l-2 border-indigo-400 pl-2 bg-indigo-50 dark:bg-indigo-900/30 py-1.5 uppercase tracking-wider">
                                     Seguridad de la Cuenta
                                 </p>
                                 <div>
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5 mb-1.5"><span className="text-sm text-gray-600">✉️</span> Correo Electrónico</label>
+                                    <label className="text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5 mb-1.5"><span className="text-sm text-gray-600">✉️</span> Correo Electrónico</label>
                                     <input
                                         type="email"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
-                                        className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-bold text-gray-800"
+                                        className="w-full px-3 py-2.5 rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-bold text-gray-800 dark:text-slate-200"
                                         required
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5 mb-1.5"><span className="text-sm text-gray-600">🔑</span> Nueva Contraseña</label>
+                                    <label className="text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5 mb-1.5"><span className="text-sm text-gray-600">🔑</span> Nueva Contraseña</label>
                                     <input
                                         type="password"
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         placeholder="Déjalo en blanco si no deseas cambiarla"
-                                        className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-bold text-gray-800 placeholder-gray-400"
+                                        className="w-full px-3 py-2.5 rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-bold text-gray-800 dark:text-slate-200 placeholder-gray-400 dark:placeholder-slate-600"
                                     />
                                 </div>
                             </div>
 
-                            <div className="pt-4 mt-2 border-t border-gray-100 flex justify-end">
+                            <div className="pt-4 mt-2 border-t border-gray-100 dark:border-slate-800 flex justify-end">
                                 <button
                                     type="submit"
                                     disabled={saving || !username || !fullName || !email}

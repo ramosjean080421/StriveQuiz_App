@@ -118,7 +118,7 @@ function StartGameContent() {
             {/* Botón Volver Flotante Premium */}
             <Link
                 href="/teacher/dashboard"
-                className="absolute top-8 left-8 z-50 flex items-center gap-3 px-6 py-3 bg-white/5 hover:bg-white/10 backdrop-blur-2xl border border-white/10 hover:border-white/20 rounded-[1.2rem] text-white/70 hover:text-white transition-all shadow-2xl group font-black text-xs uppercase tracking-[0.2em] overflow-hidden"
+                className="absolute top-8 left-8 z-50 flex items-center gap-3 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 rounded-[1.2rem] text-white transition-all shadow-2xl group font-black text-xs uppercase tracking-[0.2em]"
             >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
                 <span className="text-xl group-hover:-translate-x-1.5 transition-transform duration-300 leading-none">‹</span>

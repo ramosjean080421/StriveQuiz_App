@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs grep:*)",
+      "Bash(grep -n \"parseQuestionsIntelligently\\\\|handleFileImport\\\\|bulkText\\\\|import.*data\" /c/Users/Jean/.gemini/antigravity/scratch/PrismaQuiz-app/src/app/teacher/quiz/[quizId]/questions/page.tsx)",
+      "Bash(grep -n \"fill_in_the_blank\\\\|matching\\\\|qType\\\\|setQType\" /c/Users/Jean/.gemini/antigravity/scratch/PrismaQuiz-app/src/app/teacher/quiz/[quizId]/questions/page.tsx)",
+      "Bash(grep -n \"bulkImportOpen\\\\|BulkImport\\\\|handleBulk\" /c/Users/Jean/.gemini/antigravity/scratch/PrismaQuiz-app/src/app/teacher/quiz/[quizId]/questions/page.tsx)",
+      "Bash(find c:UsersJean.geminiantigravityscratchPrismaQuiz-app -type f \\\\\\(-name tailwind.config.* -o -name *.config.ts \\\\\\))",
+      "Bash(find c:UsersJean.geminiantigravityscratchPrismaQuiz-appsrccomponents -type f -name *.tsx)",
+      "Bash(find /c/Users/Jean/.gemini/antigravity/scratch/PrismaQuiz-app -name schema.prisma -o -name *.sql)",
+      "Bash(grep -n \"from\\\\|select\\\\|\\\\.from\\\\|\\\\.select\" /c/Users/Jean/.gemini/antigravity/scratch/PrismaQuiz-app/src/app/teacher/quiz/[quizId]/reports/page.tsx)"
+    ]
+  }
+}

@@ -68,9 +68,9 @@ export default function StudentLogin() {
             if (playerError) throw playerError;
 
             // 3. Guardar en el dispositivo la ID del jugador y su token secreto (para interactuar en partida de forma segura)
-            localStorage.setItem("currentPlayerId", player.id);
+            sessionStorage.setItem("currentPlayerId", player.id);
             if (player.secret_token) {
-                localStorage.setItem("playerSecret", player.secret_token);
+                sessionStorage.setItem("playerSecret", player.secret_token);
             }
 
             // 4. Redirigir al área de juego del estudiante
@@ -89,7 +89,7 @@ export default function StudentLogin() {
 
                 <div className="text-center mb-8">
                     <h1 className="text-4xl font-extrabold text-indigo-600">
-                        GameQuiz!
+                        Strive Quiz!
                     </h1>
                     <p className="text-gray-500 mt-2">¡Ingresa el PIN, elige tu meme y juega!</p>
                 </div>

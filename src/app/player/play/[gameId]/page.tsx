@@ -81,7 +81,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     useEffect(() => {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
             // Permitir salida inmediata si fue expulsado por sistema
-            if (localStorage.getItem("isKicked") === "true") return;
+            if (sessionStorage.getItem("isKicked") === "true") return;
             
             if ((gameStatus === "active" || gameStatus === "paused") && !hasFinishedAll) {
                 e.preventDefault();
@@ -94,8 +94,8 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
              // Si la partida ya inició ("active"), se preservan sus datos y respuestas.
              if (gameStatus !== "waiting") return; 
 
-             const savedPlayerId = localStorage.getItem("currentPlayerId");
-             const savedSecret = localStorage.getItem("playerSecret");
+             const savedPlayerId = sessionStorage.getItem("currentPlayerId");
+             const savedSecret = sessionStorage.getItem("playerSecret");
              if (savedPlayerId && savedSecret) {
                   const data = JSON.stringify({ id: savedPlayerId, secret: savedSecret });
                   fetch('/api/leave_player', {
@@ -185,8 +185,8 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     useEffect(() => {
         // 1. Recuperar la ID del Jugador del localStorage
 
-        const savedPlayerId = localStorage.getItem("currentPlayerId");
-        const savedSecret = localStorage.getItem("playerSecret");
+        const savedPlayerId = sessionStorage.getItem("currentPlayerId");
+        const savedSecret = sessionStorage.getItem("playerSecret");
         if (!savedPlayerId) {
             setErrorMessage("No estás autenticado en esta sala. Regresa al inicio e ingresa el PIN.");
             setTimeout(() => { window.location.href = "/"; }, 3000);
@@ -234,7 +234,6 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
                     if ((mode === 'classic' || mode === 'race') && (boardPath && boardPath.length > 0)) {
                         shuffled = shuffled.slice(0, boardPath.length);
-                        console.log("Slicing questions to board path length:", boardPath.length);
                     } else if (mode === 'roblox' && Math.abs(game.boss_hp || 0) > 0) {
                         shuffled = shuffled.slice(0, Math.abs(game.boss_hp));
                     }
@@ -252,8 +251,8 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 if (!me) {
                     // El jugador no existe en la BD (ej. fue eliminado al recargar en el lobby).
                     // Lo regresamos a la pantalla de incio.
-                    localStorage.removeItem("currentPlayerId");
-                    localStorage.removeItem("playerSecret");
+                    sessionStorage.removeItem("currentPlayerId");
+                    sessionStorage.removeItem("playerSecret");
                     setErrorMessage("Tu sesión se cerró. Por favor, vuelve a ingresar tu nombre.");
                     setTimeout(() => { window.location.href = "/"; }, 3000);
                     return;
@@ -283,11 +282,11 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                     } else if (payload.eventType === 'UPDATE') {
                         setPlayers(prev => prev.map(p => p.id === payload.new.id ? payload.new : p));
                         
-                        const savedPlayerId = localStorage.getItem("currentPlayerId");
+                        const savedPlayerId = sessionStorage.getItem("currentPlayerId");
                         if (payload.new.id === savedPlayerId) {
                             // Si el profe lo asiló lógicamente (es la señal de expulsión forzada si RLS falló)
                             if (payload.new.current_position === -999) {
-                                localStorage.setItem("isKicked", "true");
+                                sessionStorage.setItem("isKicked", "true");
                                 window.location.href = "/?kicked=true";
                                 return;
                             }
@@ -300,9 +299,9 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                     } else if (payload.eventType === 'DELETE') {
                         setPlayers(prev => prev.filter(p => p.id !== payload.old.id));
                         
-                        const savedPlayerId = localStorage.getItem("currentPlayerId");
+                        const savedPlayerId = sessionStorage.getItem("currentPlayerId");
                         if (payload.old.id === savedPlayerId) {
-                            localStorage.setItem("isKicked", "true");
+                            sessionStorage.setItem("isKicked", "true");
                             window.location.href = "/?kicked=true";
                         }
                     }
@@ -310,9 +309,9 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
             )
             .subscribe(async (status) => {
                 if (status === "SUBSCRIBED") {
-                    const savedPlayerId = localStorage.getItem("currentPlayerId");
+                    const savedPlayerId = sessionStorage.getItem("currentPlayerId");
                     if (savedPlayerId) {
-                        const savedSecret = localStorage.getItem("playerSecret");
+                        const savedSecret = sessionStorage.getItem("playerSecret");
                         await channel.track({ player_id: savedPlayerId, secret: savedSecret });
                     }
                 }
@@ -484,43 +483,100 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     }
 
     if (gameStatus === "waiting") {
+        const myPlayer = players.find(p => p.id === playerId);
+        const isObby = gameMode === 'roblox';
         return (
-            <div className={`h-screen w-screen overflow-hidden flex flex-col items-center justify-center p-6 text-center relative bg-gray-950`}>
-                {/* Logo Borroso de Fondo */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-                    <img src="/logotransparente.png" alt="" className="w-[160vw] max-w-[1200px] opacity-[0.07] blur-[8px] select-none" draggable={false} />
+            <div className="h-screen w-screen overflow-hidden flex flex-col bg-slate-950 relative">
+                {/* Fondo con patrón */}
+                <div className="absolute inset-0 pointer-events-none" style={{
+                    backgroundImage: isObby
+                        ? 'radial-gradient(circle at 1px 1px, rgba(99,102,241,0.08) 1px, transparent 0)'
+                        : 'radial-gradient(circle at 1px 1px, rgba(16,185,129,0.07) 1px, transparent 0)',
+                    backgroundSize: '32px 32px'
+                }} />
+                {/* Orbes */}
+                <div className="absolute top-0 left-0 w-72 h-72 bg-indigo-600/20 rounded-full blur-[120px] pointer-events-none" />
+                <div className="absolute bottom-0 right-0 w-72 h-72 bg-purple-600/15 rounded-full blur-[120px] pointer-events-none" />
+
+                {/* Header */}
+                <div className="shrink-0 flex items-center justify-between px-5 py-4 border-b border-white/[0.07] relative z-10">
+                    <img src="/logotransparente.png" alt="StriveQuiz" className="w-10 h-10 object-contain" />
+                    <div className="flex flex-col items-center">
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.25em]">Sala de espera</span>
+                        <span className="text-white font-black text-base leading-none">{isObby ? '🏝️ Strive Obby' : '🎮 StriveQuiz'}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-full">
+                        <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+                        <span className="text-emerald-400 font-black text-xs">{players.length}</span>
+                    </div>
                 </div>
-                {/* Gradiente encima */}
-                <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/80 via-gray-950/90 to-purple-950/80 z-[1]"></div>
-                {/* Orbes de Neón */}
-                <div className="absolute top-[-5%] left-[-5%] w-[40%] h-[40%] bg-indigo-600/20 rounded-full blur-[100px] pointer-events-none z-[2] animate-pulse"></div>
-                <div className="absolute bottom-[-5%] right-[-5%] w-[40%] h-[40%] bg-purple-600/15 rounded-full blur-[100px] pointer-events-none z-[2] animate-pulse" style={{ animationDelay: '1.5s' }}></div>
 
-                <div className="relative z-10 flex flex-col items-center gap-6 w-full max-w-sm">
-                    {/* Logo Pequeño */}
-                    <img src="/logotransparente.png" alt="StriveQuiz" className="w-40 h-40 object-contain drop-shadow-2xl" />
-
-                    {/* Card Principal */}
-                    <div className="bg-white/[0.04] backdrop-blur-2xl border border-white/10 p-8 sm:p-10 rounded-[3rem] w-full flex flex-col items-center shadow-[0_20px_80px_rgba(79,70,229,0.15)]">
-                        <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-[1.2rem] flex items-center justify-center mb-5 shadow-lg shadow-emerald-500/30 rotate-6">
-                            <span className="text-3xl -rotate-6">✅</span>
+                {/* Mi avatar destacado */}
+                {myPlayer && (
+                    <div className="shrink-0 flex flex-col items-center gap-2 pt-5 pb-3 relative z-10">
+                        <div className="relative">
+                            <div className="w-20 h-20 rounded-[1.4rem] border-4 border-indigo-500 shadow-[0_0_24px_rgba(99,102,241,0.5)] overflow-hidden bg-slate-800">
+                                {myPlayer.avatar_gif_url
+                                    ? <img src={myPlayer.avatar_gif_url} alt="" className="w-full h-full object-cover" />
+                                    : <div className="w-full h-full flex items-center justify-center text-3xl">😊</div>
+                                }
+                            </div>
+                            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-indigo-600 border-2 border-slate-950 px-2 py-0.5 rounded-full">
+                                <span className="text-white font-black text-[9px] uppercase tracking-wider whitespace-nowrap">Tú</span>
+                            </div>
                         </div>
-                        <h1 className="text-3xl font-black text-white mb-2 tracking-tight">
-                            ¡Estás Dentro!
-                        </h1>
-                        <p className="text-indigo-200/60 font-medium text-sm leading-relaxed mb-6">
-                            Prepárate... la batalla comenzará cuando el profesor lo decida.
-                        </p>
-
+                        <p className="text-white font-black text-lg mt-1">{myPlayer.player_name}</p>
+                        <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 px-4 py-1.5 rounded-full">
+                            <span className="text-emerald-400 text-sm">✅</span>
+                            <span className="text-emerald-300 font-bold text-xs uppercase tracking-wider">¡Estás dentro!</span>
+                        </div>
                     </div>
+                )}
 
-                    {/* Indicador de Carga */}
-                    <div className="flex items-center gap-3 opacity-40">
-                        <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                        <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                        <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                        <span className="text-indigo-300/50 text-[10px] font-black uppercase tracking-[0.3em] ml-2">Esperando al profesor</span>
+                {/* Separador */}
+                <div className="shrink-0 px-5 py-2 relative z-10">
+                    <div className="flex items-center gap-3">
+                        <div className="flex-1 h-px bg-white/[0.06]" />
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Jugadores conectados</span>
+                        <div className="flex-1 h-px bg-white/[0.06]" />
                     </div>
+                </div>
+
+                {/* Grid de avatares */}
+                <div className="flex-1 overflow-y-auto px-4 pb-4 relative z-10">
+                    <div className="grid grid-cols-4 gap-3">
+                        {players.filter(p => p.id !== playerId).map((p, i) => (
+                            <div key={p.id} className="flex flex-col items-center gap-1.5">
+                                <div className="w-full aspect-square rounded-2xl border-2 border-white/10 overflow-hidden bg-slate-800/80 shadow-lg">
+                                    {p.avatar_gif_url
+                                        ? <img src={p.avatar_gif_url} alt="" className="w-full h-full object-cover" />
+                                        : <div className="w-full h-full flex items-center justify-center text-2xl">
+                                            {['🦊','🐸','🐼','🦁','🐯','🦊','🐺','🦄'][i % 8]}
+                                          </div>
+                                    }
+                                </div>
+                                <span className="text-slate-300 font-bold text-[10px] text-center leading-tight truncate w-full text-center">
+                                    {p.player_name}
+                                </span>
+                            </div>
+                        ))}
+                        {players.length <= 1 && (
+                            <div className="col-span-4 py-6 flex flex-col items-center gap-2 opacity-40">
+                                <span className="text-3xl">👥</span>
+                                <p className="text-slate-500 font-bold text-xs uppercase tracking-wider">Esperando más jugadores...</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="shrink-0 px-5 py-4 border-t border-white/[0.07] flex items-center justify-center gap-3 relative z-10">
+                    {[0, 150, 300].map(delay => (
+                        <div key={delay} className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: `${delay}ms` }} />
+                    ))}
+                    <span className="text-slate-500 text-[10px] font-black uppercase tracking-[0.25em] ml-2">
+                        Esperando al profesor
+                    </span>
                 </div>
             </div>
         );
@@ -724,9 +780,8 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
                 {/* Área de Juego */}
                 <div className="flex-1 h-full flex flex-col relative z-10 overflow-hidden">
-                    <MemoryGamePlayer 
+                    <MemoryGamePlayer
                         questions={questions}
-                        currentQuestionIdx={currentQuestionIdx}
                         gameId={gameId}
                         playerId={playerId}
                         playerSecret={playerSecret}
@@ -775,7 +830,6 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 timeLeft={timeLeft}
                 questionDuration={questionDuration}
                 isBlurred={isBlurred}
-                setIsBlurred={setIsBlurred}
                 players={players}
                 playerId={playerId}
             />

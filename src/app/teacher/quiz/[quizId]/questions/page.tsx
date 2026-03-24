@@ -154,6 +154,7 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
     const handlePaste = async (e: React.ClipboardEvent) => {
         const pasteData = e.clipboardData.getData('text');
         if (!pasteData) return;
+        if (gameMode === 'memory') return; // El modo memoria no usa importación masiva
 
         // Limpiar líneas vacías
         const lines = pasteData.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
@@ -265,6 +266,12 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
     const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
+
+        if (gameMode === 'memory') {
+            showToast("El modo Memoria solo acepta parejas creadas manualmente desde el Tarjetero.", "error");
+            e.target.value = "";
+            return;
+        }
 
         setLoading(true);
         try {
@@ -562,13 +569,13 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
     ];
 
     if (loading) return (
-        <div className="h-screen w-screen flex items-center justify-center bg-gray-50">
+        <div className="h-screen w-screen flex items-center justify-center bg-gray-50 dark:bg-slate-950">
             <span className="text-xl font-bold text-indigo-600 animate-pulse">Cargando preguntas de la aventura...</span>
         </div>
     );
 
     return (
-        <div className="flex flex-col h-screen w-screen overflow-hidden bg-gray-50 font-sans relative">
+        <div className="flex flex-col h-screen w-screen overflow-hidden bg-gray-50 dark:bg-slate-950 font-sans relative">
 
             {/* TOAST FLOTANTE */}
             {toast && (
@@ -646,11 +653,11 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
             )}
 
             {/* Cabecera Clásica Strive */}
-            <header className="flex-shrink-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center z-20">
+            <header className="flex-shrink-0 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 px-6 py-4 flex justify-between items-center z-20">
                 <div className="flex items-center gap-4">
                     <Link
                         href="/teacher/dashboard"
-                        className="group flex items-center gap-2 px-3 sm:px-4 py-2 bg-white hover:bg-gray-50 rounded-xl text-gray-500 hover:text-indigo-600 transition-all border border-gray-200"
+                        className="group flex items-center gap-2 px-3 sm:px-4 py-2 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-xl text-gray-500 dark:text-slate-400 hover:text-indigo-600 transition-all border border-gray-200 dark:border-slate-700"
                         title="Volver al Dashboard"
                     >
                         <svg className="w-5 h-5 transform group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -675,11 +682,11 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
             <main className="flex-1 flex overflow-hidden">
 
                 {/* Panel Izquierdo - Lista de Preguntas */}
-                <div className="w-1/2 h-full flex flex-col border-r border-gray-200 bg-white">
-                    <div className="p-8 pb-6 border-b border-gray-100 flex flex-col gap-5">
+                <div className="w-1/2 h-full flex flex-col border-r border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                    <div className="p-8 pb-6 border-b border-gray-100 dark:border-slate-800 flex flex-col gap-5">
                             <div>
-                                <h2 className="text-2xl font-black text-gray-900">Banco Actual</h2>
-                                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Todas tus preguntas guardadas</p>
+                                <h2 className="text-2xl font-black text-gray-900 dark:text-white">Banco Actual</h2>
+                                <p className="text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mt-1">Todas tus preguntas guardadas</p>
                             </div>
                             
                             <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
@@ -692,16 +699,20 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                                         <span className="text-sm">🗑️</span> VACIAR
                                     </button>
                                 )}
-                                <button
-                                    onClick={() => setBulkImportOpen(true)}
-                                    className="h-10 px-4 flex-shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-2 active:scale-95 shadow-md shadow-indigo-100"
-                                >
-                                    <span className="text-sm">📋</span> Pegado Masivo
-                                </button>
-                                <label className="h-10 px-4 flex-shrink-0 cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-2 active:scale-95 shadow-md shadow-emerald-100">
-                                    <span className="text-sm">📄</span> IMPORTAR
-                                    <input type="file" accept=".pdf,.docx,.csv" className="hidden" onChange={handleFileImport} />
-                                </label>
+                                {gameMode !== 'memory' && (
+                                    <>
+                                        <button
+                                            onClick={() => setBulkImportOpen(true)}
+                                            className="h-10 px-4 flex-shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-2 active:scale-95 shadow-md shadow-indigo-100"
+                                        >
+                                            <span className="text-sm">📋</span> Pegado Masivo
+                                        </button>
+                                        <label className="h-10 px-4 flex-shrink-0 cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-2 active:scale-95 shadow-md shadow-emerald-100">
+                                            <span className="text-sm">📄</span> IMPORTAR
+                                            <input type="file" accept=".pdf,.docx,.csv" className="hidden" onChange={handleFileImport} />
+                                        </label>
+                                    </>
+                                )}
                                 <div className="h-10 px-4 flex-shrink-0 bg-slate-700 text-white font-extrabold rounded-xl text-[10px] uppercase tracking-wider flex items-center shadow-sm">
                                     {questions.length} Preguntas
                                 </div>
@@ -780,15 +791,15 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                     </div>
 
                 {/* Panel Derecho - Creador Fijo / Deck Builder Memoria */}
-                <div className="w-1/2 h-full bg-gray-50 p-8 overflow-y-auto">
+                <div className="w-1/2 h-full bg-gray-50 dark:bg-slate-950 p-8 overflow-y-auto">
                     <div className="max-w-xl mx-auto">
 
                     {gameMode === 'memory' ? (
                         /* ====== DECK BUILDER DE MEMORIA ====== */
-                        <div className="bg-white p-8 rounded-3xl border border-gray-100">
+                        <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-gray-100 dark:border-slate-800">
                             <div className="flex items-center gap-3 mb-2">
                                 <span className="text-3xl">🧠</span>
-                                <h2 className="text-2xl font-extrabold text-gray-900">{memoryEditId ? '✏️ Editar Pareja' : 'El Tarjetero'}</h2>
+                                <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white">{memoryEditId ? '✏️ Editar Pareja' : 'El Tarjetero'}</h2>
                             </div>
                             <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-6">Crea parejas de cartas para el juego de memoria</p>
 
@@ -872,10 +883,10 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                         </div>
                     ) : (
                         /* ====== CREADOR ESTÁNDAR DE PREGUNTAS ====== */
-                        <div className="bg-white p-8 rounded-3xl border border-gray-100">
+                        <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-gray-100 dark:border-slate-800">
                             <div className="flex items-center gap-3 mb-8">
                                 <span className="text-3xl">✨</span>
-                                <h2 className="text-2xl font-extrabold text-gray-900">{editQuestionId ? '✏️ Editar Pregunta' : '✨ Añadir Nueva'}</h2>
+                                <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white">{editQuestionId ? '✏️ Editar Pregunta' : '✨ Añadir Nueva'}</h2>
                             </div>
 
                             <form onSubmit={handleAdd} className="space-y-6">

@@ -35,6 +35,21 @@ export default function TeacherDashboard() {
     const [shareModal, setShareModal] = useState<{ isOpen: boolean, quizId: string, title: string, sharedEmails: string[], editorEmails: string[] } | null>(null);
     const [shareInput, setShareInput] = useState("");
     const [shareRole, setShareRole] = useState<"viewer" | "editor">("viewer");
+    const [isDark, setIsDark] = useState(false);
+
+    useEffect(() => {
+        const stored = localStorage.getItem("sq-theme");
+        const dark = stored === "dark" || (stored === null && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        setIsDark(dark);
+        document.documentElement.classList.toggle("dark", dark);
+    }, []);
+
+    const toggleTheme = () => {
+        const next = !isDark;
+        setIsDark(next);
+        document.documentElement.classList.toggle("dark", next);
+        localStorage.setItem("sq-theme", next ? "dark" : "light");
+    };
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
         setToast({ message, type });
@@ -426,7 +441,7 @@ export default function TeacherDashboard() {
     }
 
     return (
-        <div className="flex flex-col h-screen w-screen overflow-hidden bg-gradient-to-br from-indigo-50 via-white to-purple-50 font-sans relative">
+        <div className="flex flex-col h-screen w-screen overflow-hidden bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 font-sans relative">
 
             {/* TOAST FLOTANTE */}
             {toast && (
@@ -447,7 +462,7 @@ export default function TeacherDashboard() {
                         <h3 className="text-2xl font-black text-gray-900 mb-2">{confirmModal.title}</h3>
                         <p className="text-gray-500 font-medium leading-relaxed mb-6">{confirmModal.message}</p>
                         <div className="flex gap-3">
-                            <button onClick={() => setConfirmModal(null)} className="flex-1 py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-colors">
+                            <button onClick={() => setConfirmModal(null)} className="flex-1 py-3 px-4 bg-gray-500 hover:bg-gray-600 text-white font-bold rounded-xl transition-colors">
                                 Cancelar
                             </button>
                             <button onClick={confirmModal.onConfirm} className={`flex-1 py-3 px-4 font-bold rounded-xl text-white transition-all active:scale-95 ${confirmModal.isDestructive ? 'bg-red-500 hover:bg-red-600' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
@@ -493,9 +508,9 @@ export default function TeacherDashboard() {
                                                 <button
                                                     title={isEditor ? "Cambiar a modo lectura (Solo Ver)" : "Cambiar a modo editor (Puede modificar)"}
                                                     onClick={() => handleToggleRole(email)}
-                                                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all border active:scale-90 ${isEditor
-                                                        ? 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100'
-                                                        : 'bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100'
+                                                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isEditor
+                                                        ? 'bg-emerald-500 text-white hover:bg-emerald-600'
+                                                        : 'bg-indigo-600 text-white hover:bg-indigo-700'
                                                         }`}
                                                 >
                                                     {isEditor ? '👁️' : '✍️'}
@@ -503,7 +518,7 @@ export default function TeacherDashboard() {
                                                 <button
                                                     title="Revocar acceso"
                                                     onClick={() => handleRemoveShare(email)}
-                                                    className="text-red-400 hover:text-red-600 bg-red-50 hover:bg-red-100 w-8 h-8 rounded-full flex items-center justify-center transition-colors shrink-0"
+                                                    className="bg-red-600 hover:bg-red-700 text-white w-8 h-8 rounded-full flex items-center justify-center transition-colors shrink-0"
                                                 >
                                                     ✖
                                                 </button>
@@ -553,7 +568,7 @@ export default function TeacherDashboard() {
                         </div>
 
                         <div className="mt-8">
-                            <button onClick={() => setShareModal(null)} className="w-full py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-colors">
+                            <button onClick={() => setShareModal(null)} className="w-full py-3 px-4 bg-gray-500 hover:bg-gray-600 text-white font-bold rounded-xl transition-colors">
                                 Cerrar Ventana
                             </button>
                         </div>
@@ -564,20 +579,20 @@ export default function TeacherDashboard() {
             {/* MODAL ADMINISTRADOR (Invisible Trigger) */}
             {isAdminModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-md px-4">
-                    <div className="bg-white rounded-[2.5rem] p-8 max-w-5xl w-full transform transition-all animate-bounce-short border border-gray-100 max-h-[90vh] flex flex-col shadow-2xl relative overflow-hidden">
+                    <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 max-w-5xl w-full transform transition-all animate-bounce-short border border-gray-100 dark:border-slate-800 max-h-[90vh] flex flex-col shadow-2xl relative overflow-hidden">
                         {/* Decoraciones de fondo */}
                         <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 pointer-events-none"></div>
                         <div className="absolute bottom-0 left-0 w-32 h-32 bg-amber-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 pointer-events-none"></div>
 
                         {/* Cabecera */}
-                        <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-100">
+                        <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-100 dark:border-slate-800">
                             <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center shadow-inner">
+                                <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 rounded-2xl flex items-center justify-center shadow-inner">
                                     <span className="text-2xl">👑</span>
                                 </div>
                                 <div>
-                                    <h3 className="text-2xl font-black text-gray-900 leading-tight">Panel de Administración</h3>
-                                    <p className="text-sm text-gray-500 font-medium">Gestión de roles de docentes y solicitudes de validación</p>
+                                    <h3 className="text-2xl font-black text-gray-900 dark:text-white leading-tight">Panel de Administración</h3>
+                                    <p className="text-sm text-gray-500 dark:text-slate-400 font-medium">Gestión de roles de docentes y solicitudes de validación</p>
                                 </div>
                             </div>
                             <button 
@@ -594,8 +609,8 @@ export default function TeacherDashboard() {
                         {/* Cuerpo Grid 2 Columnas */}
                         <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-6 pr-2">
                             {/* Columna Izquierda: ADMINISTRADORES Y DOCENTES */}
-                            <div className="flex flex-col h-full bg-slate-50 p-5 rounded-3xl border border-gray-100/80 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                                <h4 className="text-sm font-black text-gray-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                            <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-800/50 p-5 rounded-3xl border border-gray-100/80 dark:border-slate-700 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                                <h4 className="text-sm font-black text-gray-800 dark:text-slate-200 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                                     <span className="text-indigo-500">🛡️</span> Administradores
                                 </h4>
                                 
@@ -629,24 +644,24 @@ export default function TeacherDashboard() {
                                     ))}
                                 </div>
 
-                                <h4 className="text-sm font-black text-gray-800 uppercase tracking-wider mb-3 flex items-center gap-1.5 mt-1 border-t border-gray-200/50 pt-3">
+                                <h4 className="text-sm font-black text-gray-800 dark:text-slate-200 uppercase tracking-wider mb-3 flex items-center gap-1.5 mt-1 border-t border-gray-200/50 dark:border-slate-700 pt-3">
                                     <span className="text-emerald-500">👨‍🏫</span> Docentes Aprobados
                                 </h4>
 
                                 {/* Lista de Profesores Aprobados (no admins) */}
-                                <div className="space-y-2 bg-white rounded-2xl border border-gray-100 p-3 shadow-sm mb-4">
+                                <div className="space-y-2 bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-3 shadow-sm mb-4">
                                     {teachersList.filter(t => t.is_approved && !t.is_admin).length === 0 ? (
-                                        <p className="text-[10px] text-gray-400 text-center py-2">No hay otros docentes aprobados.</p>
+                                        <p className="text-[10px] text-gray-400 dark:text-slate-500 text-center py-2">No hay otros docentes aprobados.</p>
                                     ) : (
                                         teachersList.filter(t => t.is_approved && !t.is_admin).map((teach) => (
-                                            <div key={teach.id} className="flex justify-between items-center bg-gradient-to-r from-slate-50 to-white p-3 rounded-xl border border-gray-100 shadow-sm">
+                                            <div key={teach.id} className="flex justify-between items-center bg-gradient-to-r from-slate-50 to-white dark:from-slate-800 dark:to-slate-800 p-3 rounded-xl border border-gray-100 dark:border-slate-700 shadow-sm">
                                                 <div className="max-w-[150px] sm:max-w-none truncate flex items-center gap-2">
                                                     <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-xs font-black text-white shadow-md">
                                                         {teach.full_name?.charAt(0) || 'P'}
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs font-black text-gray-900 truncate">{teach.full_name || teach.username}</p>
-                                                        <p className="text-[9px] text-gray-400 font-medium truncate">{teach.email}</p>
+                                                        <p className="text-xs font-black text-gray-900 dark:text-white truncate">{teach.full_name || teach.username}</p>
+                                                        <p className="text-[9px] text-gray-400 dark:text-slate-500 font-medium truncate">{teach.email}</p>
                                                     </div>
                                                 </div>
                                                 <div className="flex gap-1">
@@ -663,11 +678,11 @@ export default function TeacherDashboard() {
                                 </div>
 
                                 {/* Formulario rápido para ascender */}
-                                <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm mt-auto">
-                                    <p className="text-[10px] font-black text-gray-500 mb-2 uppercase tracking-wide">Ascender Nuevo Administrador</p>
+                                <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm mt-auto">
+                                    <p className="text-[10px] font-black text-gray-500 dark:text-slate-400 mb-2 uppercase tracking-wide">Ascender Nuevo Administrador</p>
                                     <div className="flex gap-2">
-                                        <select 
-                                            className="flex-1 text-xs p-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none cursor-pointer"
+                                        <select
+                                            className="flex-1 text-xs p-2.5 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl font-bold text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none cursor-pointer"
                                             onChange={(e) => {
                                                 if (e.target.value) handleToggleAdminRole(e.target.value, true);
                                             }}
@@ -683,28 +698,28 @@ export default function TeacherDashboard() {
                             </div>
 
                             {/* Columna Derecha: SOLICITUDES PENDIENTES */}
-                            <div className="flex flex-col h-full bg-amber-50/20 p-5 rounded-3xl border border-amber-100/50">
-                                <h4 className="text-sm font-black text-amber-800 uppercase tracking-wider mb-4 flex items-center gap-1.5">
+                            <div className="flex flex-col h-full bg-amber-50/20 dark:bg-amber-900/5 p-5 rounded-3xl border border-amber-100/50 dark:border-amber-900/20">
+                                <h4 className="text-sm font-black text-amber-800 dark:text-amber-400 uppercase tracking-wider mb-4 flex items-center gap-1.5">
                                     <span className="text-amber-500">📩</span> Solicitudes Pendientes
                                 </h4>
 
-                                <div className="space-y-2 overflow-y-auto flex-1 min-h-[250px] bg-white/60 backdrop-blur-sm rounded-2xl border border-amber-100/80 p-4 shadow-sm">
+                                <div className="space-y-2 overflow-y-auto flex-1 min-h-[250px] bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm rounded-2xl border border-amber-100/80 dark:border-slate-700 p-4 shadow-sm">
                                     {teachersList.filter(t => !t.is_approved).length === 0 ? (
                                         <div className="h-full flex flex-col items-center justify-center text-gray-400">
                                             <span className="text-4xl mb-2 animate-pulse">🎉</span>
-                                            <p className="text-xs font-black text-gray-500">Todo limpio.</p>
-                                            <p className="text-[10px] text-gray-400">No hay docentes esperando</p>
+                                            <p className="text-xs font-black text-gray-500 dark:text-slate-400">Todo limpio.</p>
+                                            <p className="text-[10px] text-gray-400 dark:text-slate-500">No hay docentes esperando</p>
                                         </div>
                                     ) : (
                                         teachersList.filter(t => !t.is_approved).map((req) => (
-                                            <div key={req.id} className="flex justify-between items-center bg-white p-3 rounded-xl border border-amber-100/40 shadow-sm">
+                                            <div key={req.id} className="flex justify-between items-center bg-white dark:bg-slate-800 p-3 rounded-xl border border-amber-100/40 dark:border-slate-700 shadow-sm">
                                                 <div className="max-w-[150px] sm:max-w-none truncate flex items-center gap-2">
                                                     <div className="w-8 h-8 rounded-full bg-amber-600 flex items-center justify-center text-xs font-black text-white shadow-md">
                                                         {req.full_name?.charAt(0) || 'P'}
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs font-black text-gray-900 truncate">{req.full_name || req.username}</p>
-                                                        <p className="text-[9px] text-gray-400 font-medium truncate">{req.email}</p>
+                                                        <p className="text-xs font-black text-gray-900 dark:text-white truncate">{req.full_name || req.username}</p>
+                                                        <p className="text-[9px] text-gray-400 dark:text-slate-500 font-medium truncate">{req.email}</p>
                                                     </div>
                                                 </div>
                                                 <div className="flex gap-1.5 ml-2">
@@ -732,12 +747,12 @@ export default function TeacherDashboard() {
             )}
 
             {/* Header Lleno de Color */}
-            <header className="flex-shrink-0 bg-white border-b border-indigo-100 px-6 py-4 flex justify-between items-center z-20">
+            <header className="flex-shrink-0 bg-white dark:bg-slate-900 border-b border-indigo-100 dark:border-slate-800 px-6 py-4 flex justify-between items-center z-20">
                 <div className="flex items-center gap-0 sm:gap-2">
                     <img
                         src="/logo1.png"
                         alt="Logo StriveQuiz"
-                        className="w-16 sm:w-20 h-auto object-contain mix-blend-multiply transform hover:rotate-2 hover:scale-105 transition-all duration-300"
+                        className="w-16 sm:w-20 h-auto object-contain mix-blend-multiply dark:mix-blend-normal transform hover:rotate-2 hover:scale-105 transition-all duration-300"
                     />
                     <span className="text-[1.7rem] sm:text-4xl font-black text-[#7D32FF] tracking-tight ml-1">
                         StriveQuiz
@@ -747,25 +762,34 @@ export default function TeacherDashboard() {
                     </span>
                 </div>
 
-                <div className="flex items-center space-x-6">
-                    <div 
-                        className={`flex-col text-right hidden md:flex justify-center ${isAdmin ? 'cursor-pointer hover:bg-gray-50 px-3 py-1.5 rounded-2xl transition-all border border-transparent hover:border-indigo-100/80 group/admin-btn' : ''}`}
+                <div className="flex items-center space-x-4">
+                    {/* Botón toggle de tema */}
+                    <button
+                        onClick={toggleTheme}
+                        title={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+                        className="w-9 h-9 flex items-center justify-center rounded-xl border border-indigo-100 dark:border-slate-700 bg-indigo-50 dark:bg-slate-800 hover:bg-indigo-100 dark:hover:bg-slate-700 transition-all text-lg"
+                    >
+                        {isDark ? '☀️' : '🌙'}
+                    </button>
+
+                    <div
+                        className={`flex-col text-right hidden md:flex justify-center ${isAdmin ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800 px-3 py-1.5 rounded-2xl transition-all border border-transparent hover:border-indigo-100/80 dark:hover:border-slate-700 group/admin-btn' : ''}`}
                         onClick={() => {
                             if (isAdmin) {
                                 setIsAdminModalOpen(true);
                             }
                         }}
                     >
-                        <span className="text-sm font-bold text-gray-800 flex items-center gap-1">
+                        <span className="text-sm font-bold text-gray-800 dark:text-slate-100 flex items-center gap-1">
                             {isAdmin ? "Administrador(a)" : "Profesor(a)"}
-                            {isAdmin && <span className="text-[10px] bg-indigo-100 text-indigo-600 px-1 rounded-md opacity-0 group-hover/admin-btn:opacity-100 transition-opacity">Panel ⚙️</span>}
+                            {isAdmin && <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-400 px-1 rounded-md opacity-0 group-hover/admin-btn:opacity-100 transition-opacity">Panel ⚙️</span>}
                         </span>
-                        <span className="text-xs text-gray-500 mt-0.5">{user?.user_metadata?.full_name || user?.email}</span>
+                        <span className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">{user?.user_metadata?.full_name || user?.email}</span>
                     </div>
                     <div className="flex items-center gap-3">
                         <Link
                             href="/teacher/settings"
-                            className="flex items-center gap-2 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 px-4 py-2.5 rounded-xl transition-all border border-gray-200"
+                            className="flex items-center gap-2 text-sm font-bold text-white bg-gray-600 hover:bg-gray-700 px-4 py-2.5 rounded-xl transition-all"
                         >
                             <span>⚙️ Ajustes</span>
                         </Link>
@@ -788,10 +812,10 @@ export default function TeacherDashboard() {
                 <div className="absolute top-10 right-10 w-64 h-64 bg-indigo-400 rounded-full mix-blend-multiply filter blur-[80px] opacity-20 -z-10 animate-blob animation-delay-2000"></div>
 
                 {/* Controles de Acción Principal */}
-                <div className="flex-shrink-0 flex flex-col md:flex-row justify-between items-center bg-white/60 backdrop-blur-md p-6 rounded-3xl border border-white mb-6">
+                <div className="flex-shrink-0 flex flex-col md:flex-row justify-between items-center bg-white/60 dark:bg-slate-900/60 backdrop-blur-md p-6 rounded-3xl border border-white dark:border-slate-800 mb-6">
                     <div>
-                        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Mis Tableros Mágicos</h1>
-                        <p className="text-sm text-gray-500 mt-1 font-medium">Gestiona tus aventuras y lanza nuevas salas de juego.</p>
+                        <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">Mis Tableros Mágicos</h1>
+                        <p className="text-sm text-gray-500 dark:text-slate-400 mt-1 font-medium">Gestiona tus aventuras y lanza nuevas salas de juego.</p>
                     </div>
                     <Link
                         href="/teacher/quiz/builder"
@@ -804,16 +828,16 @@ export default function TeacherDashboard() {
                 {/* Grid de Tableros Scrolleable */}
                 <div className="flex-1 overflow-y-auto px-1 pb-10 scrollbar-thin scrollbar-thumb-indigo-200 scrollbar-track-transparent">
                     {quizzes.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-center bg-white/40 backdrop-blur-sm rounded-[2.5rem] p-12 border border-white/50 border-dashed">
+                        <div className="flex flex-col items-center justify-center h-full text-center bg-white/40 dark:bg-slate-900/40 backdrop-blur-sm rounded-[2.5rem] p-12 border border-white/50 dark:border-slate-800 border-dashed">
                             <div className="text-8xl mb-6">🚀</div>
-                            <h3 className="text-2xl font-extrabold text-gray-800">El lienzo está en blanco</h3>
-                            <p className="mt-3 text-lg text-gray-600 max-w-md">No tienes tableros aún. ¡Empieza a crear tu primera aventura interactiva en StriveQuiz ahora mismo!</p>
+                            <h3 className="text-2xl font-extrabold text-gray-800 dark:text-white">El lienzo está en blanco</h3>
+                            <p className="mt-3 text-lg text-gray-600 dark:text-slate-400 max-w-md">No tienes tableros aún. ¡Empieza a crear tu primera aventura interactiva en StriveQuiz ahora mismo!</p>
                             <Link href="/teacher/quiz/builder" className="mt-8 text-indigo-600 font-bold hover:text-indigo-800 underline decoration-indigo-300 underline-offset-4 decoration-2">Quiero crear mi primer tablero &rarr;</Link>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                             {quizzes.map((quiz) => (
-                                <div key={quiz.id} className="bg-white/80 backdrop-blur-lg rounded-[2rem] border border-white transition-all duration-300 group flex flex-col overflow-hidden transform hover:-translate-y-1">
+                                <div key={quiz.id} className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg rounded-[2rem] border border-white dark:border-slate-800 transition-all duration-300 group flex flex-col overflow-hidden transform hover:-translate-y-1">
                                                 {/* Cabecera de Tarjeta con Fondo de Mapa */}
                                                 <div 
                                                     className="px-6 py-8 flex-1 relative overflow-hidden cursor-pointer group/header"
@@ -846,7 +870,7 @@ export default function TeacherDashboard() {
                                                         </div>
                                                     )}
                                                     {/* Gradiente extra para legibilidad */}
-                                                    <div className="absolute inset-0 bg-gradient-to-t from-white via-white/80 to-transparent z-0"></div>
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-white via-white/80 to-transparent dark:from-slate-900 dark:via-slate-900/80 z-0"></div>
 
                                                     <div className="absolute -right-6 -top-6 w-24 h-24 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full opacity-50 group-hover:scale-150 transition-transform duration-500 ease-out z-0"></div>
                                                     <div className="relative z-10">
@@ -866,29 +890,29 @@ export default function TeacherDashboard() {
                                                                 </div>
                                                             )}
                                                         </div>
-                                                        <h3 className="text-xl font-bold text-gray-900 group-hover:text-indigo-800 transition-colors line-clamp-2 leading-tight">
+                                                        <h3 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-indigo-800 dark:group-hover:text-indigo-400 transition-colors line-clamp-2 leading-tight">
                                                             {quiz.title}
                                                         </h3>
-                                                        <p className="text-xs font-bold text-gray-500 mt-3 flex items-center gap-1.5 bg-white/60 w-max px-2 py-1 rounded-md">
+                                                        <p className="text-xs font-bold text-gray-500 dark:text-slate-400 mt-3 flex items-center gap-1.5 bg-white/60 dark:bg-slate-800/60 w-max px-2 py-1 rounded-md">
                                                             <span>📅</span> Creado el {new Date(quiz.created_at).toLocaleDateString()}
                                                         </p>
                                                     </div>
                                                 </div>
 
                                                 {/* Controles de Tarjeta */}
-                                                <div className="bg-gray-50/50 p-4 border-t border-gray-100 flex flex-col gap-2 relative z-20">
+                                                <div className="bg-gray-50/50 dark:bg-slate-800/50 p-4 border-t border-gray-100 dark:border-slate-700 flex flex-col gap-2 relative z-20">
                                                     {/* SOLO EL DUEÑO PUEDE GESTIONAR ACCESOS */}
                                                     {quiz.teacher_id === user?.id ? (
                                                         <div className="mb-1">
                                                             <button
                                                                 onClick={() => handleOpenShareModal(quiz.id, quiz.shared_with_emails || [], quiz.editors_emails || [])}
-                                                                className="w-full text-[10px] font-black uppercase text-indigo-600 bg-indigo-50 border border-indigo-100 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors flex items-center justify-center gap-1.5"
+                                                                className="w-full text-[10px] font-black uppercase text-white bg-indigo-600 border border-indigo-700 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-1.5"
                                                             >
                                                                 🤝 Gestionar Colaboradores
                                                             </button>
                                                         </div>
                                                     ) : (
-                                                        <div className="mb-1 py-1.5 text-center text-[9px] font-bold text-gray-400 bg-gray-100/50 rounded-lg border border-dashed border-gray-200 uppercase tracking-tighter">
+                                                        <div className="mb-1 py-1.5 text-center text-[9px] font-bold text-gray-400 dark:text-slate-500 bg-gray-100/50 dark:bg-slate-900/50 rounded-lg border border-dashed border-gray-200 dark:border-slate-700 uppercase tracking-tighter">
                                                             Colaboración restringida al dueño
                                                         </div>
                                                     )}
@@ -912,7 +936,7 @@ export default function TeacherDashboard() {
                                                                     {canEdit ? (
                                                                         <Link
                                                                             href={`/teacher/quiz/builder?editId=${quiz.id}`}
-                                                                            className="flex flex-col items-center justify-center py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 font-bold text-[11px] rounded-xl transition-all text-center"
+                                                                            className="flex flex-col items-center justify-center py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] rounded-xl transition-all text-center"
                                                                             title="Editar Mapa e Itinerario"
                                                                         >
                                                                             <span className="text-lg mb-0.5">🗺️</span> Mapa
@@ -929,7 +953,7 @@ export default function TeacherDashboard() {
                                                                     {canEdit ? (
                                                                         <Link
                                                                             href={`/teacher/quiz/${quiz.id}/questions`}
-                                                                            className="flex flex-col items-center justify-center py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-bold text-[11px] rounded-xl transition-all text-center"
+                                                                            className="flex flex-col items-center justify-center py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] rounded-xl transition-all text-center"
                                                                             title="Editar Banco de Preguntas"
                                                                         >
                                                                             <span className="text-lg mb-0.5">📝</span> Preguntas
@@ -948,7 +972,7 @@ export default function TeacherDashboard() {
 
                                                         <button
                                                             onClick={() => handleDuplicateQuiz(quiz.id)}
-                                                            className="flex flex-col items-center justify-center py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold text-[11px] rounded-xl transition-all group text-center"
+                                                            className="flex flex-col items-center justify-center py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[11px] rounded-xl transition-all group text-center"
                                                             title="Duplicar para tu propia cuenta"
                                                         >
                                                             <span className="text-lg mb-0.5 group-hover:scale-110 transition-transform">📋</span> Copiar
@@ -958,7 +982,7 @@ export default function TeacherDashboard() {
                                                     <div className="grid grid-cols-2 gap-2 mt-1">
                                                         <Link
                                                             href={`/teacher/quiz/${quiz.id}/reports`}
-                                                            className="flex items-center justify-center gap-2 py-2.5 bg-purple-100 hover:bg-purple-200 text-purple-700 font-black text-[10px] uppercase rounded-xl transition-all border border-purple-200"
+                                                            className="flex items-center justify-center gap-2 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-black text-[10px] uppercase rounded-xl transition-all"
                                                         >
                                                             <span>📊</span> Reportes
                                                         </Link>
@@ -967,12 +991,12 @@ export default function TeacherDashboard() {
                                                         {quiz.teacher_id === user?.id ? (
                                                             <button
                                                                 onClick={() => handleDeleteQuiz(quiz.id)}
-                                                                className="flex items-center justify-center gap-2 py-2.5 bg-red-100 hover:bg-red-600 text-red-600 hover:text-white font-black text-[10px] uppercase rounded-xl transition-all"
+                                                                className="flex items-center justify-center gap-2 py-2.5 bg-red-600 hover:bg-red-700 text-white font-black text-[10px] uppercase rounded-xl transition-all"
                                                             >
                                                                 <span>🗑️</span> Borrar
                                                             </button>
                                                         ) : (
-                                                            <div className="flex items-center justify-center bg-gray-50 text-gray-300 text-[9px] uppercase font-black rounded-xl border border-gray-100" title="Tablero compartido (Sujeto a dueño)">
+                                                            <div className="flex items-center justify-center bg-gray-50 dark:bg-slate-900 text-gray-300 dark:text-slate-600 text-[9px] uppercase font-black rounded-xl border border-gray-100 dark:border-slate-700" title="Tablero compartido (Sujeto a dueño)">
                                                                 Protegido
                                                             </div>
                                                         )}
