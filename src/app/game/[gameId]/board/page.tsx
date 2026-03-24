@@ -110,11 +110,6 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                         setPlayerCount(prev => prev + 1);
                     } else if (payload.eventType === 'DELETE') {
                         setPlayerCount(prev => Math.max(0, prev - 1));
-                    } else if (payload.eventType === 'UPDATE') {
-                        const pos = payload.new.current_position;
-                        const oldPos = payload.old?.current_position;
-                        if (pos < 0 && (oldPos === undefined || oldPos >= 0)) setPlayerCount(prev => Math.max(0, prev - 1));
-                        else if (pos >= 0 && oldPos !== undefined && oldPos < 0) setPlayerCount(prev => prev + 1);
                     }
                 }
             ).subscribe();
