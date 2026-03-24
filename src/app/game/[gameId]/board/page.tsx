@@ -464,7 +464,6 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                 gameId={gameId}
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
-                onPlayerKicked={() => setPlayerCount(prev => Math.max(0, prev - 1))}
             />
 
             {/* Música de Juego */}
