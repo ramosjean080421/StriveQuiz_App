@@ -200,26 +200,7 @@ function QuizBuilderContent() {
         const xPositionsPercent = ((e.clientX - rect.left) / rect.width) * 100;
         const yPositionsPercent = ((e.clientY - rect.top) / rect.height) * 100;
 
-        if (gameMode === 'ludo') {
-            const currentData = { ...ludoPathData };
-            const newCoord = { x: xPositionsPercent, y: yPositionsPercent };
-
-            if (ludoPathType === 'bases') {
-                if (currentData.bases.length < ludoTeamsCount) {
-                    currentData.bases.push(newCoord);
-                } else {
-                    showToast("Ya colocaste todas las bases.");
-                    return;
-                }
-            } else if (ludoPathType === 'circuit') {
-                currentData.circuit.push(newCoord);
-            } else {
-                currentData.finals[ludoPathType].push(newCoord);
-            }
-            setLudoPathData(currentData);
-        } else {
-            setBoardPath([...boardPath, { x: xPositionsPercent, y: yPositionsPercent }]);
-        }
+        setBoardPath([...boardPath, { x: xPositionsPercent, y: yPositionsPercent }]);
     };
 
     const handleNodeMouseDown = (e: React.MouseEvent, index: number) => {
@@ -251,19 +232,7 @@ function QuizBuilderContent() {
     };
 
     const handleUndo = () => {
-        if (gameMode === 'ludo') {
-            const currentData = { ...ludoPathData };
-            if (ludoPathType === 'bases') {
-                currentData.bases.pop();
-            } else if (ludoPathType === 'circuit') {
-                currentData.circuit.pop();
-            } else {
-                currentData.finals[ludoPathType].pop();
-            }
-            setLudoPathData(currentData);
-        } else {
-            setBoardPath(boardPath.slice(0, -1));
-        }
+        setBoardPath(boardPath.slice(0, -1));
     };
 
     const handleClear = () => {
@@ -427,28 +396,10 @@ function QuizBuilderContent() {
                             </div>
                         </div>
 
-                        {/* Nueva sección: Cantidad de Equipos (Solo Ludo) */}
-                        {gameMode === 'ludo' && (
-                            <div className="mb-6 animate-fade-in">
-                                <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2 block">1.5 Cantidad de Equipos</label>
-                                <div className="flex bg-gray-50 p-1 rounded-xl gap-1">
-                                    {[2, 3, 4].map((num) => (
-                                        <button
-                                            key={num}
-                                            onClick={() => setLudoTeamsCount(num)}
-                                            className={`flex-1 py-2 rounded-lg font-black text-xs transition-all ${ludoTeamsCount === num
-                                                ? 'bg-indigo-600 text-white shadow-md'
-                                                : 'text-gray-400 hover:text-indigo-600'}`}
-                                        >
-                                            {num} Equipos
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
+
 
                         {/* 2. Selector de Escenario (Mapa) - Solo si NO es Ludo ni Memoria ni Roblox ni Bomba */}
-                        {gameMode !== 'ludo' && gameMode !== 'memory' && gameMode !== 'roblox' && gameMode !== 'bomb' && (
+                        {gameMode !== 'memory' && gameMode !== 'roblox' && gameMode !== 'bomb' && (
                             <div className="pt-4 border-t border-gray-100">
                                 <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-3 block">2. Elige dónde jugar (Escenario)</label>
                                 {localMaps.length === 0 ? (
@@ -509,17 +460,13 @@ function QuizBuilderContent() {
                     {/* Sección 3: Instrucciones / Controles de Ruta */}
                     {gameMode !== 'bomb' && <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-slate-800 dark:to-slate-800 p-4 rounded-2xl border border-indigo-100/50 dark:border-slate-700 mt-6">
                         <h3 className="font-bold text-indigo-900 dark:text-indigo-300 text-sm mb-3 flex items-center gap-2">
-                            <span className="text-lg">{gameMode === 'memory' ? '🧠' : '⚙️'}</span> {gameMode === 'memory' ? 'Dinámica del Juego' : gameMode === 'ludo' ? 'Configuración Mapa' : 'Trazar Ruta'}
+                            <span className="text-lg">{gameMode === 'memory' ? '🧠' : '⚙️'}</span> {gameMode === 'memory' ? 'Dinámica del Juego' : 'Trazar Ruta'}
                         </h3>
 
-                        {gameMode === 'ludo' || gameMode === 'memory' ? (
+                        {gameMode === 'memory' ? (
                             <div className="bg-amber-50 p-4 rounded-xl border border-amber-200">
                                 <p className="text-xs text-amber-800 font-bold leading-relaxed">
-                                    {gameMode === 'memory' ? (
-                                        <>🧠 <strong>Modo Memoria:</strong> Pon a prueba tu retentiva. Al iniciar el juego se creará un tablero con cartas de preguntas y respuestas. ¡El alumno tendrá que encontrar todas las parejas antes de que se acabe el tiempo para ganar la máxima puntuación!</>
-                                    ) : (
-                                        <>✨ <strong>Modo Ludo Automático:</strong> El tablero se generará por código siguiendo las reglas clásicas. No necesitas trazar ninguna ruta manualmente. ¡Todo está listo para jugar!</>
-                                    )}
+                                    🧠 <strong>Modo Memoria:</strong> Pon a prueba tu retentiva. Al iniciar el juego se creará un tablero con cartas de preguntas y respuestas. ¡El alumno tendrá que encontrar todas las parejas antes de que se acabe el tiempo para ganar la máxima puntuación!
                                 </p>
                             </div>
                         ) : gameMode === 'roblox' ? (
@@ -554,8 +501,8 @@ function QuizBuilderContent() {
                         disabled={
                             saving ||
                             !title ||
-                            (gameMode !== 'ludo' && gameMode !== 'memory' && gameMode !== 'roblox' && gameMode !== 'bomb' && !selectedMap) ||
-                            (gameMode !== 'ludo' && gameMode !== 'memory' && gameMode !== 'roblox' && gameMode !== 'bomb' && boardPath.length < 2)
+                            (gameMode !== 'memory' && gameMode !== 'roblox' && gameMode !== 'bomb' && !selectedMap) ||
+                            (gameMode !== 'memory' && gameMode !== 'roblox' && gameMode !== 'bomb' && boardPath.length < 2)
                         }
                         className="w-full flex items-center justify-center gap-2 py-4 px-4 text-base font-bold rounded-2xl text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5 active:scale-95 transition-all outline-none"
                     >
@@ -565,11 +512,7 @@ function QuizBuilderContent() {
                             <><span>✅</span> Publicar Aventura</>
                         )}
                     </button>
-                    {gameMode === 'ludo' && (
-                        <p className="mt-3 text-[10px] text-gray-400 text-center font-bold uppercase italic animate-pulse">
-                            ¡Tablero Procedural Activado! No requiere imagen externa.
-                        </p>
-                    )}
+
                 </div>
             </div>
 
@@ -579,15 +522,7 @@ function QuizBuilderContent() {
                 {/* Patrón de Fondo de Puntos Estrellado */}
                 <div className="absolute inset-0 opacity-[0.04] pointer-events-none z-0" style={{ backgroundImage: 'radial-gradient(white 2px, transparent 2px)', backgroundSize: '30px 30px' }}></div>
 
-                {gameMode === 'ludo' ? (
-                    <div className="relative z-10 w-full flex flex-col items-center gap-6 animate-fade-in-up">
-                        <LudoGridPreview />
-                        <div className="bg-indigo-600/20 backdrop-blur-md border border-indigo-500/30 px-6 py-3 rounded-2xl flex items-center gap-3">
-                            <span className="text-2xl animate-bounce">🎲</span>
-                            <span className="text-white font-black uppercase tracking-widest text-sm">Previsualización de Mapa Procedural</span>
-                        </div>
-                    </div>
-                ) : gameMode === 'memory' ? (
+                {gameMode === 'memory' ? (
                     <div className="relative z-10 w-full flex flex-col items-center gap-6 animate-fade-in-up">
                         <div className="aspect-[3/4] w-64 border-8 border-[#2d1810] rounded-[2rem] shadow-2xl relative overflow-hidden bg-cover bg-center" style={{ backgroundImage: "url('/reversocarta.png')" }}></div>
                         <div className="bg-indigo-600/20 backdrop-blur-md border border-indigo-500/30 px-6 py-3 rounded-2xl flex items-center gap-3">
