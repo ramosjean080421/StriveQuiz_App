@@ -15,7 +15,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
     const [podium, setPodium] = useState<any[]>([]);
     const [allPlayers, setAllPlayers] = useState<any[]>([]);
     const [playerCount, setPlayerCount] = useState(0);
-    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'ludo' | 'memory'>('classic');
+    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'memory' | 'roblox'>('classic');
     const [gameDuration, setGameDuration] = useState(0); 
     const [timeLeftSession, setTimeLeftSession] = useState(0);
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
@@ -50,18 +50,24 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
 
             const { data: game } = await supabase
                 .from("games")
-                .select("pin, status, game_mode, quiz_id, game_duration, auto_end")
+                .select("pin, status, game_mode, quiz_id, game_duration, auto_end, started_at")
                 .eq("id", gameId)
                 .single();
 
             if (game) {
                 setPin(game.pin);
                 setGameStatus(game.status);
-                setGameMode(game.game_mode as 'classic' | 'race' | 'ludo' || 'classic');
+                setGameMode((game.game_mode as 'classic' | 'race' | 'memory' | 'roblox') || 'classic');
                 if (game.game_duration && game.game_duration > 0 && !game.auto_end) {
                     setGameDuration(game.game_duration);
                     if (game.status === "active") {
-                        setTimeLeftSession(game.game_duration * 60);
+                        const totalSeconds = game.game_duration * 60;
+                        if (game.started_at) {
+                            const elapsed = Math.floor((Date.now() - new Date(game.started_at).getTime()) / 1000);
+                            setTimeLeftSession(Math.max(0, totalSeconds - elapsed));
+                        } else {
+                            setTimeLeftSession(totalSeconds);
+                        }
                     }
                 }
 
@@ -89,10 +95,6 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
         fetchGameAndPerms();
 
         
-        const refreshCount = async () => {
-            const { count } = await supabase.from('game_players').select('*', { count: 'exact', head: true }).eq('game_id', gameId).gte("current_position", 0);
-            setPlayerCount(count || 0);
-        };
         const channel = supabase.channel(`game_room_status_${gameId}`)
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
                 (payload) => {
@@ -103,12 +105,23 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                 }
             )
             .on('postgres_changes', { event: '*', schema: 'public', table: 'game_players', filter: `game_id=eq.${gameId}` },
-                () => refreshCount()
+                (payload) => {
+                    if (payload.eventType === 'INSERT') {
+                        setPlayerCount(prev => prev + 1);
+                    } else if (payload.eventType === 'DELETE') {
+                        setPlayerCount(prev => Math.max(0, prev - 1));
+                    } else if (payload.eventType === 'UPDATE') {
+                        const pos = payload.new.current_position;
+                        const oldPos = payload.old.current_position;
+                        if (pos < 0 && oldPos >= 0) setPlayerCount(prev => Math.max(0, prev - 1));
+                        else if (pos >= 0 && oldPos < 0) setPlayerCount(prev => prev + 1);
+                    }
+                }
             ).subscribe();
 
         // Obtener el conteo inicial
         supabase.from('game_players').select('*', { count: 'exact', head: true }).eq('game_id', gameId).gte('current_position', 0).then(({ count }) => {
-            if (count) setPlayerCount(count);
+            setPlayerCount(count || 0);
         });
 
         return () => { supabase.removeChannel(channel); };
@@ -136,7 +149,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
 
     const startGame = async () => {
         const newStatus = "active";
-        await supabase.from("games").update({ status: newStatus }).eq("id", gameId);
+        await supabase.from("games").update({ status: newStatus, started_at: new Date().toISOString() }).eq("id", gameId);
         if (gameDuration > 0) {
             setTimeLeftSession(gameDuration * 60);
         }

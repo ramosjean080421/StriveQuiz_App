@@ -124,7 +124,7 @@ export default function Home() {
 
       const existingPlayer = playersFound && playersFound.length > 0 ? playersFound[0] : null;
 
-      const savedPlayerId = localStorage.getItem("currentPlayerId");
+      const savedPlayerId = sessionStorage.getItem("currentPlayerId");
 
       if (existingPlayer) {
         if (savedPlayerId === existingPlayer.id) {

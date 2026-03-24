@@ -19,7 +19,7 @@ function StartGameContent() {
     const [autoEnd, setAutoEnd] = useState(false);
     const [enableGameTimer, setEnableGameTimer] = useState(false);
     const [enableQuestionTimer, setEnableQuestionTimer] = useState(true);
-    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'ludo' | 'memory' | 'roblox'>('classic');
+    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'memory' | 'roblox'>('classic');
     
     const [dataLoaded, setDataLoaded] = useState(false);
     const [gameDuration, setGameDuration] = useState(10); // Minutos
@@ -70,7 +70,7 @@ function StartGameContent() {
                 game_duration: (enableGameTimer && !autoEnd) ? gameDuration : null,
                 question_duration: gameMode === 'memory' ? 0 : (enableQuestionTimer ? questionDuration : 0),
                 bonus_time_per_match: (gameMode === 'memory' && enableBonusTime) ? bonusTimePerMatch : null,
-                boss_hp: gameMode === 'roblox' ? (mapTheme === 'spiral' ? -Number(customQuestionCount) : Number(customQuestionCount)) : 0
+                boss_hp: gameMode === 'roblox' ? (mapTheme === 'spiral' ? -(Number(customQuestionCount) || 10) : (Number(customQuestionCount) || 10)) : 0
             };
 
             // Primer intento: con todas las columnas

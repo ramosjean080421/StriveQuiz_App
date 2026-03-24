@@ -285,11 +285,11 @@ function QuizBuilderContent() {
             showToast("Por favor ingresa un título para la aventura.", "error");
             return;
         }
-        if (gameMode !== 'ludo' && gameMode !== 'memory' && gameMode !== 'roblox' && boardPath.length < 2) {
+        if (gameMode !== 'memory' && gameMode !== 'roblox' && boardPath.length < 2) {
             showToast("Por favor traza al menos 2 casillas en el tablero.", "error");
             return;
         }
-        if (gameMode !== 'ludo' && gameMode !== 'memory' && gameMode !== 'roblox' && !selectedMap) {
+        if (gameMode !== 'memory' && gameMode !== 'roblox' && !selectedMap) {
             showToast("Por favor selecciona un escenario.", "error");
             return;
         }
@@ -301,10 +301,10 @@ function QuizBuilderContent() {
             if (!user) throw new Error("No autenticado");
             const payload = {
                 title,
-                board_image_url: gameMode === 'ludo' ? '/LUDO_PROCEDURAL' : gameMode === 'memory' ? '/reversocarta.png' : gameMode === 'roblox' ? '/robloxbg.png' : selectedMap.url,
-                board_path: (gameMode === 'ludo' || gameMode === 'memory' || gameMode === 'roblox') ? [] : boardPath,
+                board_image_url: gameMode === 'memory' ? '/reversocarta.png' : gameMode === 'roblox' ? '/robloxbg.png' : selectedMap.url,
+                board_path: (gameMode === 'memory' || gameMode === 'roblox') ? [] : boardPath,
                 game_mode: gameMode,
-                ludo_teams_count: gameMode === 'ludo' ? ludoTeamsCount : null,
+                ludo_teams_count: null,
                 ludo_path_data: null,
                 rewards_enabled: false,
                 reward_criteria: 5,
@@ -398,7 +398,6 @@ function QuizBuilderContent() {
                                 {[
                                     { id: 'classic', icon: '🏃', name: 'Clásico' },
                                     { id: 'race', icon: '🏎️', name: 'Carreras' },
-                                    { id: 'ludo', icon: '🎲', name: 'Ludo' },
                                     { id: 'memory', icon: '🧠', name: 'Memoria' },
                                     { id: 'roblox', icon: '🏝️', name: 'Obby' }
                                 ].map((mode) => (

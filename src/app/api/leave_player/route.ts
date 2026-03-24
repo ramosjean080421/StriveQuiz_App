@@ -38,7 +38,10 @@ export async function POST(req: Request) {
             .delete()
             .eq("id", id);
 
-        if (error) console.error("Error deleting player on exit route:", error);
+        if (error) {
+            console.error("Error deleting player on exit route:", error);
+            return NextResponse.json({ error: "Failed to delete player" }, { status: 500 });
+        }
 
         return NextResponse.json({ success: true });
     } catch (e: any) {
