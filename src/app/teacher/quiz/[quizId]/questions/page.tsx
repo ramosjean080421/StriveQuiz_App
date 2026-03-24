@@ -1010,7 +1010,7 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                                                         onChange={(e) => {
                                                             const np = [...matchingPairs]; np[pIdx].right = e.target.value; setMatchingPairs(np);
                                                         }}
-                                                        className="w-full px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-sm font-bold text-amber-900"
+                                                        className="w-full px-3 py-2 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg text-sm font-bold text-amber-900 dark:text-amber-300"
                                                     />
                                                     {matchingPairs.length > 2 && (
                                                         <button
