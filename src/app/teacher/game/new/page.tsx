@@ -19,7 +19,7 @@ function StartGameContent() {
     const [autoEnd, setAutoEnd] = useState(false);
     const [enableGameTimer, setEnableGameTimer] = useState(false);
     const [enableQuestionTimer, setEnableQuestionTimer] = useState(true);
-    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'memory' | 'roblox'>('classic');
+    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'memory' | 'roblox' | 'bomb'>('classic');
     
     const [dataLoaded, setDataLoaded] = useState(false);
     const [gameDuration, setGameDuration] = useState(10); // Minutos
@@ -33,6 +33,9 @@ function StartGameContent() {
     // Roblox: Límite de preguntas / islas generadas
     const [customQuestionCount, setCustomQuestionCount] = useState<number | ''>(10);
     const [mapTheme, setMapTheme] = useState<'linear' | 'spiral'>('linear');
+
+    // Bomba: cantidad de preguntas a usar del banco
+    const [bombQuestionCount, setBombQuestionCount] = useState<number | ''>(10);
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
         setToast({ message, type });
@@ -68,9 +71,9 @@ function StartGameContent() {
                 auto_end: autoEnd,
                 game_mode: gameMode,
                 game_duration: (enableGameTimer && !autoEnd) ? gameDuration : null,
-                question_duration: gameMode === 'memory' ? 0 : (enableQuestionTimer ? questionDuration : 0),
+                question_duration: (gameMode === 'memory' || gameMode === 'bomb') ? (gameMode === 'bomb' ? (enableQuestionTimer ? questionDuration : 15) : 0) : (enableQuestionTimer ? questionDuration : 0),
                 bonus_time_per_match: (gameMode === 'memory' && enableBonusTime) ? bonusTimePerMatch : null,
-                boss_hp: gameMode === 'roblox' ? (mapTheme === 'spiral' ? -(Number(customQuestionCount) || 10) : (Number(customQuestionCount) || 10)) : 0
+                boss_hp: gameMode === 'roblox' ? (mapTheme === 'spiral' ? -(Number(customQuestionCount) || 10) : (Number(customQuestionCount) || 10)) : gameMode === 'bomb' ? (Number(bombQuestionCount) || 10) : 0
             };
 
             // Primer intento: con todas las columnas
@@ -251,6 +254,24 @@ function StartGameContent() {
                                     <p className="text-[10px] text-cyan-400/60 font-bold text-center">Cada pareja acertada sumará {bonusTimePerMatch}s al reloj</p>
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {/* Cantidad de preguntas (Solo Bomba) */}
+                    {gameMode === 'bomb' && (
+                        <div className="p-4 rounded-[1.8rem] bg-white/[0.02] border border-white/5 space-y-3">
+                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest block px-1">💣 Preguntas del juego</span>
+                            <input
+                                type="number"
+                                min="1" max="200"
+                                value={bombQuestionCount === '' ? '' : bombQuestionCount}
+                                placeholder="Ej. 10 preguntas..."
+                                onChange={(e) => setBombQuestionCount(e.target.value === '' ? '' : Number(e.target.value))}
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm font-black focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                            />
+                            <p className="text-[10px] text-gray-500 font-bold text-center">
+                                Se sortearán al azar del banco. Todos los alumnos verán las mismas preguntas.
+                            </p>
                         </div>
                     )}
 

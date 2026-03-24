@@ -85,7 +85,7 @@ function QuizBuilderContent() {
     const [localMaps, setLocalMaps] = useState<{ id: number, name: string, url: string }[]>([]);
     const [selectedMap, setSelectedMap] = useState<any>(null);
     const [boardPath, setBoardPath] = useState<Coordinate[]>([]);
-    const [gameMode, setGameMode] = useState<"classic" | "race" | "ludo" | "memory" | "roblox">("classic");
+    const [gameMode, setGameMode] = useState<"classic" | "race" | "memory" | "roblox" | "bomb">("classic");
     const [ludoTeamsCount, setLudoTeamsCount] = useState<number>(4);
     const [ludoPathType, setLudoPathType] = useState<'bases' | 'circuit' | 'red' | 'blue' | 'green' | 'yellow'>('bases');
     const [ludoPathData, setLudoPathData] = useState<any>({
@@ -285,11 +285,11 @@ function QuizBuilderContent() {
             showToast("Por favor ingresa un título para la aventura.", "error");
             return;
         }
-        if (gameMode !== 'memory' && gameMode !== 'roblox' && boardPath.length < 2) {
+        if (gameMode !== 'memory' && gameMode !== 'roblox' && gameMode !== 'bomb' && boardPath.length < 2) {
             showToast("Por favor traza al menos 2 casillas en el tablero.", "error");
             return;
         }
-        if (gameMode !== 'memory' && gameMode !== 'roblox' && !selectedMap) {
+        if (gameMode !== 'memory' && gameMode !== 'roblox' && gameMode !== 'bomb' && !selectedMap) {
             showToast("Por favor selecciona un escenario.", "error");
             return;
         }
@@ -301,8 +301,8 @@ function QuizBuilderContent() {
             if (!user) throw new Error("No autenticado");
             const payload = {
                 title,
-                board_image_url: gameMode === 'memory' ? '/reversocarta.png' : gameMode === 'roblox' ? '/robloxbg.png' : selectedMap.url,
-                board_path: (gameMode === 'memory' || gameMode === 'roblox') ? [] : boardPath,
+                board_image_url: gameMode === 'memory' ? '/reversocarta.png' : gameMode === 'roblox' ? '/robloxbg.png' : gameMode === 'bomb' ? '/logotransparente.png' : selectedMap.url,
+                board_path: (gameMode === 'memory' || gameMode === 'roblox' || gameMode === 'bomb') ? [] : boardPath,
                 game_mode: gameMode,
                 ludo_teams_count: null,
                 ludo_path_data: null,
@@ -399,7 +399,8 @@ function QuizBuilderContent() {
                                     { id: 'classic', icon: '🏃', name: 'Clásico' },
                                     { id: 'race', icon: '🏎️', name: 'Carreras' },
                                     { id: 'memory', icon: '🧠', name: 'Memoria' },
-                                    { id: 'roblox', icon: '🏝️', name: 'Obby' }
+                                    { id: 'roblox', icon: '🏝️', name: 'Obby' },
+                                    { id: 'bomb', icon: '💣', name: 'Bomba' }
                                 ].map((mode) => (
                                     <button
                                         key={mode.id}
@@ -446,8 +447,8 @@ function QuizBuilderContent() {
                             </div>
                         )}
 
-                        {/* 2. Selector de Escenario (Mapa) - Solo si NO es Ludo ni Memoria ni Roblox */}
-                        {gameMode !== 'ludo' && gameMode !== 'memory' && gameMode !== 'roblox' && (
+                        {/* 2. Selector de Escenario (Mapa) - Solo si NO es Ludo ni Memoria ni Roblox ni Bomba */}
+                        {gameMode !== 'ludo' && gameMode !== 'memory' && gameMode !== 'roblox' && gameMode !== 'bomb' && (
                             <div className="pt-4 border-t border-gray-100">
                                 <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-3 block">2. Elige dónde jugar (Escenario)</label>
                                 {localMaps.length === 0 ? (
@@ -506,7 +507,7 @@ function QuizBuilderContent() {
 
 
                     {/* Sección 3: Instrucciones / Controles de Ruta */}
-                    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-slate-800 dark:to-slate-800 p-4 rounded-2xl border border-indigo-100/50 dark:border-slate-700 mt-6">
+                    {gameMode !== 'bomb' && <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-slate-800 dark:to-slate-800 p-4 rounded-2xl border border-indigo-100/50 dark:border-slate-700 mt-6">
                         <h3 className="font-bold text-indigo-900 dark:text-indigo-300 text-sm mb-3 flex items-center gap-2">
                             <span className="text-lg">{gameMode === 'memory' ? '🧠' : '⚙️'}</span> {gameMode === 'memory' ? 'Dinámica del Juego' : gameMode === 'ludo' ? 'Configuración Mapa' : 'Trazar Ruta'}
                         </h3>
@@ -543,7 +544,7 @@ function QuizBuilderContent() {
                                 </div>
                             </div>
                         )}
-                    </div>
+                    </div>}
                 </div>
 
                 {/* Pie del Panel - Guardar */}
@@ -553,8 +554,8 @@ function QuizBuilderContent() {
                         disabled={
                             saving ||
                             !title ||
-                            (gameMode !== 'ludo' && gameMode !== 'memory' && gameMode !== 'roblox' && !selectedMap) ||
-                            (gameMode !== 'ludo' && gameMode !== 'memory' && gameMode !== 'roblox' && boardPath.length < 2)
+                            (gameMode !== 'ludo' && gameMode !== 'memory' && gameMode !== 'roblox' && gameMode !== 'bomb' && !selectedMap) ||
+                            (gameMode !== 'ludo' && gameMode !== 'memory' && gameMode !== 'roblox' && gameMode !== 'bomb' && boardPath.length < 2)
                         }
                         className="w-full flex items-center justify-center gap-2 py-4 px-4 text-base font-bold rounded-2xl text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5 active:scale-95 transition-all outline-none"
                     >
@@ -592,6 +593,49 @@ function QuizBuilderContent() {
                         <div className="bg-indigo-600/20 backdrop-blur-md border border-indigo-500/30 px-6 py-3 rounded-2xl flex items-center gap-3">
                             <span className="text-2xl animate-bounce">🧠</span>
                             <span className="text-white font-black uppercase tracking-widest text-sm">Previsualización de Memoria Automática</span>
+                        </div>
+                    </div>
+                ) : gameMode === 'bomb' ? (
+                    <div className="relative z-10 w-full flex flex-col items-center justify-center gap-8 animate-fade-in-up select-none">
+                        {/* Fondo de cuadrícula naranja */}
+                        <div className="absolute inset-0 pointer-events-none opacity-10"
+                            style={{ backgroundImage: 'linear-gradient(rgba(255,100,0,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,100,0,0.5) 1px, transparent 1px)', backgroundSize: '48px 48px' }} />
+
+                        {/* Tarjeta central */}
+                        <div className="relative flex flex-col items-center gap-6 bg-black/50 backdrop-blur-xl border border-orange-500/30 rounded-[3rem] px-16 py-14 shadow-[0_0_80px_rgba(255,80,0,0.2)]">
+                            {/* Glow rings */}
+                            <div className="absolute inset-0 rounded-[3rem] pointer-events-none" style={{ boxShadow: 'inset 0 0 60px rgba(255,80,0,0.08)' }} />
+
+                            {/* Bomb grande animada */}
+                            <div className="relative flex items-center justify-center">
+                                <div className="absolute w-40 h-40 rounded-full bg-orange-500/10 animate-ping" style={{ animationDuration: '2s' }} />
+                                <div className="absolute w-32 h-32 rounded-full bg-orange-500/15 animate-ping" style={{ animationDuration: '2.5s', animationDelay: '0.3s' }} />
+                                <div className="text-[7rem] leading-none animate-[bombBounce_2s_ease-in-out_infinite] drop-shadow-[0_0_30px_rgba(255,120,0,0.8)]">💣</div>
+                            </div>
+
+                            <div className="text-center">
+                                <h2 className="text-4xl font-black text-white uppercase tracking-[0.15em] drop-shadow-lg">TRIVIA BOMBA</h2>
+                                <p className="text-orange-400 font-black text-xs uppercase tracking-[0.3em] mt-2">Modo Eliminación</p>
+                            </div>
+
+                            {/* Mini reglas visuales */}
+                            <div className="grid grid-cols-3 gap-4 mt-2">
+                                {[
+                                    { icon: '💣', label: 'Bomba aleatoria' },
+                                    { icon: '❌', label: 'Fallas = Explota' },
+                                    { icon: '🏆', label: 'Último en pie gana' },
+                                ].map((r, i) => (
+                                    <div key={i} className="flex flex-col items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3">
+                                        <span className="text-2xl">{r.icon}</span>
+                                        <span className="text-[10px] font-black text-white/60 uppercase tracking-wider text-center leading-tight">{r.label}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="bg-orange-500/10 border border-orange-500/30 px-6 py-3 rounded-2xl flex items-center gap-3">
+                            <span className="text-xl animate-bounce">💣</span>
+                            <span className="text-orange-300 font-black uppercase tracking-widest text-sm">Modo Bomba — No requiere tablero</span>
                         </div>
                     </div>
                 ) : gameMode === 'roblox' ? (
@@ -795,6 +839,10 @@ function QuizBuilderContent() {
 
             <style jsx global>{`
                 /* Scrollbar mágico súper sutil */
+                @keyframes bombBounce {
+                    0%, 100% { transform: translateY(0) rotate(-5deg); }
+                    50% { transform: translateY(-18px) rotate(5deg); }
+                }
                 .custom-scrollbar::-webkit-scrollbar {
                     width: 8px;
                 }

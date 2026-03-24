@@ -5,6 +5,7 @@ import { useEffect, useState, use } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import MemoryGamePlayer from "@/components/games/memory/MemoryGamePlayer";
 import RobloxGamePlayer from "@/components/games/roblox/RobloxGamePlayer";
+import BombPlayerView from "@/components/games/bomb/BombPlayerView";
 
 interface Question {
     id: string;
@@ -23,7 +24,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     const [questions, setQuestions] = useState<Question[]>([]);
     const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
     const [gameStatus, setGameStatus] = useState("waiting");
-    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'ludo' | 'memory' | 'roblox'>('classic');
+    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'memory' | 'roblox' | 'bomb'>('classic');
     const [players, setPlayers] = useState<any[]>([]);
     const [totalQuestions, setTotalQuestions] = useState(10);
     const [ludoTeamsCount, setLudoTeamsCount] = useState(4);
@@ -657,6 +658,11 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     });
 
     const miPuesto = sortedPlayers.findIndex(p => p.id === playerId) + 1;
+
+    // Modo bomba: BombPlayerView maneja sus propios estados (active, finished, eliminado)
+    if (gameMode === 'bomb' && (gameStatus === 'active' || gameStatus === 'finished') && playerId) {
+        return <BombPlayerView gameId={gameId} playerId={playerId} />;
+    }
 
     if (gameMode === 'memory') {
         return (

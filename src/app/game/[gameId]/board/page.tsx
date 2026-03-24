@@ -5,6 +5,7 @@ import { useEffect, useState, use } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import GameBoard from "@/components/GameBoard";
 import ConnectedPlayersModal from "@/components/ConnectedPlayersModal";
+import BombGameBoard from "@/components/games/bomb/BombGameBoard";
 import Link from "next/link";
 
 export default function GameRoomBoard({ params }: { params: Promise<{ gameId: string }> }) {
@@ -15,7 +16,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
     const [podium, setPodium] = useState<any[]>([]);
     const [allPlayers, setAllPlayers] = useState<any[]>([]);
     const [playerCount, setPlayerCount] = useState(0);
-    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'memory' | 'roblox'>('classic');
+    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'memory' | 'roblox' | 'bomb'>('classic');
     const [gameDuration, setGameDuration] = useState(0); 
     const [timeLeftSession, setTimeLeftSession] = useState(0);
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
@@ -57,7 +58,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
             if (game) {
                 setPin(game.pin);
                 setGameStatus(game.status);
-                setGameMode((game.game_mode as 'classic' | 'race' | 'memory' | 'roblox') || 'classic');
+                setGameMode((game.game_mode as 'classic' | 'race' | 'memory' | 'roblox' | 'bomb') || 'classic');
                 if (game.game_duration && game.game_duration > 0 && !game.auto_end) {
                     setGameDuration(game.game_duration);
                     if (game.status === "active") {
@@ -144,7 +145,19 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
 
     const startGame = async () => {
         const newStatus = "active";
-        await supabase.from("games").update({ status: newStatus, started_at: new Date().toISOString() }).eq("id", gameId);
+        const updateData: any = { status: newStatus, started_at: new Date().toISOString() };
+
+        if (gameMode === 'bomb') {
+            const { data: players } = await supabase.from("game_players")
+                .select("id").eq("game_id", gameId).gte("current_position", 0);
+            if (players && players.length > 0) {
+                const randomHolder = players[Math.floor(Math.random() * players.length)];
+                updateData.bomb_holder_id = randomHolder.id;
+                updateData.current_question_index = 0;
+            }
+        }
+
+        await supabase.from("games").update(updateData).eq("id", gameId);
         if (gameDuration > 0) {
             setTimeLeftSession(gameDuration * 60);
         }
@@ -450,6 +463,8 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                             </div>
                         </div>
                     </div>
+                ) : gameMode === 'bomb' ? (
+                    <BombGameBoard gameId={gameId} players={[]} totalQuestions={0} />
                 ) : (
                     <GameBoard gameId={gameId} />
                 )}
