@@ -83,29 +83,29 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
             // Permitir salida inmediata si fue expulsado por sistema
             if (sessionStorage.getItem("isKicked") === "true") return;
-            
+
             if ((gameStatus === "active" || gameStatus === "paused") && !hasFinishedAll) {
                 e.preventDefault();
-                e.returnValue = ""; 
+                e.returnValue = "";
             }
         };
 
         const handleUnload = () => {
-             // 🛑 Solo borrar si están en la Sala de Espera (Lobby).
-             // Si la partida ya inició ("active"), se preservan sus datos y respuestas.
-             if (gameStatus !== "waiting") return; 
+            // 🛑 Solo borrar si están en la Sala de Espera (Lobby).
+            // Si la partida ya inició ("active"), se preservan sus datos y respuestas.
+            if (gameStatus !== "waiting") return;
 
-             const savedPlayerId = sessionStorage.getItem("currentPlayerId");
-             const savedSecret = sessionStorage.getItem("playerSecret");
-             if (savedPlayerId && savedSecret) {
-                  const data = JSON.stringify({ id: savedPlayerId, secret: savedSecret });
-                  fetch('/api/leave_player', {
-                      method: 'POST',
-                      keepalive: true,
-                      headers: { 'Content-Type': 'application/json' },
-                      body: data
-                  });
-             }
+            const savedPlayerId = sessionStorage.getItem("currentPlayerId");
+            const savedSecret = sessionStorage.getItem("playerSecret");
+            if (savedPlayerId && savedSecret) {
+                const data = JSON.stringify({ id: savedPlayerId, secret: savedSecret });
+                fetch('/api/leave_player', {
+                    method: 'POST',
+                    keepalive: true,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: data
+                });
+            }
         };
 
         window.addEventListener("beforeunload", handleBeforeUnload);
@@ -151,7 +151,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         };
     }, [gameStatus, playerId, playerSecret]);
 
-    // Cronómetro visual
+    // Cronómetro visualmente visual
     useEffect(() => {
         if (gameStatus === "waiting" || gameStatus === "finished" || gameStatus === "paused" || hasFinishedAll || answering || questions.length === 0 || questionDuration <= 0) return;
 
@@ -296,7 +296,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                                 window.location.href = "/?kicked=true";
                                 return;
                             }
-                            
+
                             // Si fue perdonado
                             if (payload.new.is_blocked === false) {
                                 setIsBlurred(false);
@@ -304,7 +304,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                         }
                     } else if (payload.eventType === 'DELETE') {
                         setPlayers(prev => prev.filter(p => p.id !== payload.old.id));
-                        
+
                         const savedPlayerId = sessionStorage.getItem("currentPlayerId");
                         if (payload.old.id === savedPlayerId) {
                             sessionStorage.setItem("isKicked", "true");
@@ -557,8 +557,8 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                                     {p.avatar_gif_url
                                         ? <img src={p.avatar_gif_url} alt="" className="w-full h-full object-cover" />
                                         : <div className="w-full h-full flex items-center justify-center text-2xl">
-                                            {['🦊','🐸','🐼','🦁','🐯','🦊','🐺','🦄'][i % 8]}
-                                          </div>
+                                            {['🦊', '🐸', '🐼', '🦁', '🐯', '🦊', '🐺', '🦄'][i % 8]}
+                                        </div>
                                     }
                                 </div>
                                 <span className="text-slate-300 font-bold text-[10px] text-center leading-tight truncate w-full text-center">
@@ -647,7 +647,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         { bg: "bg-yellow-500", border: "border-yellow-700", icon: "⭐" },
         { bg: "bg-emerald-500", border: "border-emerald-700", icon: "🟩" }
     ];
-    
+
     const bgPattern = "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0)";
 
     const sortedPlayers = [...players].sort((a, b) => {
@@ -667,7 +667,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     if (gameMode === 'memory') {
         return (
             <div className="h-screen w-screen flex bg-gray-950 overflow-hidden relative font-sans select-none">
-                
+
                 {/* Overlay Anti-Trampas */}
                 {isBlurred && (
                     <div className="fixed inset-0 z-[9999] bg-gray-950/95 flex flex-col items-center justify-center p-6 text-center backdrop-blur-xl">
@@ -677,7 +677,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                                 ¡NO HAGAS TRAMPA!
                             </h1>
                             <p className="text-gray-300 font-medium text-lg leading-relaxed mb-8">
-                                Ocultamos las preguntas porque detectamos un intento de hacer trampa o uso de otra aplicación. <br/><br/>
+                                Ocultamos las preguntas porque detectamos un intento de hacer trampa o uso de otra aplicación. <br /><br />
                                 <strong className="text-red-400">El profesor ha sido notificado.</strong> Espera a que te permita regresar al juego.
                             </p>
                             <div className="flex items-center gap-3 opacity-40 justify-center">
@@ -711,7 +711,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                             {sortedPlayers.length}
                         </span>
                     </div>
-                    
+
                     {/* Lista de jugadores */}
                     <div className="flex-1 overflow-y-auto custom-scrollbar-memory p-3 space-y-1">
                         {sortedPlayers.map((p, idx) => {
@@ -721,23 +721,22 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                             const pProgress = questionsTotal > 0 ? (pairsFound / questionsTotal) * 100 : 0;
 
                             return (
-                                <div 
-                                    key={p.id} 
-                                    className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-all duration-300 ${
-                                        isMe 
-                                            ? 'bg-gradient-to-r from-indigo-500/15 to-purple-500/10 border-indigo-400/30 shadow-[0_0_20px_rgba(99,102,241,0.12)] ring-1 ring-indigo-500/20' 
+                                <div
+                                    key={p.id}
+                                    className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-all duration-300 ${isMe
+                                            ? 'bg-gradient-to-r from-indigo-500/15 to-purple-500/10 border-indigo-400/30 shadow-[0_0_20px_rgba(99,102,241,0.12)] ring-1 ring-indigo-500/20'
                                             : idx === 0 ? 'bg-gradient-to-r from-yellow-500/[0.06] to-transparent border-yellow-500/10'
-                                            : idx === 1 ? 'bg-gradient-to-r from-gray-400/[0.04] to-transparent border-gray-400/10'
-                                            : idx === 2 ? 'bg-gradient-to-r from-orange-500/[0.04] to-transparent border-orange-400/10'
-                                            : 'border-transparent hover:bg-white/[0.02]'
-                                    }`}
+                                                : idx === 1 ? 'bg-gradient-to-r from-gray-400/[0.04] to-transparent border-gray-400/10'
+                                                    : idx === 2 ? 'bg-gradient-to-r from-orange-500/[0.04] to-transparent border-orange-400/10'
+                                                        : 'border-transparent hover:bg-white/[0.02]'
+                                        }`}
                                 >
                                     {/* Posición */}
                                     <div className="w-7 flex items-center justify-center shrink-0">
-                                        {idx === 0 ? <span className="text-base drop-shadow-md">🥇</span> 
-                                        : idx === 1 ? <span className="text-base drop-shadow-md">🥈</span> 
-                                        : idx === 2 ? <span className="text-base drop-shadow-md">🥉</span> 
-                                        : <span className="text-[10px] font-black text-gray-600 bg-white/[0.04] w-6 h-6 rounded-lg flex items-center justify-center">#{idx + 1}</span>
+                                        {idx === 0 ? <span className="text-base drop-shadow-md">🥇</span>
+                                            : idx === 1 ? <span className="text-base drop-shadow-md">🥈</span>
+                                                : idx === 2 ? <span className="text-base drop-shadow-md">🥉</span>
+                                                    : <span className="text-[10px] font-black text-gray-600 bg-white/[0.04] w-6 h-6 rounded-lg flex items-center justify-center">#{idx + 1}</span>
                                         }
                                     </div>
 
@@ -801,7 +800,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                         answering={answering}
                         onSubmit={async (scoreDelta, pairsFound) => {
                             if (!playerId) return;
-                            
+
                             const { data: pData } = await supabase.from("game_players").select("score").eq("id", playerId).single();
                             const currentScore = pData?.score || 0;
 
@@ -813,9 +812,9 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                                 })
                                 .eq("id", playerId)
                                 .eq("secret_token", playerSecret);
-                                
+
                             if (pairsFound === questions.length) {
-                                 setHasFinishedAll(true);
+                                setHasFinishedAll(true);
                             }
                         }}
                     />
@@ -858,7 +857,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                             ¡NO HAGAS TRAMPA!
                         </h1>
                         <p className="text-gray-300 font-medium text-lg leading-relaxed mb-8">
-                            Ocultamos las preguntas porque detectamos un intento de hacer trampa o uso de otra aplicación. <br/><br/>
+                            Ocultamos las preguntas porque detectamos un intento de hacer trampa o uso de otra aplicación. <br /><br />
                             <strong className="text-red-400">El profesor ha sido notificado.</strong> Espera a que te permita regresar al juego.
                         </p>
                         <div className="flex items-center gap-3 opacity-40 justify-center">
@@ -926,10 +925,10 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
             {/* Tarjeta de Pregunta Central */}
             <div className="flex items-center justify-center px-4 py-6 sm:py-8 relative">
                 {questionDuration > 0 && (
-                     <div className="absolute top-1 right-6 z-20 px-4 py-2 bg-slate-800 border-2 border-slate-700 rounded-xl flex items-center gap-2 shadow-lg">
-                         <span className="text-xl">⏳</span>
-                         <span className={`text-2xl font-black tabular-nums ${timeLeft <= 5 ? 'text-red-500 animate-pulse' : 'text-white'}`}>{timeLeft}</span>
-                     </div>
+                    <div className="absolute top-1 right-6 z-20 px-4 py-2 bg-slate-800 border-2 border-slate-700 rounded-xl flex items-center gap-2 shadow-lg">
+                        <span className="text-xl">⏳</span>
+                        <span className={`text-2xl font-black tabular-nums ${timeLeft <= 5 ? 'text-red-500 animate-pulse' : 'text-white'}`}>{timeLeft}</span>
+                    </div>
                 )}
                 <div className="w-full max-w-4xl bg-white rounded-[2rem] p-6 sm:p-10 border-b-[8px] border-slate-300 shadow-xl text-center relative mt-4">
                     <div className="absolute -top-5 -left-5 w-14 h-14 bg-blue-500 rounded-xl rotate-12 flex items-center justify-center font-black text-white border-b-4 border-blue-700 shadow-lg text-3xl">?</div>
