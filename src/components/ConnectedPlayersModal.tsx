@@ -7,6 +7,7 @@ interface ConnectedPlayersModalProps {
     gameId: string;
     isOpen: boolean;
     onClose: () => void;
+    onPlayerKicked?: () => void;
 }
 
 interface Player {
@@ -17,7 +18,7 @@ interface Player {
     score: number;
 }
 
-export default function ConnectedPlayersModal({ gameId, isOpen, onClose }: ConnectedPlayersModalProps) {
+export default function ConnectedPlayersModal({ gameId, isOpen, onClose, onPlayerKicked }: ConnectedPlayersModalProps) {
     const [players, setPlayers] = useState<Player[]>([]);
     const [loading, setLoading] = useState(true);
     const [kickingId, setKickingId] = useState<string | null>(null);
@@ -91,7 +92,8 @@ export default function ConnectedPlayersModal({ gameId, isOpen, onClose }: Conne
 
     const handleKick = async (playerId: string) => {
         setKickingId(playerId);
-        setPlayers(prev => prev.filter(p => p.id !== playerId)); // Optimista para quitarlo de inmediato del modal
+        setPlayers(prev => prev.filter(p => p.id !== playerId));
+        onPlayerKicked?.();
 
         try {
             // Eliminar de la base de datos.

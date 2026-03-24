@@ -280,8 +280,13 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                     if (payload.eventType === 'INSERT') {
                         setPlayers(prev => [...prev, payload.new]);
                     } else if (payload.eventType === 'UPDATE') {
-                        setPlayers(prev => prev.map(p => p.id === payload.new.id ? payload.new : p));
-                        
+                        // Si fue expulsado (posición negativa), sacarlo de la lista visible
+                        if (payload.new.current_position < 0) {
+                            setPlayers(prev => prev.filter(p => p.id !== payload.new.id));
+                        } else {
+                            setPlayers(prev => prev.map(p => p.id === payload.new.id ? payload.new : p));
+                        }
+
                         const savedPlayerId = sessionStorage.getItem("currentPlayerId");
                         if (payload.new.id === savedPlayerId) {
                             // Si el profe lo asiló lógicamente (es la señal de expulsión forzada si RLS falló)

@@ -112,9 +112,9 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                         setPlayerCount(prev => Math.max(0, prev - 1));
                     } else if (payload.eventType === 'UPDATE') {
                         const pos = payload.new.current_position;
-                        const oldPos = payload.old.current_position;
-                        if (pos < 0 && oldPos >= 0) setPlayerCount(prev => Math.max(0, prev - 1));
-                        else if (pos >= 0 && oldPos < 0) setPlayerCount(prev => prev + 1);
+                        const oldPos = payload.old?.current_position;
+                        if (pos < 0 && (oldPos === undefined || oldPos >= 0)) setPlayerCount(prev => Math.max(0, prev - 1));
+                        else if (pos >= 0 && oldPos !== undefined && oldPos < 0) setPlayerCount(prev => prev + 1);
                     }
                 }
             ).subscribe();
@@ -181,13 +181,16 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
     );
 
     return (
-        <div className="h-screen w-screen overflow-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900 via-gray-900 to-black text-white font-sans flex flex-col relative">            {/* Elementos Decorativos Espaciales/Neón */}
+        <div className="dark h-screen w-screen overflow-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900 via-gray-900 to-black text-white font-sans flex flex-col relative">            {/* Elementos Decorativos Espaciales/Neón */}
             <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-purple-600/20 rounded-full blur-[120px] pointer-events-none mix-blend-screen"></div>
             <div className="absolute bottom-0 left-0 w-[800px] h-[800px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none mix-blend-screen"></div>
 
             {/* Header / Top Bar (Más compacto y eficiente) */}
-            <header className="relative z-20 flex-shrink-0 flex justify-between items-center px-6 py-3 bg-white/5 backdrop-blur-md border-b border-white/10 shadow-lg">
+            <header className="relative z-20 flex-shrink-0 flex justify-between items-center px-6 py-3 bg-[#0d0d20] border-b border-white/10 shadow-lg">
                 <div className="flex items-center gap-6">
+                    <Link href="/teacher/dashboard" className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-black rounded-xl text-sm uppercase tracking-widest transition-all active:scale-95 border-b-2 border-indigo-800 shrink-0">
+                        VOLVER
+                    </Link>
                     {gameStatus !== "waiting" && (
                         <div className="bg-gradient-to-r from-pink-500 to-orange-400 px-4 py-2 rounded-xl shadow-lg border border-white/20 transform -rotate-1">
                             <p className="text-[10px] font-black uppercase tracking-widest text-white/80 mb-0.5 leading-none">CÓDIGO:</p>
@@ -310,7 +313,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
             </header >
 
             {/* Contenedor del Mapa Central o Podio (Ocupa el resto de la pantalla) */}
-            <main className={`flex-1 relative z-10 p-2 sm:p-4 flex ${gameStatus === "finished" ? "flex-col overflow-y-auto items-center justify-start h-full custom-scrollbar pt-10" : "items-center justify-center overflow-hidden"}`}>
+            <main className={`flex-1 relative z-10 flex ${gameStatus === "finished" ? "flex-col overflow-y-auto items-center justify-start h-full custom-scrollbar p-2 sm:p-4 pt-10" : gameStatus === "waiting" ? "items-center justify-center overflow-hidden" : "p-2 sm:p-4 items-center justify-center overflow-hidden"}`}>
                 {gameStatus === "finished" ? (
                     <div className="flex flex-col items-center justify-start w-full max-w-5xl animate-fade-in relative pb-20">
                         {/* Confeti Sencillo CSS */}
@@ -419,29 +422,36 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                         </div>
                     </div>
                 ) : gameStatus === 'waiting' ? (
-                    /* ====== Lobby Premium del Profesor ====== */
-                    <div className="flex flex-col items-center justify-center w-full h-full relative">
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-                            <img src="/logotransparente.png" alt="" className="w-[120vw] max-w-[1000px] opacity-[0.04] blur-[6px] select-none" draggable={false} />
-                        </div>
-                        <div className="relative z-10 flex flex-col items-center gap-8">
-                            <img src="/logotransparente.png" alt="StriveQuiz" className="w-48 h-48 object-contain drop-shadow-2xl" />
-                            <div className="bg-white/[0.04] backdrop-blur-2xl border border-white/10 px-12 py-8 rounded-[3rem] flex flex-col items-center shadow-[0_20px_80px_rgba(79,70,229,0.15)]">
-                                <div className="flex items-center gap-4 mb-4">
-                                    <span className="relative flex h-4 w-4">
+                    /* ====== Lobby del Profesor ====== */
+                    <div className="flex flex-col items-center justify-center w-full h-full bg-[#0a0a1a] relative overflow-hidden">
+                        {/* Fondo con orbes de color */}
+                        <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-indigo-700/30 rounded-full blur-[100px] pointer-events-none"></div>
+                        <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-purple-700/20 rounded-full blur-[100px] pointer-events-none"></div>
+                        <div className="absolute top-[30%] right-[15%] w-[300px] h-[300px] bg-blue-600/15 rounded-full blur-[80px] pointer-events-none"></div>
+
+                        <div className="relative z-10 flex flex-col items-center gap-10">
+                            {/* Logo */}
+                            <img src="/logotransparente.png" alt="StriveQuiz" className="w-44 h-44 object-contain drop-shadow-2xl" />
+
+                            {/* Tarjeta del PIN */}
+                            <div className="flex flex-col items-center gap-3">
+                                <div className="flex items-center gap-3">
+                                    <span className="relative flex h-3 w-3">
                                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500"></span>
+                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
                                     </span>
-                                    <span className="text-emerald-400 font-black uppercase tracking-[0.2em] text-sm">Sala Abierta</span>
+                                    <span className="text-emerald-400 font-bold uppercase tracking-[0.25em] text-xs">Sala Abierta</span>
                                 </div>
-                                <h2 className="text-6xl sm:text-7xl font-black text-white tracking-[0.3em] mb-3 drop-shadow-md">{pin}</h2>
-                                <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">Comparte este código a tus alumnos</p>
+                                <h2 className="text-[5rem] sm:text-[6rem] font-black text-white tracking-[0.35em] leading-none drop-shadow-xl">{pin}</h2>
+                                <p className="text-slate-400 text-xs font-semibold uppercase tracking-[0.2em]">Comparte este código a tus alumnos</p>
                             </div>
-                            <div className="flex items-center gap-3 opacity-30">
+
+                            {/* Indicador de espera */}
+                            <div className="flex items-center gap-3">
                                 <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
                                 <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
                                 <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                                <span className="text-indigo-300/50 text-[10px] font-black uppercase tracking-[0.3em] ml-2">Esperando para iniciar</span>
+                                <span className="text-slate-500 text-[11px] font-bold uppercase tracking-[0.3em] ml-1">Esperando para iniciar</span>
                             </div>
                         </div>
                     </div>
@@ -454,6 +464,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                 gameId={gameId}
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
+                onPlayerKicked={() => setPlayerCount(prev => Math.max(0, prev - 1))}
             />
 
             {/* Música de Juego */}
