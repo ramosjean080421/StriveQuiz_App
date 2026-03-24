@@ -455,12 +455,12 @@ export default function TeacherDashboard() {
             {/* MODAL CONFIRMACION */}
             {confirmModal && confirmModal.isOpen && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-                    <div className="bg-white rounded-3xl p-8 max-w-sm w-full transform transition-all animate-bounce-short text-center border border-gray-100">
+                    <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 max-w-sm w-full transform transition-all animate-bounce-short text-center border border-gray-100 dark:border-slate-800">
                         <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 ${confirmModal.isDestructive ? 'bg-red-100 text-red-500' : 'bg-indigo-100 text-indigo-500'}`}>
                             <span className="text-3xl">{confirmModal.isDestructive ? '🗑️' : '📋'}</span>
                         </div>
-                        <h3 className="text-2xl font-black text-gray-900 mb-2">{confirmModal.title}</h3>
-                        <p className="text-gray-500 font-medium leading-relaxed mb-6">{confirmModal.message}</p>
+                        <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-2">{confirmModal.title}</h3>
+                        <p className="text-gray-500 dark:text-slate-400 font-medium leading-relaxed mb-6">{confirmModal.message}</p>
                         <div className="flex gap-3">
                             <button onClick={() => setConfirmModal(null)} className="flex-1 py-3 px-4 bg-gray-500 hover:bg-gray-600 text-white font-bold rounded-xl transition-colors">
                                 Cancelar
@@ -476,30 +476,30 @@ export default function TeacherDashboard() {
             {/* MODAL GESTOR DE ACCESOS (Compartir / Descompartir) */}
             {shareModal && shareModal.isOpen && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-                    <div className="bg-white rounded-3xl p-6 max-w-lg w-full transform transition-all animate-bounce-short border border-gray-100 max-h-[90vh] flex flex-col">
-                        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
+                    <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-lg w-full transform transition-all animate-bounce-short border border-gray-100 dark:border-slate-800 max-h-[90vh] flex flex-col">
+                        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100 dark:border-slate-800">
                             <div className="w-12 h-12 bg-blue-100 text-blue-500 rounded-full flex items-center justify-center shrink-0">
                                 <span className="text-2xl">🤝</span>
                             </div>
                             <div>
-                                <h3 className="text-xl font-black text-gray-900 leading-tight">{shareModal.title}</h3>
-                                <p className="text-sm text-gray-500 font-medium">Docentes invitados a editar y jugar este tablero</p>
+                                <h3 className="text-xl font-black text-gray-900 dark:text-white leading-tight">{shareModal.title}</h3>
+                                <p className="text-sm text-gray-500 dark:text-slate-400 font-medium">Docentes invitados a editar y jugar este tablero</p>
                             </div>
                         </div>
 
                         {/* Lista Animada de Compartidos */}
                         <div className="flex-1 overflow-y-auto min-h-[100px] mb-6 space-y-2 pr-2">
                             {shareModal.sharedEmails.length === 0 ? (
-                                <div className="text-center py-8 text-gray-400 font-medium text-sm">
+                                <div className="text-center py-8 text-gray-400 dark:text-slate-500 font-medium text-sm">
                                     Nadie tiene acceso todavía.<br />¡Invita a tu primer colega!
                                 </div>
                             ) : (
                                 shareModal.sharedEmails.map((email, idx) => {
                                     const isEditor = shareModal.editorEmails.includes(email);
                                     return (
-                                        <div key={idx} className="flex justify-between items-center bg-gray-50 p-3 rounded-xl border border-gray-100 group/item hover:bg-white transition-colors">
+                                        <div key={idx} className="flex justify-between items-center bg-gray-50 dark:bg-slate-800 p-3 rounded-xl border border-gray-100 dark:border-slate-700 group/item hover:bg-white dark:hover:bg-slate-700 transition-colors">
                                             <div className="flex flex-col">
-                                                <div className="font-bold text-gray-700 truncate max-w-[200px]">{email}</div>
+                                                <div className="font-bold text-gray-700 dark:text-slate-200 truncate max-w-[200px]">{email}</div>
                                                 <div className={`text-[10px] font-black uppercase tracking-wider ${isEditor ? 'text-indigo-600' : 'text-emerald-600'}`}>
                                                     {isEditor ? '✍️ Editor' : '👁️ Lector'}
                                                 </div>
@@ -530,8 +530,8 @@ export default function TeacherDashboard() {
                         </div>
 
                         {/* Area para agregar nuevos invitados */}
-                        <div className="pt-4 border-t border-gray-100">
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 block">Compartir con profesor</label>
+                        <div className="pt-4 border-t border-gray-100 dark:border-slate-800">
+                            <label className="text-xs font-bold text-gray-500 dark:text-slate-400 uppercase tracking-widest mb-3 block">Compartir con profesor</label>
                             <div className="flex flex-col gap-3">
                                 <div className="flex gap-2">
                                     <input
@@ -540,7 +540,7 @@ export default function TeacherDashboard() {
                                         onChange={(e) => setShareInput(e.target.value)}
                                         onKeyDown={(e) => e.key === 'Enter' && handleAddShare()}
                                         placeholder="correo@ejemplo.com"
-                                        className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 font-medium focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                                        className="flex-1 px-4 py-3 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-900 dark:text-slate-200 font-medium focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                                     />
                                     <button
                                         onClick={handleAddShare}
@@ -550,16 +550,16 @@ export default function TeacherDashboard() {
                                         Invitar
                                     </button>
                                 </div>
-                                <div className="flex p-1 bg-gray-100 rounded-2xl w-full">
+                                <div className="flex p-1 bg-gray-100 dark:bg-slate-800 rounded-2xl w-full">
                                     <button
                                         onClick={() => setShareRole("viewer")}
-                                        className={`flex-1 py-1.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${shareRole === "viewer" ? "bg-white text-indigo-600" : "text-gray-400 hover:text-gray-600"}`}
+                                        className={`flex-1 py-1.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${shareRole === "viewer" ? "bg-white dark:bg-slate-700 text-indigo-600" : "text-gray-400 hover:text-gray-600 dark:hover:text-slate-300"}`}
                                     >
                                         👁️ Solo Ver
                                     </button>
                                     <button
                                         onClick={() => setShareRole("editor")}
-                                        className={`flex-1 py-1.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${shareRole === "editor" ? "bg-white text-indigo-600" : "text-gray-400 hover:text-gray-600"}`}
+                                        className={`flex-1 py-1.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${shareRole === "editor" ? "bg-white dark:bg-slate-700 text-indigo-600" : "text-gray-400 hover:text-gray-600 dark:hover:text-slate-300"}`}
                                     >
                                         ✍️ Puede Editar
                                     </button>
@@ -615,16 +615,16 @@ export default function TeacherDashboard() {
                                 </h4>
                                 
                                 {/* Lista de Profesores que son Admins */}
-                                <div className="space-y-2 bg-white rounded-2xl border border-gray-100 p-3 shadow-sm mb-4">
+                                <div className="space-y-2 bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-3 shadow-sm mb-4">
                                     {teachersList.filter(t => t.is_admin).map((admin) => (
-                                        <div key={admin.id} className="flex justify-between items-center bg-gradient-to-r from-slate-50 to-white p-3 rounded-xl border border-gray-100 shadow-sm">
+                                        <div key={admin.id} className="flex justify-between items-center bg-gradient-to-r from-slate-50 to-white dark:from-slate-700 dark:to-slate-700 p-3 rounded-xl border border-gray-100 dark:border-slate-600 shadow-sm">
                                             <div className="max-w-[150px] sm:max-w-none truncate flex items-center gap-2">
                                                 <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-black text-white shadow-md">
                                                     {admin.full_name?.charAt(0) || 'A'}
                                                 </div>
                                                 <div>
-                                                    <p className="text-xs font-black text-gray-900 truncate">{admin.full_name || admin.username}</p>
-                                                    <p className="text-[9px] text-gray-400 font-medium truncate">{admin.email}</p>
+                                                    <p className="text-xs font-black text-gray-900 dark:text-slate-100 truncate">{admin.full_name || admin.username}</p>
+                                                    <p className="text-[9px] text-gray-400 dark:text-slate-400 font-medium truncate">{admin.email}</p>
                                                 </div>
                                             </div>
                                             {/* Acciones */}

@@ -418,10 +418,10 @@ function QuizBuilderContent() {
                                         }}
                                         className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all group ${gameMode === mode.id
                                             ? 'bg-indigo-600 border-indigo-600 shadow-lg shadow-indigo-200 scale-105'
-                                            : 'bg-gray-50 border-gray-100 hover:border-indigo-200'}`}
+                                            : 'bg-gray-50 dark:bg-slate-800 border-gray-100 dark:border-slate-700 hover:border-indigo-200 dark:hover:border-indigo-500'}`}
                                     >
                                         <span className={`text-xl mb-1 transition-transform group-hover:scale-125 ${gameMode === mode.id ? 'scale-110' : ''}`}>{mode.icon}</span>
-                                        <span className={`text-[9px] font-black uppercase tracking-tighter ${gameMode === mode.id ? 'text-white' : 'text-gray-500'}`}>{mode.name}</span>
+                                        <span className={`text-[9px] font-black uppercase tracking-tighter ${gameMode === mode.id ? 'text-white' : 'text-gray-500 dark:text-slate-400'}`}>{mode.name}</span>
                                     </button>
                                 ))}
                             </div>
@@ -507,8 +507,8 @@ function QuizBuilderContent() {
 
 
                     {/* Sección 3: Instrucciones / Controles de Ruta */}
-                    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-4 rounded-2xl border border-indigo-100/50 mt-6">
-                        <h3 className="font-bold text-indigo-900 text-sm mb-3 flex items-center gap-2">
+                    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-slate-800 dark:to-slate-800 p-4 rounded-2xl border border-indigo-100/50 dark:border-slate-700 mt-6">
+                        <h3 className="font-bold text-indigo-900 dark:text-indigo-300 text-sm mb-3 flex items-center gap-2">
                             <span className="text-lg">{gameMode === 'memory' ? '🧠' : '⚙️'}</span> {gameMode === 'memory' ? 'Dinámica del Juego' : gameMode === 'ludo' ? 'Configuración Mapa' : 'Trazar Ruta'}
                         </h3>
 
@@ -529,12 +529,12 @@ function QuizBuilderContent() {
                                 </p>
                             </div>
                         ) : boardPath.length === 0 ? (
-                            <p className="text-xs text-indigo-700/80 leading-relaxed font-medium bg-white/50 p-3 rounded-xl border border-indigo-100">
+                            <p className="text-xs text-indigo-700/80 dark:text-indigo-300 leading-relaxed font-medium bg-white/50 dark:bg-slate-700/50 p-3 rounded-xl border border-indigo-100 dark:border-slate-600">
                                 Haz clic en el mapa para trazar los pasos. <strong>¡Tu primer clic será el inicio!</strong>
                             </p>
                         ) : (
                             <div className="space-y-3">
-                                <div className="flex items-center justify-between text-xs font-bold text-indigo-800 bg-white/60 px-3 py-2 rounded-xl border border-indigo-100">
+                                <div className="flex items-center justify-between text-xs font-bold text-indigo-800 dark:text-indigo-300 bg-white/60 dark:bg-slate-700/60 px-3 py-2 rounded-xl border border-indigo-100 dark:border-slate-600">
                                     <span>Casillas:</span>
                                     <span className="text-sm bg-indigo-600 text-white px-2.5 py-0.5 rounded-full">{boardPath.length}</span>
                                 </div>
@@ -548,7 +548,7 @@ function QuizBuilderContent() {
                 </div>
 
                 {/* Pie del Panel - Guardar */}
-                <div className="flex-shrink-0 p-5 border-t border-gray-100 bg-white sticky bottom-0 z-30">
+                <div className="flex-shrink-0 p-5 border-t border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900 sticky bottom-0 z-30">
                     <button
                         onClick={handleSaveQuiz}
                         disabled={

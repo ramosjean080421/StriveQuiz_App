@@ -589,14 +589,14 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
             {/* MODAL CONFIRMACION */}
             {confirmModal && confirmModal.isOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-                    <div className="bg-white rounded-3xl p-8 max-w-sm w-full transform transition-all animate-bounce-short text-center border border-gray-100">
+                    <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 max-w-sm w-full transform transition-all animate-bounce-short text-center border border-gray-100 dark:border-slate-800">
                         <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 ${confirmModal.isDestructive ? 'bg-red-100 text-red-500' : 'bg-indigo-100 text-indigo-500'}`}>
                             <span className="text-3xl">{confirmModal.isDestructive ? '🗑️' : '📋'}</span>
                         </div>
-                        <h3 className="text-2xl font-black text-gray-900 mb-2">{confirmModal.title}</h3>
-                        <p className="text-gray-500 font-medium leading-relaxed mb-6">{confirmModal.message}</p>
+                        <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-2">{confirmModal.title}</h3>
+                        <p className="text-gray-500 dark:text-slate-400 font-medium leading-relaxed mb-6">{confirmModal.message}</p>
                         <div className="flex gap-3">
-                            <button onClick={() => setConfirmModal(null)} className="flex-1 py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-colors">
+                            <button onClick={() => setConfirmModal(null)} className="flex-1 py-3 px-4 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300 font-bold rounded-xl transition-colors">
                                 Cancelar
                             </button>
                             <button onClick={confirmModal.onConfirm} className={`flex-1 py-3 px-4 font-bold rounded-xl text-white transition-all active:scale-95 ${confirmModal.isDestructive ? 'bg-red-500 hover:bg-red-600' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
@@ -610,19 +610,19 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
             {/* MODAL IMPORTACIÓN MASIVA (PESTEO) */}
             {bulkImportOpen && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
-                    <div className="bg-white rounded-[2.5rem] p-8 max-w-2xl w-full border border-white/20 animate-scale-in flex flex-col max-h-[90vh]">
+                    <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 max-w-2xl w-full border border-gray-100 dark:border-slate-800 animate-scale-in flex flex-col max-h-[90vh]">
                         <div className="flex justify-between items-center mb-6">
                             <div className="flex items-center gap-3">
                                 <span className="text-3xl">📋</span>
                                 <div>
-                                    <h3 className="text-2xl font-black text-gray-900 leading-none">Importación Masiva</h3>
-                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Copia y Pega tus preguntas</p>
+                                    <h3 className="text-2xl font-black text-gray-900 dark:text-white leading-none">Importación Masiva</h3>
+                                    <p className="text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mt-1">Copia y Pega tus preguntas</p>
                                 </div>
                             </div>
-                            <button onClick={() => setBulkImportOpen(false)} className="text-gray-400 hover:text-gray-600 font-bold p-2 text-2xl leading-none">&times;</button>
+                            <button onClick={() => setBulkImportOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 font-bold p-2 text-2xl leading-none">&times;</button>
                         </div>
 
-                        <p className="text-sm text-gray-500 font-medium bg-indigo-50 p-4 rounded-2xl border border-indigo-100 mb-6 leading-relaxed">
+                        <p className="text-sm text-gray-500 dark:text-slate-400 font-medium bg-indigo-50 dark:bg-indigo-900/30 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-800 mb-6 leading-relaxed">
                             💡 <strong>Instrucciones:</strong> Pega aquí tus preguntas. Cada bloque debe tener <strong>5 líneas</strong> (1 para la pregunta y 4 para las opciones). Puedes pegar 50 o 100 de golpe.
                         </p>
 
@@ -630,13 +630,13 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                             value={bulkText}
                             onChange={(e) => setBulkText(e.target.value)}
                             placeholder="Ejemplo:&#10;¿Cual es el rio mas largo?&#10;Amazonas&#10;Nilo&#10;Rin&#10;Danubio"
-                            className="flex-1 w-full p-6 text-gray-800 font-medium bg-gray-50 border-2 border-dashed border-gray-200 rounded-3xl focus:border-indigo-500 focus:ring-0 outline-none resize-none custom-scrollbar"
+                            className="flex-1 w-full p-6 text-gray-800 dark:text-slate-200 font-medium bg-gray-50 dark:bg-slate-800 border-2 border-dashed border-gray-200 dark:border-slate-700 rounded-3xl focus:border-indigo-500 focus:ring-0 outline-none resize-none custom-scrollbar"
                         ></textarea>
 
                         <div className="mt-8 flex gap-4">
                             <button
                                 onClick={() => setBulkImportOpen(false)}
-                                className="flex-1 py-4 px-6 bg-gray-100 hover:bg-gray-200 text-gray-600 font-black rounded-2xl transition-all"
+                                className="flex-1 py-4 px-6 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-600 dark:text-slate-300 font-black rounded-2xl transition-all"
                             >
                                 Cancelar
                             </button>
@@ -729,7 +729,7 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                         ) : (
                             <div className="space-y-4">
                                 {questions.map((q, idx) => (
-                                    <div key={q.id} className="p-5 rounded-2xl border border-gray-200 bg-white transition-shadow relative group">
+                                    <div key={q.id} className="p-5 rounded-2xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 transition-shadow relative group">
                                         <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                                             <button onClick={() => { if (gameMode === 'memory') { setMemoryEditId(q.id); setMemoryPairs([{ cardA: q.question_text, cardB: q.correct_answer || "" }]); } else { handleEditQuestion(q); } }} className="text-indigo-600 hover:bg-indigo-50 p-2 rounded-lg" title="Editar">✏️</button>
                                             <button onClick={() => handleDelete(q.id)} className="text-red-500 hover:bg-red-50 p-2 rounded-lg" title="Borrar">🗑️</button>
@@ -745,7 +745,7 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                                                                     q.type === 'memory_pair' ? '🧠 Pareja Memoria' : 'Opción Múltiple'}
                                                     </span>
                                                 </div>
-                                                <h4 className="text-lg font-bold text-gray-900 mb-3 leading-tight whitespace-pre-line">{q.question_text}</h4>
+                                                <h4 className="text-lg font-bold text-gray-900 dark:text-slate-100 mb-3 leading-tight whitespace-pre-line">{q.question_text}</h4>
 
                                                 {(q.type === 'multiple_choice' || !q.type || q.type === 'true_false') && (
                                                     <div className={`grid ${q.type === 'true_false' ? 'grid-cols-2' : 'grid-cols-2'} gap-2 mt-2`}>
@@ -753,7 +753,7 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                                                             <div
                                                                 key={i}
                                                                 onClick={() => handleChangeCorrectOption(q.id, i)}
-                                                                className={`px-3 py-2.5 text-xs font-bold rounded-lg border cursor-pointer transition-all whitespace-pre-line ${i === q.correct_option_index ? 'bg-emerald-50 border-emerald-500 text-emerald-700 ring-2 ring-emerald-200' : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-emerald-300 hover:bg-white'}`}
+                                                                className={`px-3 py-2.5 text-xs font-bold rounded-lg border cursor-pointer transition-all whitespace-pre-line ${i === q.correct_option_index ? 'bg-emerald-50 border-emerald-500 text-emerald-700 ring-2 ring-emerald-200' : 'bg-gray-50 dark:bg-slate-700 border-gray-200 dark:border-slate-600 text-gray-500 dark:text-slate-300 hover:border-emerald-300 hover:bg-white dark:hover:bg-slate-600'}`}
                                                                 title="Haz clic para marcar esta opción como correcta"
                                                             >
                                                                 {i === q.correct_option_index && <span className="mr-1 inline-block animate-bounce-short">✅</span>}
@@ -771,12 +771,12 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                                                 )}
 
                                                 {q.type === 'matching' && q.matching_pairs && (
-                                                    <div className="bg-gray-50 border border-gray-200 p-3 rounded-xl mt-2 grid grid-cols-1 gap-2">
+                                                    <div className="bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 p-3 rounded-xl mt-2 grid grid-cols-1 gap-2">
                                                         {q.matching_pairs.map((pair, pidx) => (
-                                                            <div key={pidx} className="flex items-center gap-3 text-sm font-bold bg-white p-2 rounded-lg border border-gray-100">
-                                                                <div className="flex-1 text-center bg-indigo-50 text-indigo-800 py-1 px-2 rounded">{pair.left}</div>
+                                                            <div key={pidx} className="flex items-center gap-3 text-sm font-bold bg-white dark:bg-slate-600 p-2 rounded-lg border border-gray-100 dark:border-slate-500">
+                                                                <div className="flex-1 text-center bg-indigo-50 dark:bg-indigo-900/50 text-indigo-800 dark:text-indigo-300 py-1 px-2 rounded">{pair.left}</div>
                                                                 <span className="text-gray-400">↔️</span>
-                                                                <div className="flex-1 text-center bg-amber-50 text-amber-800 py-1 px-2 rounded">{pair.right}</div>
+                                                                <div className="flex-1 text-center bg-amber-50 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 py-1 px-2 rounded">{pair.right}</div>
                                                             </div>
                                                         ))}
                                                     </div>
@@ -891,7 +891,7 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
 
                             <form onSubmit={handleAdd} className="space-y-6">
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-2">Tipo de Pregunta</label>
+                                    <label className="block text-sm font-bold text-gray-700 dark:text-slate-300 mb-2">Tipo de Pregunta</label>
                                     <div className="grid grid-cols-2 gap-2">
                                         {[
                                             { id: 'multiple_choice', icon: '📝', label: 'Opción Múltiple' },
@@ -901,7 +901,7 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                                         ].map(t => (
                                             <button
                                                 key={t.id} type="button" onClick={() => setQType(t.id as any)}
-                                                className={`p-2.5 rounded-xl border-2 text-xs font-bold flex flex-col items-center gap-1 transition-all ${qType === t.id ? 'border-indigo-600 bg-indigo-50 text-indigo-800 fill-indigo-500 ring-2 ring-indigo-200' : 'border-gray-200 bg-white text-gray-500 hover:border-indigo-300 hover:bg-gray-50'}`}
+                                                className={`p-2.5 rounded-xl border-2 text-xs font-bold flex flex-col items-center gap-1 transition-all ${qType === t.id ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-300 fill-indigo-500 ring-2 ring-indigo-200' : 'border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-500 dark:text-slate-400 hover:border-indigo-300 hover:bg-gray-50 dark:hover:bg-slate-700'}`}
                                             >
                                                 <span className="text-xl">{t.icon}</span> {t.label}
                                             </button>
@@ -910,28 +910,28 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-2">La Pregunta o Reto</label>
+                                    <label className="block text-sm font-bold text-gray-700 dark:text-slate-300 mb-2">La Pregunta o Reto</label>
                                     <textarea
                                         required
                                         value={newText}
                                         onChange={e => setNewText(e.target.value)}
                                         onPaste={qType === 'multiple_choice' ? handlePaste : undefined}
                                         rows={3}
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 font-medium focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all resize-none"
+                                        className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-900 dark:text-slate-100 font-medium focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all resize-none placeholder-gray-400 dark:placeholder-slate-500"
                                         placeholder="Ej. ¿Cuál es la capital secreta del imperio?"
                                     />
                                 </div>
 
                                 {qType === 'multiple_choice' && (
                                     <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-3">Opciones y Respuesta Correcta</label>
-                                        <p className="text-xs text-gray-500 mb-4 bg-indigo-50 p-3 rounded-xl border border-indigo-100/50 leading-relaxed font-medium">
+                                        <label className="block text-sm font-bold text-gray-700 dark:text-slate-300 mb-3">Opciones y Respuesta Correcta</label>
+                                        <p className="text-xs text-gray-500 dark:text-slate-400 mb-4 bg-indigo-50 dark:bg-indigo-900/30 p-3 rounded-xl border border-indigo-100/50 dark:border-indigo-800 leading-relaxed font-medium">
                                             💡 <strong>Truco:</strong> Puedes copiar 20 preguntas seguidas desde Word (Ej. 1 pregunta seguida de 4 líneas de opciones) y pegarlas en la caja de arriba para importarlas.
                                         </p>
 
                                         <div className="space-y-3">
                                             {opts.map((opt, i) => (
-                                                <div key={i} className={`flex items-center gap-3 p-2 pr-3 rounded-xl border-2 transition-all ${correctIdx === i ? 'border-emerald-500 bg-emerald-50/30' : 'border-gray-200 bg-white'}`}>
+                                                <div key={i} className={`flex items-center gap-3 p-2 pr-3 rounded-xl border-2 transition-all ${correctIdx === i ? 'border-emerald-500 bg-emerald-50/30 dark:bg-emerald-900/20' : 'border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800'}`}>
                                                     <div
                                                         onClick={() => setCorrectIdx(i)}
                                                         className={`w-6 h-6 ml-2 rounded-full border-2 flex-shrink-0 cursor-pointer flex items-center justify-center transition-all ${correctIdx === i ? 'border-emerald-500 bg-emerald-500' : 'border-gray-300'}`}
@@ -943,7 +943,7 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                                                         type="text"
                                                         value={opt}
                                                         onChange={e => handleUpdateOption(i, e.target.value)}
-                                                        className={`flex-1 bg-transparent border-0 focus:ring-0 text-sm font-bold px-2 py-2 ${correctIdx === i ? 'text-emerald-900' : 'text-gray-700'}`}
+                                                        className={`flex-1 bg-transparent border-0 focus:ring-0 text-sm font-bold px-2 py-2 ${correctIdx === i ? 'text-emerald-900 dark:text-emerald-300' : 'text-gray-700 dark:text-slate-200'}`}
                                                         placeholder={`Opción ${i + 1}`}
                                                     />
                                                     <div className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-black ${optionColors[i]}`}>
@@ -957,12 +957,12 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
 
                                 {qType === 'true_false' && (
                                     <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-3">¿Cuál es la correcta?</label>
+                                        <label className="block text-sm font-bold text-gray-700 dark:text-slate-300 mb-3">¿Cuál es la correcta?</label>
                                         <div className="grid grid-cols-2 gap-4">
-                                            <div onClick={() => setCorrectIdx(0)} className={`p-4 rounded-xl border-2 cursor-pointer flex flex-col items-center justify-center gap-2 font-black transition-all ${correctIdx === 0 ? 'bg-emerald-50 border-emerald-500 text-emerald-700' : 'bg-white border-gray-200 text-gray-500 hover:border-emerald-300'}`}>
+                                            <div onClick={() => setCorrectIdx(0)} className={`p-4 rounded-xl border-2 cursor-pointer flex flex-col items-center justify-center gap-2 font-black transition-all ${correctIdx === 0 ? 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 text-emerald-700 dark:text-emerald-300' : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-500 dark:text-slate-400 hover:border-emerald-300'}`}>
                                                 <span className="text-3xl">✅</span> VERDADERO
                                             </div>
-                                            <div onClick={() => setCorrectIdx(1)} className={`p-4 rounded-xl border-2 cursor-pointer flex flex-col items-center justify-center gap-2 font-black transition-all ${correctIdx === 1 ? 'bg-red-50 border-red-500 text-red-700' : 'bg-white border-gray-200 text-gray-500 hover:border-red-300'}`}>
+                                            <div onClick={() => setCorrectIdx(1)} className={`p-4 rounded-xl border-2 cursor-pointer flex flex-col items-center justify-center gap-2 font-black transition-all ${correctIdx === 1 ? 'bg-red-50 dark:bg-red-900/30 border-red-500 text-red-700 dark:text-red-300' : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-500 dark:text-slate-400 hover:border-red-300'}`}>
                                                 <span className="text-3xl">❌</span> FALSO
                                             </div>
                                         </div>
@@ -971,13 +971,13 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
 
                                 {qType === 'fill_in_the_blank' && (
                                     <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-2">Respuesta Correcta Exacta</label>
+                                        <label className="block text-sm font-bold text-gray-700 dark:text-slate-300 mb-2">Respuesta Correcta Exacta</label>
                                         <input
                                             type="text"
                                             required
                                             value={correctAnswerText}
                                             onChange={(e) => setCorrectAnswerText(e.target.value)}
-                                            className="w-full px-4 py-3 bg-white border-2 border-emerald-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 rounded-xl text-emerald-900 font-extrabold transition-all"
+                                            className="w-full px-4 py-3 bg-white dark:bg-slate-800 border-2 border-emerald-300 dark:border-emerald-700 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 rounded-xl text-emerald-900 dark:text-emerald-300 font-extrabold transition-all"
                                             placeholder="Ej. Napoleón"
                                         />
                                         <p className="text-xs text-gray-400 mt-2 italic">*El estudiante deberá escribir exactamente esta palabra (ignorando mayúsculas).</p>
@@ -987,7 +987,7 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                                 {qType === 'matching' && (
                                     <div>
                                         <div className="flex justify-between items-end mb-3">
-                                            <label className="block text-sm font-bold text-gray-700">Pares Correctos</label>
+                                            <label className="block text-sm font-bold text-gray-700 dark:text-slate-300">Pares Correctos</label>
                                             <button
                                                 type="button"
                                                 onClick={() => setMatchingPairs([...matchingPairs, { left: "", right: "" }])}
@@ -1002,7 +1002,7 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                                                         onChange={(e) => {
                                                             const np = [...matchingPairs]; np[pIdx].left = e.target.value; setMatchingPairs(np);
                                                         }}
-                                                        className="w-full px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-lg text-sm font-bold text-indigo-900"
+                                                        className="w-full px-3 py-2 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 rounded-lg text-sm font-bold text-indigo-900 dark:text-indigo-300"
                                                     />
                                                     <span className="text-xl">↔️</span>
                                                     <input
