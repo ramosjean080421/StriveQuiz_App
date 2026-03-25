@@ -359,99 +359,76 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
 
     // Función de Procesado Inteligente para detectar preguntas y opciones incluso en texto sucio
     const parseQuestionsIntelligently = (text: string, qId: string) => {
-        // Separar por salto de línea limpio
         const lines = text.split(/\n/).map(l => l.trim()).filter(l => l.length > 0);
         const results: any[] = [];
-        
+
         let currentQuestionText = "";
         let currentOptions: string[] = [];
         let correctIdx = 0;
 
-        // Si no hay ninguna línea que empiece con número, asumimos que todo es una sola pregunta
-        const hasNumberHeaders = lines.some(line => line.match(/^(\d+)[\.\)]\s*(.*)/));
+        const isOptionLine = (line: string) => /^([A-Ea-e])[\.\)]\s*.+/.test(line);
+        const hasNumberHeaders = lines.some(line => /^(\d+)[\.\)]\s*(.*)/.test(line));
+
+        const saveCurrentQuestion = () => {
+            if (currentQuestionText && currentOptions.length >= 2) {
+                while (currentOptions.length < 4) currentOptions.push("---");
+                results.push({
+                    quiz_id: qId,
+                    question_text: currentQuestionText.trim(),
+                    options: currentOptions.slice(0, 5),
+                    correct_option_index: correctIdx,
+                    type: 'multiple_choice'
+                });
+            }
+        };
 
         lines.forEach((line) => {
-             const questionMatch = line.match(/^(\d+)[\.\)]\s*(.*)/);
-             const optionsRegex = /([A-E]|[a-e])[\.\)]\s*(.*?)(?=\s*([A-E]|[a-e])[\.\)]|$)/g;
-             const optionMatches = [...line.matchAll(optionsRegex)];
+            const questionMatch = line.match(/^(\d+)[\.\)]\s*(.*)/);
+            const optionsRegex = /([A-Ea-e])[\.\)]\s*(.*?)(?=\s*[A-Ea-e][\.\)]|$)/g;
+            const optionMatches = [...line.matchAll(optionsRegex)];
 
-             // 1. Detectar si empieza una nueva pregunta (solo si hay listas numeradas globales para no romper textos unitarios)
-             if (questionMatch && hasNumberHeaders) {
-                 if (currentQuestionText && currentOptions.length >= 2) {
-                     while(currentOptions.length < 4) currentOptions.push("---");
-                     results.push({
-                         quiz_id: qId,
-                         question_text: currentQuestionText.trim(),
-                         options: currentOptions.slice(0, 5),
-                         correct_option_index: correctIdx,
-                         type: 'multiple_choice'
-                     });
-                 }
-                 currentQuestionText = questionMatch[2];
-                 currentOptions = [];
-                 correctIdx = 0;
-             } 
-             // 2. Detectar si contiene alternativas letras (como A) B) C))
-             else if (optionMatches.length > 0) {
-                 optionMatches.forEach(match => {
-                     let textOpt = match[2].trim();
-                     if (textOpt.includes("*") || line.includes(`*${textOpt}*`)) {
-                         correctIdx = currentOptions.length;
-                         textOpt = textOpt.replace(/\*/g, '').trim();
-                     }
-                     if (textOpt.length > 0) currentOptions.push(textOpt);
-                 });
-             } 
-             // 3. Continuación de enunciado o alternativa larga
-             else {
-                 if (currentOptions.length > 0) {
-                     const lastIdx = currentOptions.length - 1;
-                     currentOptions[lastIdx] += "\n" + line; 
-                 } else {
-                     // Conservar saltos de línea verticales en el enunciado
-                     currentQuestionText += (currentQuestionText ? "\n" : "") + line;
-                 }
-             }
-        });
-
-        if (currentQuestionText && currentOptions.length >= 2) {
-             while(currentOptions.length < 4) currentOptions.push("---");
-             results.push({
-                 quiz_id: qId,
-                 question_text: currentQuestionText.trim(),
-                 options: currentOptions.slice(0, 5),
-                 correct_option_index: correctIdx,
-                 type: 'multiple_choice'
-             });
-        }
-
-        // ELIMINADO EL FALLBACK RÍGIDO DE 1+4
-        if (false) {
-            const lines = text.split(/\n/).map(l => l.trim()).filter(l => l.length > 0);
-            for (let i = 0; i < lines.length; i += 5) {
-                if (i + 4 < lines.length) {
-                    let correctIdx = 0;
-                    const rawOpts = [lines[i+1], lines[i+2], lines[i+3], lines[i+4]];
-                    const cleanedOpts = rawOpts.map((opt, j) => {
-                        let textOpt = opt.replace(/^(([A-E]|[a-e])[\.\)]|[1-4]\.|[\-\*])\s*/, '');
-                        if (opt.includes("*") || textOpt.includes("*")) {
-                            correctIdx = j;
-                            textOpt = textOpt.replace(/\*/g, '').trim();
-                        }
-                        return textOpt;
-                    });
-
-                    results.push({
-                        quiz_id: qId,
-                        question_text: lines[i].replace(/^\d+[\.\-\)]\s*/, ''),
-                        options: cleanedOpts,
-                        correct_option_index: correctIdx,
-                        type: 'multiple_choice'
-                    });
+            // 1. Línea numerada → nueva pregunta
+            if (questionMatch && hasNumberHeaders) {
+                saveCurrentQuestion();
+                currentQuestionText = questionMatch[2];
+                currentOptions = [];
+                correctIdx = 0;
+            }
+            // 2. Línea con opciones A) B) C)
+            else if (optionMatches.length > 0) {
+                optionMatches.forEach(match => {
+                    // Detectar respuesta correcta: *texto*, **texto**, texto en mayúsculas o marcado con (*)
+                    let textOpt = match[2].trim();
+                    const isCorrect =
+                        /\*\s*$/.test(textOpt) ||   // asterisco al final: "Belleza*" o "Belleza *"
+                        /^\*/.test(textOpt) ||       // asterisco al inicio: "*Belleza"
+                        /\(\*\)/.test(textOpt);      // marcador (*) en cualquier posición
+                    if (isCorrect) {
+                        correctIdx = currentOptions.length;
+                        textOpt = textOpt.replace(/\*/g, '').replace(/\(\*\)/g, '').trim();
+                    }
+                    if (textOpt.length > 0) currentOptions.push(textOpt);
+                });
+            }
+            // 3. Línea sin número y sin opción
+            else {
+                // Si ya tenemos 4 opciones, esta línea es la pregunta siguiente
+                if (currentOptions.length >= 4) {
+                    saveCurrentQuestion();
+                    currentQuestionText = line;
+                    currentOptions = [];
+                    correctIdx = 0;
+                } else if (currentOptions.length > 0) {
+                    // Continuación de opción larga
+                    currentOptions[currentOptions.length - 1] += " " + line;
+                } else {
+                    // Parte del enunciado (puede ser multilinea)
+                    currentQuestionText += (currentQuestionText ? "\n" : "") + line;
                 }
             }
-        }
+        });
 
+        saveCurrentQuestion();
         return results;
     };
 
@@ -622,9 +599,23 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                             <button onClick={() => setBulkImportOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 font-bold p-2 text-2xl leading-none">&times;</button>
                         </div>
 
-                        <p className="text-sm text-gray-500 dark:text-slate-400 font-medium bg-indigo-50 dark:bg-indigo-900/30 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-800 mb-6 leading-relaxed">
-                            💡 <strong>Instrucciones:</strong> Pega aquí tus preguntas. Cada bloque debe tener <strong>5 líneas</strong> (1 para la pregunta y 4 para las opciones). Puedes pegar 50 o 100 de golpe.
-                        </p>
+                        {/* Subir archivo */}
+                        <label className="flex items-center justify-center gap-3 w-full py-3 px-5 mb-4 rounded-2xl border-2 border-dashed border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/20 cursor-pointer hover:border-indigo-500 transition-all group">
+                            <span className="text-2xl">📄</span>
+                            <span className="text-sm font-black text-indigo-600 dark:text-indigo-400 group-hover:underline">
+                                {loading ? "Procesando archivo..." : "Subir PDF, Word o CSV"}
+                            </span>
+                            <input type="file" accept=".pdf,.docx,.csv" className="hidden" onChange={handleFileImport} />
+                        </label>
+
+                        <div className="bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 rounded-2xl p-4 mb-4 space-y-2 text-sm text-gray-600 dark:text-slate-400">
+                            <p className="font-black text-gray-800 dark:text-white text-xs uppercase tracking-widest mb-2">📋 Formato aceptado</p>
+                            <p>• Escribe primero el enunciado de la pregunta, luego las 4 opciones con <strong>A) B) C) D)</strong>.</p>
+                            <p>• Puedes pegar muchas preguntas seguidas, numeradas o sin numerar.</p>
+                            <p>• Para marcar la respuesta correcta, agrega un <strong>asterisco (*)</strong> junto a esa opción. Funciona pegado o con espacio:</p>
+                            <pre className="bg-white dark:bg-slate-800 border border-indigo-200 dark:border-slate-700 rounded-xl px-4 py-3 text-xs font-mono text-gray-700 dark:text-slate-300 leading-relaxed whitespace-pre">{`Sinónimo de Beldad\nA) Belleza*       ← pegado\nA) Belleza *      ← con espacio\nA) *Belleza       ← al inicio`}</pre>
+                            <p className="text-xs text-gray-400">Si ninguna opción tiene asterisco, se asume la opción A como correcta.</p>
+                        </div>
 
                         <textarea
                             value={bulkText}
@@ -700,18 +691,12 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
                                     </button>
                                 )}
                                 {gameMode !== 'memory' && (
-                                    <>
-                                        <button
-                                            onClick={() => setBulkImportOpen(true)}
-                                            className="h-10 px-4 flex-shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-2 active:scale-95 shadow-md shadow-indigo-100"
-                                        >
-                                            <span className="text-sm">📋</span> Pegado Masivo
-                                        </button>
-                                        <label className="h-10 px-4 flex-shrink-0 cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-2 active:scale-95 shadow-md shadow-emerald-100">
-                                            <span className="text-sm">📄</span> IMPORTAR
-                                            <input type="file" accept=".pdf,.docx,.csv" className="hidden" onChange={handleFileImport} />
-                                        </label>
-                                    </>
+                                    <button
+                                        onClick={() => setBulkImportOpen(true)}
+                                        className="h-10 px-4 flex-shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-2 active:scale-95 shadow-md shadow-indigo-100"
+                                    >
+                                        <span className="text-sm">📥</span> Importar
+                                    </button>
                                 )}
                                 <div className="h-10 px-4 flex-shrink-0 bg-slate-700 text-white font-extrabold rounded-xl text-[10px] uppercase tracking-wider flex items-center shadow-sm">
                                     {questions.length} Preguntas
