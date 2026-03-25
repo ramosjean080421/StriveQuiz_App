@@ -714,8 +714,8 @@ export default function TeacherDashboard() {
                                         teachersList.filter(t => !t.is_approved).map((req) => (
                                             <div key={req.id} className="flex justify-between items-center bg-white dark:bg-slate-800 p-3 rounded-xl border border-amber-100/40 dark:border-slate-700 shadow-sm">
                                                 <div className="max-w-[150px] sm:max-w-none truncate flex items-center gap-2">
-                                                    <div className="w-8 h-8 rounded-full bg-amber-600 flex items-center justify-center text-xs font-black text-white shadow-md">
-                                                        {req.full_name?.charAt(0) || 'P'}
+                                                    <div className="w-8 h-8 shrink-0 rounded-full bg-amber-600 flex items-center justify-center text-xs font-black text-white shadow-md select-none">
+                                                        {(req.full_name || req.username || 'P').replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ]/g, '').charAt(0).toUpperCase() || 'P'}
                                                     </div>
                                                     <div>
                                                         <p className="text-xs font-black text-gray-900 dark:text-white truncate">{req.full_name || req.username}</p>

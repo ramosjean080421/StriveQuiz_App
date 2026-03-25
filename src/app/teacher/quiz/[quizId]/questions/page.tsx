@@ -452,9 +452,9 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
             const { data, error } = await supabase.from("questions").insert(newQuestions).select();
             if (!error && data) {
                 setQuestions(prev => [...prev, ...data]);
-                showToast(`¡${data.length} preguntas añadidas con éxito!`, 'success');
                 setBulkImportOpen(false);
                 setBulkText("");
+                setTimeout(() => showToast(`✅ ${data.length} preguntas importadas correctamente`, 'success'), 100);
             } else {
                 showToast("Error al importar el bloque: " + error?.message, 'error');
             }
@@ -556,7 +556,7 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
 
             {/* TOAST FLOTANTE */}
             {toast && (
-                <div className={`fixed bottom-6 right-6 z-50 px-6 py-4 rounded-2xl font-bold flex items-center gap-3 animate-slide-up border ${toast.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-red-50 text-red-800 border-red-200'
+                <div className={`fixed bottom-6 right-6 z-[200] px-6 py-4 rounded-2xl font-bold flex items-center gap-3 animate-slide-up border ${toast.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-red-50 text-red-800 border-red-200'
                     }`}>
                     <span className="text-xl">{toast.type === 'success' ? '✅' : '🚨'}</span>
                     {toast.message}
