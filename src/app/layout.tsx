@@ -16,6 +16,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "StriveQuiz - Aventura de Aprendizaje",
   description: "Plataforma gamificada para estudiantes y profesores.",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({

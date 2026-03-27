@@ -237,6 +237,9 @@ export default function Home() {
 
       {/* Lado Izquierdo - Logo Gigante */}
       <div className="hidden lg:flex w-1/2 bg-white items-center justify-center relative overflow-hidden z-10 border-r border-gray-100">
+        <p className="absolute bottom-6 left-0 right-0 text-center text-[11px] text-gray-300 font-light italic z-20 opacity-60 select-none">
+          Creado y dedicado para Elizabeth Guevara <span className="not-italic">♥</span>
+        </p>
         <div className="relative z-20 w-11/12 h-11/12 max-w-[800px] flex items-center justify-center">
           {/* Logo con escala masiva priorizando altura disponible */}
           <img
