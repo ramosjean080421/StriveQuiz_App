@@ -2,8 +2,6 @@
 
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import MemoryGameBoard from "@/components/games/memory/MemoryGameBoard";
-import RobloxGameBoard from "@/components/games/roblox/RobloxGameBoard";
 
 type BoardCoordinate = {
     x: number;
@@ -24,23 +22,12 @@ interface GameBoardProps {
     gameId: string;
 }
 
-type AttackAnim = {
-    id: string;
-    type: "correct" | "incorrect";
-    avatarUrl: string;
-    startX: number;
-    startY: number;
-};
-
-
 export default function GameBoard({ gameId }: GameBoardProps) {
     const [boardImageUrl, setBoardImageUrl] = useState<string>("");
     const [boardPath, setBoardPath] = useState<BoardCoordinate[]>([]);
     const [players, setPlayers] = useState<Player[]>([]);
     const [loading, setLoading] = useState(true);
-    const [gameMode, setGameMode] = useState<"classic" | "race" | "memory" | "roblox">("classic");
-    const [totalQuestions, setTotalQuestions] = useState<number>(10);
-    const [attackAnims, setAttackAnims] = useState<AttackAnim[]>([]);
+    const [gameMode, setGameMode] = useState<"classic" | "race">("classic");
     const [eatenAnim, setEatenAnim] = useState<{playerId: string, x: number, y: number} | null>(null);
     const [uiPositions, setUiPositions] = useState<Record<string, number>>({});
 
@@ -51,37 +38,14 @@ export default function GameBoard({ gameId }: GameBoardProps) {
     const boardPathRef = useRef<BoardCoordinate[]>([]);
     useEffect(() => { boardPathRef.current = boardPath; }, [boardPath]);
 
-    const triggerAttackAnim = (playerId: string, type: "correct" | "incorrect", avatarUrl: string) => {
-        const path = boardPathRef.current;
-        if (path.length === 0) return;
-        const currentPlayers = playersRef.current;
-        const pIndex = currentPlayers.findIndex(p => p.id === playerId);
-        const safeIndex = pIndex >= 0 ? (pIndex % path.length) : 0;
-        const startCoord = path[safeIndex];
-
-        const animId = Math.random().toString(36).substring(7);
-        setAttackAnims(prev => [...prev, { id: animId, type, avatarUrl, startX: startCoord.x, startY: startCoord.y }]);
-        setTimeout(() => setAttackAnims(prev => prev.filter(a => a.id !== animId)), 2000);
-    };
-
     useEffect(() => {
         const fetchGameData = async () => {
-            const { data: gameConfig } = await supabase.from("games").select(`game_mode, quiz_id, boss_hp, quizzes (board_image_url, board_path, ludo_teams_count)`).eq("id", gameId).single();
+            const { data: gameConfig } = await supabase.from("games").select(`game_mode, quiz_id, quizzes (board_image_url, board_path, ludo_teams_count)`).eq("id", gameId).single();
             if (gameConfig) {
                 setGameMode(gameConfig.game_mode as any || "classic");
                 const quizData: any = Array.isArray(gameConfig.quizzes) ? gameConfig.quizzes[0] : gameConfig.quizzes;
                 setBoardImageUrl(quizData?.board_image_url || "/default-board.png");
                 setBoardPath(quizData?.board_path as BoardCoordinate[] || []);
-                
-                const { count } = await supabase.from("questions").select("*", { count: 'exact', head: true }).eq("quiz_id", gameConfig.quiz_id);
-                
-                if (gameConfig.game_mode === 'roblox' && (gameConfig.boss_hp || 0) !== 0) {
-                     setTotalQuestions(gameConfig.boss_hp);
-                } else if (count) {
-                     setTotalQuestions(count);
-                } else {
-                     setTotalQuestions(10); // Fallback robusto
-                }
             }
             const { data: initialPlayers } = await supabase.from("game_players").select("*").eq("game_id", gameId);
             if (initialPlayers) setPlayers(initialPlayers as Player[]);
@@ -114,10 +78,6 @@ export default function GameBoard({ gameId }: GameBoardProps) {
                         setTimeout(() => setEatenAnim(null), 1000);
                     }
                     
-                    if (gameModeRef.current === "classic" || gameModeRef.current === "race") {
-                        if ((newPlayer.correct_answers || 0) > (oldPlayer.correct_answers || 0)) triggerAttackAnim(newPlayer.id, "correct", newPlayer.avatar_gif_url);
-                        else if ((newPlayer.incorrect_answers || 0) > (oldPlayer.incorrect_answers || 0)) triggerAttackAnim(newPlayer.id, "incorrect", newPlayer.avatar_gif_url);
-                    }
                 }
                 setPlayers((prev) => prev.map((p) => p.id === payload.new.id ? (payload.new as Player) : p));
             })
@@ -185,14 +145,6 @@ export default function GameBoard({ gameId }: GameBoardProps) {
         </div>
     );
 
-    if (gameMode === "memory") {
-        return <MemoryGameBoard gameId={gameId} players={players} totalQuestions={totalQuestions} />;
-    }
-
-    if (gameMode === "roblox") {
-        return <RobloxGameBoard gameId={gameId} players={players} totalQuestions={totalQuestions} />;
-    }
-
     return (
         <div className="w-full h-full flex flex-row items-center justify-center overflow-hidden relative p-4 gap-8">
             <div className="relative inline-block">
@@ -256,11 +208,14 @@ export default function GameBoard({ gameId }: GameBoardProps) {
                                 </div>
                             </div>
                             <div className="flex gap-2 w-full">
-                                <button 
+                                <button
                                     onClick={async () => {
-                                        // OPTIMISTIC UPDATE: se oculta al instante
                                         setPlayers(prev => prev.map(p => p.id === cheater.id ? { ...p, is_blocked: false } : p));
-                                        await supabase.from("game_players").update({ is_blocked: false }).eq("id", cheater.id);
+                                        const { error } = await supabase.from("game_players").update({ is_blocked: false }).eq("id", cheater.id);
+                                        if (error) {
+                                            // Revertir si falló
+                                            setPlayers(prev => prev.map(p => p.id === cheater.id ? { ...p, is_blocked: true } : p));
+                                        }
                                     }}
                                     className="flex-1 bg-white text-red-700 font-black px-2 py-1.5 rounded-lg text-xs hover:bg-red-50 transition-colors shadow-md active:scale-95"
                                 >

@@ -3,8 +3,6 @@
 // Vista móvil del Estudiante durante una partida activa
 import { useEffect, useState, use } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import MemoryGamePlayer from "@/components/games/memory/MemoryGamePlayer";
-import RobloxGamePlayer from "@/components/games/roblox/RobloxGamePlayer";
 import BombPlayerView from "@/components/games/bomb/BombPlayerView";
 
 interface Question {
@@ -24,10 +22,8 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     const [questions, setQuestions] = useState<Question[]>([]);
     const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
     const [gameStatus, setGameStatus] = useState("waiting");
-    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'memory' | 'roblox' | 'bomb'>('classic');
+    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'bomb'>('classic');
     const [players, setPlayers] = useState<any[]>([]);
-    const [totalQuestions, setTotalQuestions] = useState(10);
-    const [ludoTeamsCount, setLudoTeamsCount] = useState(4);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     const [loading, setLoading] = useState(true);
@@ -41,10 +37,6 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     const [blankAnswer, setBlankAnswer] = useState("");
     const [userMatches, setUserMatches] = useState<Record<string, string>>({});
     const [shuffledMatchRight, setShuffledMatchRight] = useState<string[]>([]);
-
-    // Configuraciones de recompensa del quiz
-    const [rewardConfig, setRewardConfig] = useState({ enabled: false, criteria: 5, text: "" });
-    const [earnedReward, setEarnedReward] = useState<string | null>(null);
 
     // Sistema Anti-Trampas
     const [isBlurred, setIsBlurred] = useState(false);
@@ -86,7 +78,6 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
             if ((gameStatus === "active" || gameStatus === "paused") && !hasFinishedAll) {
                 e.preventDefault();
-                e.returnValue = "";
             }
         };
 
@@ -199,8 +190,8 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         // 2. Obtener estado de la partida, preguntas y configuracion de recompensas
         const fetchGame = async () => {
             const { data: game } = await supabase.from("games").select(`
-                status, quiz_id, auto_end, game_mode, team_distribution_mode, question_duration, boss_hp,
-                quizzes (rewards_enabled, reward_criteria, reward_text, board_path, ludo_teams_count)
+                status, quiz_id, auto_end, game_mode, team_distribution_mode, question_duration,
+                quizzes (board_path)
             `).eq("id", gameId).single();
 
             if (game) {
@@ -214,14 +205,6 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 }
 
                 const quizData: any = Array.isArray(game.quizzes) ? game.quizzes[0] : game.quizzes;
-                if (quizData) {
-                    setRewardConfig({
-                        enabled: false, // Fuerza desactivado para unificar con el salto de pregunta general
-                        criteria: quizData.reward_criteria || 5,
-                        text: quizData.reward_text || ""
-                    });
-                    setLudoTeamsCount(quizData.ludo_teams_count || 4);
-                }
 
                 // Obtener preguntas y aleatorizarlas
                 const { data: qData } = await supabase.from("questions").select("*").eq("quiz_id", game.quiz_id);
@@ -235,12 +218,9 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
                     if ((mode === 'classic' || mode === 'race') && (boardPath && boardPath.length > 0)) {
                         shuffled = shuffled.slice(0, boardPath.length);
-                    } else if (mode === 'roblox' && Math.abs(game.boss_hp || 0) > 0) {
-                        shuffled = shuffled.slice(0, Math.abs(game.boss_hp));
                     }
 
                     setQuestions(shuffled);
-                    setTotalQuestions(shuffled.length || 10);
                 }
             }
 
@@ -248,15 +228,20 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
             const { data: pList } = await supabase.from("game_players").select("*").eq("game_id", gameId);
             if (pList) {
                 setPlayers(pList);
-                const me = pList.find(p => p.id === savedPlayerId);
+                let me = pList.find(p => p.id === savedPlayerId);
                 if (!me) {
-                    // El jugador no existe en la BD (ej. fue eliminado al recargar en el lobby).
-                    // Lo regresamos a la pantalla de incio.
-                    sessionStorage.removeItem("currentPlayerId");
-                    sessionStorage.removeItem("playerSecret");
-                    setErrorMessage("Tu sesión se cerró. Por favor, vuelve a ingresar tu nombre.");
-                    setTimeout(() => { window.location.href = "/"; }, 3000);
-                    return;
+                    // No está en la lista aún — puede ser retraso de replicación de Supabase.
+                    // Hacer una consulta directa antes de expulsar.
+                    const { data: directPlayer } = await supabase
+                        .from("game_players").select("id, is_blocked").eq("id", savedPlayerId).single();
+                    if (!directPlayer) {
+                        sessionStorage.removeItem("currentPlayerId");
+                        sessionStorage.removeItem("playerSecret");
+                        setErrorMessage("Tu sesión se cerró. Por favor, vuelve a ingresar tu nombre.");
+                        setTimeout(() => { window.location.href = "/"; }, 3000);
+                        return;
+                    }
+                    me = directPlayer as any;
                 }
                 if (me?.is_blocked) {
                     setIsBlurred(true);
@@ -367,7 +352,6 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
         const question = questions[currentQuestionIdx];
         let isCorrect = false;
-        let skippedThisStep = false;
 
         if (answerPayload === -1) {
             // timeout
@@ -392,11 +376,9 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         }
         playSound(fbType);
         if (playerId) {
-            // Heatmap tracking removed per user request
-
             // Actualizar: avanzar/retroceder posición, sumar puntos y rachas
-            const { data: pData } = await supabase.from("game_players").select("player_name, current_position, score, correct_answers, incorrect_answers, current_streak").eq("id", playerId).single();
-            const { data: gData } = await supabase.from("games").select("game_mode, boss_hp, auto_end, streaks_enabled, question_duration").eq("id", gameId).single();
+            const { data: pData } = await supabase.from("game_players").select("current_position, score, correct_answers, incorrect_answers").eq("id", playerId).single();
+            const { data: gData } = await supabase.from("games").select("game_mode, auto_end").eq("id", gameId).single();
 
             if (pData) {
                 let nextPos = pData.current_position;
@@ -405,20 +387,18 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 let newIncorrect = pData.incorrect_answers || 0;
 
                 const mode = gData?.game_mode || "classic";
-                let currentBossHp = gData?.boss_hp || 0;
-                let newBossHp = currentBossHp;
 
 
 
                 if (isCorrect) {
-                    if (mode === "classic" || mode === "race" || mode === "roblox" || mode.startsWith("ludo")) {
+                    if (mode === "classic" || mode === "race" || mode.startsWith("ludo")) {
                         nextPos += 1;
                     }
 
                     newScore += 100 + timeLeft * 10;
                     newCorrect += 1;
                 } else {
-                    if (mode === "classic" || mode === "race" || mode === "roblox" || mode.startsWith("ludo")) {
+                    if (mode === "classic" || mode === "race" || mode.startsWith("ludo")) {
                         // Retrocede una posición si se equivoca, mínimo en 0
                         nextPos = Math.max(0, nextPos - 1);
                     }
@@ -438,9 +418,11 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
                 if (pError || count === 0) {
                     console.error("Error updating player record (Secret mismatch or DB error):", pError, "Rows affected:", count);
+                    setFeedback(null);
+                    setAnswering(false);
+                    setErrorMessage("⚠️ Error de conexión al guardar tu respuesta. Recarga la página e intenta de nuevo.");
+                    return;
                 } else {
-                    // Lógica de colisión eliminada.
-
                     // Si terminó todas las preguntas y el autoEnd está activo, cerramos el juego para todos
                     if (currentQuestionIdx >= questions.length - 1 && gData?.auto_end) {
                         await supabase.from("games").update({ status: "finished" }).eq("id", gameId);
@@ -452,14 +434,9 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         // Esperar feedback antes de la siguiente pregunta
         setTimeout(() => {
             setFeedback(null);
-            setEarnedReward(null);
             setAnswering(false);
 
-            const skipQuestion = isCorrect && skippedThisStep;
-
-            if (skipQuestion && currentQuestionIdx < questions.length - 2) {
-                setCurrentQuestionIdx(prev => prev + 2);
-            } else if (currentQuestionIdx < questions.length - 1) {
+            if (currentQuestionIdx < questions.length - 1) {
                 setCurrentQuestionIdx(prev => prev + 1);
             } else {
                 setHasFinishedAll(true);
@@ -490,14 +467,11 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
     if (gameStatus === "waiting") {
         const myPlayer = players.find(p => p.id === playerId);
-        const isObby = gameMode === 'roblox';
         return (
             <div className="h-screen w-screen overflow-hidden flex flex-col bg-slate-950 relative">
                 {/* Fondo con patrón */}
                 <div className="absolute inset-0 pointer-events-none" style={{
-                    backgroundImage: isObby
-                        ? 'radial-gradient(circle at 1px 1px, rgba(99,102,241,0.08) 1px, transparent 0)'
-                        : 'radial-gradient(circle at 1px 1px, rgba(16,185,129,0.07) 1px, transparent 0)',
+                    backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(16,185,129,0.07) 1px, transparent 0)',
                     backgroundSize: '32px 32px'
                 }} />
                 {/* Orbes */}
@@ -509,7 +483,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                     <img src="/logotransparente.png" alt="StriveQuiz" className="w-10 h-10 object-contain" />
                     <div className="flex flex-col items-center">
                         <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.25em]">Sala de espera</span>
-                        <span className="text-white font-black text-base leading-none">{isObby ? '🏝️ Strive Obby' : '🎮 StriveQuiz'}</span>
+                        <span className="text-white font-black text-base leading-none">🎮 StriveQuiz</span>
                     </div>
                     <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-full">
                         <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
@@ -612,14 +586,6 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20"></div>
 
                 {/* Recompensa masiva si es que la ganó al final */}
-                {earnedReward && (
-                    <div className="absolute top-10 w-full flex justify-center z-50 animate-bounce">
-                        <div className="bg-yellow-400 text-yellow-900 px-6 py-3 rounded-full font-black text-xl border-4 border-yellow-200">
-                            🎁 ¡Premio Desbloqueado: {earnedReward}!
-                        </div>
-                    </div>
-                )}
-
                 <div className="relative z-10 bg-gradient-to-br from-gray-800 to-gray-900 border-2 border-indigo-500/50 p-10 rounded-[3rem] max-w-sm w-full">
                     <span className="text-8xl mb-6 block transform hover:scale-110 transition-transform cursor-pointer">🏆</span>
                     <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 mb-4 uppercase tracking-wider">
@@ -634,13 +600,22 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     }
 
     if (questions.length === 0) {
+        if (gameStatus === "active") {
+            return (
+                <div className="h-screen w-screen flex items-center justify-center bg-gray-900">
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="w-14 h-14 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                        <span className="text-indigo-400 font-black text-xl animate-pulse uppercase tracking-widest">Cargando preguntas...</span>
+                    </div>
+                </div>
+            );
+        }
         return <div className="h-screen w-screen flex items-center justify-center bg-gray-900 text-white font-bold text-center p-8">El profesor no añadió preguntas a este cuestionario. Dile que edite la aventura.</div>
     }
 
     // JUEGO ACTIVO
     const currentQ = questions[currentQuestionIdx];
 
-    // Paleta de Colores de Acción (Estilo Roblox/Grueso)
     const optionStyles = [
         { bg: "bg-rose-500", border: "border-rose-700", icon: "🔴" },
         { bg: "bg-blue-600", border: "border-blue-800", icon: "🔷" },
@@ -662,188 +637,6 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     // Modo bomba: BombPlayerView maneja sus propios estados (active, finished, eliminado)
     if (gameMode === 'bomb' && (gameStatus === 'active' || gameStatus === 'finished') && playerId) {
         return <BombPlayerView gameId={gameId} playerId={playerId} />;
-    }
-
-    if (gameMode === 'memory') {
-        return (
-            <div className="h-screen w-screen flex bg-gray-950 overflow-hidden relative font-sans select-none">
-
-                {/* Overlay Anti-Trampas */}
-                {isBlurred && (
-                    <div className="fixed inset-0 z-[9999] bg-gray-950/95 flex flex-col items-center justify-center p-6 text-center backdrop-blur-xl">
-                        <div className="bg-red-500/10 border border-red-500/30 p-10 rounded-[3rem] max-w-md shadow-2xl">
-                            <span className="text-8xl mb-6 block animate-bounce">🙈</span>
-                            <h1 className="text-3xl font-black text-red-500 mb-4 uppercase tracking-widest leading-none">
-                                ¡NO HAGAS TRAMPA!
-                            </h1>
-                            <p className="text-gray-300 font-medium text-lg leading-relaxed mb-8">
-                                Ocultamos las preguntas porque detectamos un intento de hacer trampa o uso de otra aplicación. <br /><br />
-                                <strong className="text-red-400">El profesor ha sido notificado.</strong> Espera a que te permita regresar al juego.
-                            </p>
-                            <div className="flex items-center gap-3 opacity-40 justify-center">
-                                <div className="w-2 h-2 bg-red-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                                <div className="w-2 h-2 bg-red-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                                <div className="w-2 h-2 bg-red-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Logo Borroso de Fondo */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-                    <img src="/logotransparente.png" alt="" className="w-[140vw] max-w-[1000px] opacity-[0.14] blur-[3px] select-none" draggable={false} />
-                </div>
-
-                {/* Gradiente encima */}
-                <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/50 via-gray-950/85 to-purple-950/50 z-[1] pointer-events-none"></div>
-                {/* Segundo gradiente para profundidad */}
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,_var(--tw-gradient-stops))] from-violet-900/10 via-transparent to-transparent z-[1] pointer-events-none"></div>
-
-                {/* Sidebar de Ranking Premium - Desktop/Tablet */}
-                <div className="hidden md:flex w-64 lg:w-72 border-r border-white/[0.06] bg-black/50 backdrop-blur-xl flex-col z-20 relative">
-                    {/* Header del sidebar */}
-                    <div className="p-4 border-b border-white/[0.06] flex justify-between items-center bg-gradient-to-r from-indigo-500/[0.06] to-transparent">
-                        <h3 className="text-[11px] font-black text-indigo-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                            <span className="w-5 h-5 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-lg flex items-center justify-center text-[10px] shadow-md shadow-yellow-500/20">🏆</span>
-                            RANKING
-                        </h3>
-                        <span className="bg-white/[0.06] text-gray-400 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-white/[0.06]">
-                            {sortedPlayers.length}
-                        </span>
-                    </div>
-
-                    {/* Lista de jugadores */}
-                    <div className="flex-1 overflow-y-auto custom-scrollbar-memory p-3 space-y-1">
-                        {sortedPlayers.map((p, idx) => {
-                            const isMe = p.id === playerId;
-                            const pairsFound = p.current_position || 0;
-                            const questionsTotal = questions.length || 1;
-                            const pProgress = questionsTotal > 0 ? (pairsFound / questionsTotal) * 100 : 0;
-
-                            return (
-                                <div
-                                    key={p.id}
-                                    className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-all duration-300 ${isMe
-                                            ? 'bg-gradient-to-r from-indigo-500/15 to-purple-500/10 border-indigo-400/30 shadow-[0_0_20px_rgba(99,102,241,0.12)] ring-1 ring-indigo-500/20'
-                                            : idx === 0 ? 'bg-gradient-to-r from-yellow-500/[0.06] to-transparent border-yellow-500/10'
-                                                : idx === 1 ? 'bg-gradient-to-r from-gray-400/[0.04] to-transparent border-gray-400/10'
-                                                    : idx === 2 ? 'bg-gradient-to-r from-orange-500/[0.04] to-transparent border-orange-400/10'
-                                                        : 'border-transparent hover:bg-white/[0.02]'
-                                        }`}
-                                >
-                                    {/* Posición */}
-                                    <div className="w-7 flex items-center justify-center shrink-0">
-                                        {idx === 0 ? <span className="text-base drop-shadow-md">🥇</span>
-                                            : idx === 1 ? <span className="text-base drop-shadow-md">🥈</span>
-                                                : idx === 2 ? <span className="text-base drop-shadow-md">🥉</span>
-                                                    : <span className="text-[10px] font-black text-gray-600 bg-white/[0.04] w-6 h-6 rounded-lg flex items-center justify-center">#{idx + 1}</span>
-                                        }
-                                    </div>
-
-                                    {/* Avatar */}
-                                    <div className={`relative w-8 h-8 rounded-full border-2 overflow-hidden shrink-0 transition-all ${isMe ? 'border-indigo-400 shadow-md shadow-indigo-500/20' : idx < 3 ? 'border-white/15' : 'border-white/5'}`}>
-                                        <img src={p.avatar_gif_url || "/api/avatars"} className="w-full h-full object-cover" alt="" />
-                                    </div>
-
-                                    {/* Info */}
-                                    <div className="flex-1 min-w-0">
-                                        <div className={`text-[11px] font-black truncate leading-tight ${isMe ? 'text-indigo-300' : 'text-gray-200'}`}>
-                                            {p.player_name || "Anónimo"} {isMe && <span className="text-[8px] text-indigo-500/60 font-bold">(tú)</span>}
-                                        </div>
-                                        {/* Mini barra de progreso */}
-                                        <div className="flex items-center gap-1.5 mt-1">
-                                            <div className="flex-1 h-1 bg-white/[0.06] rounded-full overflow-hidden">
-                                                <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-cyan-400 transition-all duration-500" style={{ width: `${pProgress}%` }}></div>
-                                            </div>
-                                            <span className="text-[8px] text-gray-500 font-bold shrink-0">{pairsFound}/{questionsTotal}</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Puntaje */}
-                                    <div className="text-right shrink-0">
-                                        <div className={`text-xs font-black tabular-nums ${isMe ? 'text-indigo-300' : idx === 0 ? 'text-yellow-400' : 'text-gray-300'}`}>
-                                            {p.score || 0}
-                                        </div>
-                                        <div className="text-[7px] text-gray-600 uppercase tracking-widest font-black">pts</div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                {/* Widget de Ranking para Móviles */}
-                <div className="md:hidden absolute top-3 left-3 z-30 bg-black/70 backdrop-blur-xl border border-white/[0.08] px-3.5 py-2 rounded-2xl flex items-center gap-2.5 shadow-xl">
-                    <div className="w-7 h-7 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-lg flex items-center justify-center shadow-md shadow-yellow-500/20">
-                        <span className="text-xs">🏆</span>
-                    </div>
-                    <div>
-                        <div className="text-[8px] text-gray-500 uppercase font-black tracking-widest">Tu puesto</div>
-                        <div className="text-sm font-black text-white leading-none">#{miPuesto}</div>
-                    </div>
-                    <div className="w-px h-6 bg-white/10"></div>
-                    <div>
-                        <div className="text-[8px] text-gray-500 uppercase font-black tracking-widest">Puntos</div>
-                        <div className="text-sm font-black text-indigo-400 leading-none">{players.find(p => p.id === playerId)?.score || 0}</div>
-                    </div>
-                </div>
-
-                {/* Área de Juego */}
-                <div className="flex-1 h-full flex flex-col relative z-10 overflow-hidden">
-                    <MemoryGamePlayer
-                        questions={questions}
-                        gameId={gameId}
-                        playerId={playerId}
-                        playerSecret={playerSecret}
-                        timeLeft={timeLeft}
-                        questionDuration={questionDuration}
-                        answering={answering}
-                        onSubmit={async (scoreDelta, pairsFound) => {
-                            if (!playerId) return;
-
-                            const { data: pData } = await supabase.from("game_players").select("score").eq("id", playerId).single();
-                            const currentScore = pData?.score || 0;
-
-                            await supabase.from("game_players")
-                                .update({
-                                    score: currentScore + scoreDelta,
-                                    current_position: pairsFound,
-                                    correct_answers: pairsFound
-                                })
-                                .eq("id", playerId)
-                                .eq("secret_token", playerSecret);
-
-                            if (pairsFound === questions.length) {
-                                setHasFinishedAll(true);
-                            }
-                        }}
-                    />
-                </div>
-
-                <style jsx global>{`
-                    .custom-scrollbar-memory::-webkit-scrollbar { width: 4px; }
-                    .custom-scrollbar-memory::-webkit-scrollbar-track { background: transparent; }
-                    .custom-scrollbar-memory::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.15); border-radius: 10px; }
-                    .custom-scrollbar-memory::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.35); }
-                `}</style>
-            </div>
-        );
-    }
-
-    if (gameMode === 'roblox') {
-        return (
-            <RobloxGamePlayer
-                currentQ={currentQ}
-                answering={answering}
-                handleAnswerSubmit={handleAnswerSubmit}
-                feedback={feedback}
-                timeLeft={timeLeft}
-                questionDuration={questionDuration}
-                isBlurred={isBlurred}
-                players={players}
-                playerId={playerId}
-            />
-        );
     }
 
     return (

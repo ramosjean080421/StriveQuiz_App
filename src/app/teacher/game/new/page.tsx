@@ -19,20 +19,12 @@ function StartGameContent() {
     const [autoEnd, setAutoEnd] = useState(false);
     const [enableGameTimer, setEnableGameTimer] = useState(false);
     const [enableQuestionTimer, setEnableQuestionTimer] = useState(true);
-    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'memory' | 'roblox' | 'bomb'>('classic');
-    
+    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'bomb'>('classic');
+
     const [dataLoaded, setDataLoaded] = useState(false);
     const [gameDuration, setGameDuration] = useState(10); // Minutos
     const [questionDuration, setQuestionDuration] = useState(20); // Segundos
-
-    // Memoria: Tiempo extra por acierto
-    const [enableBonusTime, setEnableBonusTime] = useState(false);
-    const [bonusTimePerMatch, setBonusTimePerMatch] = useState(5); // Segundos
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
-
-    // Roblox: Límite de preguntas / islas generadas
-    const [customQuestionCount, setCustomQuestionCount] = useState<number | ''>(10);
-    const [mapTheme, setMapTheme] = useState<'linear' | 'spiral'>('linear');
 
     // Bomba: cantidad de preguntas a usar del banco
     const [bombQuestionCount, setBombQuestionCount] = useState<number | ''>(10);
@@ -71,9 +63,9 @@ function StartGameContent() {
                 auto_end: autoEnd,
                 game_mode: gameMode,
                 game_duration: (enableGameTimer && !autoEnd) ? gameDuration : null,
-                question_duration: (gameMode === 'memory' || gameMode === 'bomb') ? (gameMode === 'bomb' ? (enableQuestionTimer ? questionDuration : 15) : 0) : (enableQuestionTimer ? questionDuration : 0),
-                bonus_time_per_match: (gameMode === 'memory' && enableBonusTime) ? bonusTimePerMatch : null,
-                boss_hp: gameMode === 'roblox' ? (mapTheme === 'spiral' ? -(Number(customQuestionCount) || 10) : (Number(customQuestionCount) || 10)) : gameMode === 'bomb' ? (Number(bombQuestionCount) || 10) : 0
+                question_duration: gameMode === 'bomb' ? (enableQuestionTimer ? questionDuration : 15) : (enableQuestionTimer ? questionDuration : 0),
+                bonus_time_per_match: null,
+                boss_hp: gameMode === 'bomb' ? (Number(bombQuestionCount) || 10) : 0
             };
 
             // Primer intento: con todas las columnas
@@ -210,9 +202,8 @@ function StartGameContent() {
                         </div>
                     )}
 
-                    {/* Duración de la Pregunta (Solo para juegos NO memoria) */}
-                    {gameMode !== 'memory' && (
-                        <div className="p-4 rounded-[1.8rem] bg-white/[0.02] border border-white/5 space-y-3">
+                    {/* Duración de la Pregunta */}
+                    <div className="p-4 rounded-[1.8rem] bg-white/[0.02] border border-white/5 space-y-3">
                             <div onClick={() => setEnableQuestionTimer(!enableQuestionTimer)} className="flex items-center justify-between cursor-pointer px-1">
                                 <span className="text-left text-xs font-bold text-gray-400 uppercase tracking-widest">⏱️ Activar Tiempo por Pregunta</span>
                                 <div className={`w-12 h-6 rounded-full p-1 flex items-center transition-colors ${enableQuestionTimer ? 'bg-indigo-500' : 'bg-gray-800'}`}>
@@ -229,33 +220,7 @@ function StartGameContent() {
                                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm font-black focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                 />
                             )}
-                        </div>
-                    )}
-
-                    {/* Tiempo Extra por Acierto (Solo Memoria + Solo si hay tiempo de partida activo) */}
-                    {gameMode === 'memory' && !autoEnd && enableGameTimer && (
-                        <div className="p-4 rounded-[1.8rem] bg-white/[0.02] border border-white/5 space-y-3">
-                            <div onClick={() => setEnableBonusTime(!enableBonusTime)} className="flex items-center justify-between cursor-pointer px-1">
-                                <span className="text-left text-xs font-bold text-gray-400 uppercase tracking-widest">⏱️ Tiempo Extra por Acierto</span>
-                                <div className={`w-12 h-6 rounded-full p-1 flex items-center transition-colors ${enableBonusTime ? 'bg-cyan-500' : 'bg-gray-800'}`}>
-                                    <div className={`w-4 h-4 bg-white rounded-full transition-transform ${enableBonusTime ? 'translate-x-6' : 'translate-x-0'}`} />
-                                </div>
-                            </div>
-                            {enableBonusTime && (
-                                <div className="space-y-2">
-                                    <input 
-                                        type="number" 
-                                        min="1" max="30"
-                                        value={bonusTimePerMatch === 0 ? "" : bonusTimePerMatch}
-                                        placeholder="Segundos extra por acierto..."
-                                        onChange={(e) => setBonusTimePerMatch(e.target.value === "" ? 0 : Number(e.target.value))}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm font-black focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
-                                    />
-                                    <p className="text-[10px] text-cyan-400/60 font-bold text-center">Cada pareja acertada sumará {bonusTimePerMatch}s al reloj</p>
-                                </div>
-                            )}
-                        </div>
-                    )}
+                    </div>
 
                     {/* Cantidad de preguntas (Solo Bomba) */}
                     {gameMode === 'bomb' && (
@@ -275,56 +240,6 @@ function StartGameContent() {
                         </div>
                     )}
 
-                    {/* Límite de Islas y Aleatorización (Solo Roblox) */}
-                    {gameMode === 'roblox' && (
-                        <div className="p-4 rounded-[1.8rem] bg-indigo-900/10 border border-indigo-500/30 space-y-4 shadow-inner">
-                            <div className="flex flex-col text-left px-1">
-                                <span className="text-xs font-bold text-indigo-300 uppercase tracking-widest">🗺️ Diseño del Mapa (Obby)</span>
-                                <div className="grid grid-cols-2 gap-2 mt-2">
-                                    <button 
-                                        type="button" 
-                                        onClick={() => setMapTheme('linear')}
-                                        className={`p-3 rounded-xl border text-xs font-black uppercase transition-all ${
-                                            mapTheme === 'linear' 
-                                            ? 'bg-indigo-500 border-indigo-400 text-white shadow-lg shadow-indigo-500/30 scale-100' 
-                                            : 'bg-indigo-950/40 border-indigo-800 text-indigo-300/60 hover:border-indigo-500 scale-95'
-                                        }`}
-                                    >
-                                        Clásico
-                                    </button>
-                                    <button 
-                                        type="button" 
-                                        onClick={() => setMapTheme('spiral')}
-                                        className={`p-3 rounded-xl border text-xs font-black uppercase transition-all ${
-                                            mapTheme === 'spiral' 
-                                            ? 'bg-gradient-to-tr from-fuchsia-500 to-indigo-500 border-fuchsia-400 text-white shadow-lg shadow-fuchsia-500/30 scale-100' 
-                                            : 'bg-indigo-950/40 border-indigo-800 text-indigo-300/60 hover:border-indigo-500 scale-95'
-                                        }`}
-                                    >
-                                        Spiral (Ascenso)
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col text-left px-1 border-t border-indigo-500/20 pt-3">
-                                <span className="text-xs font-bold text-indigo-300 uppercase tracking-widest">🎲 Límite de Plataformas</span>
-                            </div>
-                            <div className="space-y-2 mt-1">
-                                <input 
-                                    type="number" 
-                                    min="1" max="200"
-                                    value={customQuestionCount === 0 ? "" : customQuestionCount}
-                                    placeholder="Ej. 10 islas..."
-                                    onChange={(e) => setCustomQuestionCount(e.target.value === "" ? "" : Number(e.target.value))}
-                                    className="w-full bg-indigo-950/40 border border-indigo-500/30 rounded-xl px-4 py-3 text-white text-sm font-black focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400"
-                                />
-                                <p className="text-[10px] text-indigo-300/80 font-bold leading-relaxed text-center mt-2 border-t border-indigo-500/10 pt-2">
-                                    Se sortearán de tu banco principal y <span className="text-indigo-200 font-black">cada alumno tendrá preguntas y orden diferentes</span> de forma permanente.
-                                </p>
-                            </div>
-                        </div>
-                    )}
- 
                 </div>
 
                 <button

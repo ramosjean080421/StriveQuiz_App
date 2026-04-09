@@ -85,9 +85,8 @@ function QuizBuilderContent() {
     const [localMaps, setLocalMaps] = useState<{ id: number, name: string, url: string }[]>([]);
     const [selectedMap, setSelectedMap] = useState<any>(null);
     const [boardPath, setBoardPath] = useState<Coordinate[]>([]);
-    const [gameMode, setGameMode] = useState<"classic" | "race" | "memory" | "roblox" | "bomb">("classic");
+    const [gameMode, setGameMode] = useState<"classic" | "race" | "bomb">("classic");
     const [ludoTeamsCount, setLudoTeamsCount] = useState<number>(4);
-    const [ludoPathType, setLudoPathType] = useState<'bases' | 'circuit' | 'red' | 'blue' | 'green' | 'yellow'>('bases');
     const [ludoPathData, setLudoPathData] = useState<any>({
         bases: [],
         circuit: [],
@@ -97,18 +96,12 @@ function QuizBuilderContent() {
     const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean, title: string, message: string, onConfirm: () => void, isDestructive?: boolean } | null>(null);
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
     const [draggingNodeIdx, setDraggingNodeIdx] = useState<number | null>(null);
-    const justDragged = useState(false)[0]; // Actually I need a ref for this to avoid re-renders during drag
     const justDraggedRef = useState({ value: false })[0];
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
         setToast({ message, type });
         setTimeout(() => setToast(null), 3500);
     };
-
-    // Configuración de recompensas
-    const [rewardsEnabled, setRewardsEnabled] = useState(false);
-    const [rewardCriteria, setRewardCriteria] = useState(5);
-    const [rewardText, setRewardText] = useState("10 Puntos ClassDojo");
 
     useEffect(() => {
         const fetchMapsAndData = async () => {
@@ -168,11 +161,6 @@ function QuizBuilderContent() {
                         if (mapFound) setSelectedMap(mapFound);
                     }
 
-                    if (qData.rewards_enabled !== undefined) {
-                        setRewardsEnabled(qData.rewards_enabled);
-                        setRewardCriteria(qData.reward_criteria || 5);
-                        setRewardText(qData.reward_text || "");
-                    }
                     if (qData.game_mode) {
                         setGameMode(qData.game_mode as any);
                         setLudoTeamsCount(qData.ludo_teams_count || 4);
@@ -254,11 +242,11 @@ function QuizBuilderContent() {
             showToast("Por favor ingresa un título para la aventura.", "error");
             return;
         }
-        if (gameMode !== 'memory' && gameMode !== 'roblox' && gameMode !== 'bomb' && boardPath.length < 2) {
+        if (gameMode !== 'bomb' && boardPath.length < 2) {
             showToast("Por favor traza al menos 2 casillas en el tablero.", "error");
             return;
         }
-        if (gameMode !== 'memory' && gameMode !== 'roblox' && gameMode !== 'bomb' && !selectedMap) {
+        if (gameMode !== 'bomb' && !selectedMap) {
             showToast("Por favor selecciona un escenario.", "error");
             return;
         }
@@ -270,14 +258,9 @@ function QuizBuilderContent() {
             if (!user) throw new Error("No autenticado");
             const payload = {
                 title,
-                board_image_url: gameMode === 'memory' ? '/reversocarta.png' : gameMode === 'roblox' ? '/robloxbg.png' : gameMode === 'bomb' ? '/logotransparente.png' : selectedMap.url,
-                board_path: (gameMode === 'memory' || gameMode === 'roblox' || gameMode === 'bomb') ? [] : boardPath,
+                board_image_url: gameMode === 'bomb' ? '/logotransparente.png' : selectedMap.url,
+                board_path: gameMode === 'bomb' ? [] : boardPath,
                 game_mode: gameMode,
-                ludo_teams_count: null,
-                ludo_path_data: null,
-                rewards_enabled: false,
-                reward_criteria: 5,
-                reward_text: ""
             };
 
             let returnedId = editId;
@@ -367,8 +350,6 @@ function QuizBuilderContent() {
                                 {[
                                     { id: 'classic', icon: '🏃', name: 'Clásico' },
                                     { id: 'race', icon: '🏎️', name: 'Carreras' },
-                                    { id: 'memory', icon: '🧠', name: 'Memoria' },
-                                    { id: 'roblox', icon: '🏝️', name: 'Obby' },
                                     { id: 'bomb', icon: '💣', name: 'Bomba' }
                                 ].map((mode) => (
                                     <button
@@ -398,8 +379,8 @@ function QuizBuilderContent() {
 
 
 
-                        {/* 2. Selector de Escenario (Mapa) - Solo si NO es Ludo ni Memoria ni Roblox ni Bomba */}
-                        {gameMode !== 'memory' && gameMode !== 'roblox' && gameMode !== 'bomb' && (
+                        {/* 2. Selector de Escenario (Mapa) - Solo si NO es Bomba */}
+                        {gameMode !== 'bomb' && (
                             <div className="pt-4 border-t border-gray-100">
                                 <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-3 block">2. Elige dónde jugar (Escenario)</label>
                                 {localMaps.length === 0 ? (
@@ -460,22 +441,10 @@ function QuizBuilderContent() {
                     {/* Sección 3: Instrucciones / Controles de Ruta */}
                     {gameMode !== 'bomb' && <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-slate-800 dark:to-slate-800 p-4 rounded-2xl border border-indigo-100/50 dark:border-slate-700 mt-6">
                         <h3 className="font-bold text-indigo-900 dark:text-indigo-300 text-sm mb-3 flex items-center gap-2">
-                            <span className="text-lg">{gameMode === 'memory' ? '🧠' : '⚙️'}</span> {gameMode === 'memory' ? 'Dinámica del Juego' : 'Trazar Ruta'}
+                            <span className="text-lg">⚙️</span> Trazar Ruta
                         </h3>
 
-                        {gameMode === 'memory' ? (
-                            <div className="bg-amber-50 p-4 rounded-xl border border-amber-200">
-                                <p className="text-xs text-amber-800 font-bold leading-relaxed">
-                                    🧠 <strong>Modo Memoria:</strong> Pon a prueba tu retentiva. Al iniciar el juego se creará un tablero con cartas de preguntas y respuestas. ¡El alumno tendrá que encontrar todas las parejas antes de que se acabe el tiempo para ganar la máxima puntuación!
-                                </p>
-                            </div>
-                        ) : gameMode === 'roblox' ? (
-                            <div className="bg-red-50 p-4 rounded-xl border border-red-200">
-                                <p className="text-xs text-red-800 font-bold leading-relaxed">
-                                    🏝️ <strong>Modo Obby (Roblox):</strong> Tus alumnos jugarán en un entorno 3D, saltando de isla en isla. Tú verás la vista isométrica y ellos un teclado estilizado.
-                                </p>
-                            </div>
-                        ) : boardPath.length === 0 ? (
+                        {boardPath.length === 0 ? (
                             <p className="text-xs text-indigo-700/80 dark:text-indigo-300 leading-relaxed font-medium bg-white/50 dark:bg-slate-700/50 p-3 rounded-xl border border-indigo-100 dark:border-slate-600">
                                 Haz clic en el mapa para trazar los pasos. <strong>¡Tu primer clic será el inicio!</strong>
                             </p>
@@ -501,8 +470,8 @@ function QuizBuilderContent() {
                         disabled={
                             saving ||
                             !title ||
-                            (gameMode !== 'memory' && gameMode !== 'roblox' && gameMode !== 'bomb' && !selectedMap) ||
-                            (gameMode !== 'memory' && gameMode !== 'roblox' && gameMode !== 'bomb' && boardPath.length < 2)
+                            (gameMode !== 'bomb' && !selectedMap) ||
+                            (gameMode !== 'bomb' && boardPath.length < 2)
                         }
                         className="w-full flex items-center justify-center gap-2 py-4 px-4 text-base font-bold rounded-2xl text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5 active:scale-95 transition-all outline-none"
                     >
@@ -522,15 +491,7 @@ function QuizBuilderContent() {
                 {/* Patrón de Fondo de Puntos Estrellado */}
                 <div className="absolute inset-0 opacity-[0.04] pointer-events-none z-0" style={{ backgroundImage: 'radial-gradient(white 2px, transparent 2px)', backgroundSize: '30px 30px' }}></div>
 
-                {gameMode === 'memory' ? (
-                    <div className="relative z-10 w-full flex flex-col items-center gap-6 animate-fade-in-up">
-                        <div className="aspect-[3/4] w-64 border-8 border-[#2d1810] rounded-[2rem] shadow-2xl relative overflow-hidden bg-cover bg-center" style={{ backgroundImage: "url('/reversocarta.png')" }}></div>
-                        <div className="bg-indigo-600/20 backdrop-blur-md border border-indigo-500/30 px-6 py-3 rounded-2xl flex items-center gap-3">
-                            <span className="text-2xl animate-bounce">🧠</span>
-                            <span className="text-white font-black uppercase tracking-widest text-sm">Previsualización de Memoria Automática</span>
-                        </div>
-                    </div>
-                ) : gameMode === 'bomb' ? (
+                {gameMode === 'bomb' ? (
                     <div className="relative z-10 w-full flex flex-col items-center justify-center gap-8 animate-fade-in-up select-none">
                         {/* Fondo de cuadrícula naranja */}
                         <div className="absolute inset-0 pointer-events-none opacity-10"
@@ -571,74 +532,6 @@ function QuizBuilderContent() {
                         <div className="bg-orange-500/10 border border-orange-500/30 px-6 py-3 rounded-2xl flex items-center gap-3">
                             <span className="text-xl animate-bounce">💣</span>
                             <span className="text-orange-300 font-black uppercase tracking-widest text-sm">Modo Bomba — No requiere tablero</span>
-                        </div>
-                    </div>
-                ) : gameMode === 'roblox' ? (
-                    <div className="relative z-10 w-full flex flex-col items-center gap-5 animate-fade-in-up">
-                        {/* Mini escena del mapa Obby */}
-                        <div className="w-72 h-64 rounded-[2rem] border-2 border-indigo-500/30 shadow-2xl shadow-indigo-900/40 relative overflow-hidden bg-[#080f1e] flex items-end justify-center pb-5">
-                            {/* Cielo estrellado */}
-                            <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 0%, #1e1b4b 0%, #080f1e 70%)' }} />
-                            {[{x:15,y:12},{x:75,y:8},{x:45,y:20},{x:88,y:15},{x:25,y:25},{x:60,y:5},{x:35,y:30}].map((s,i) => (
-                                <div key={i} className="absolute w-1 h-1 rounded-full bg-white animate-pulse" style={{ left:`${s.x}%`, top:`${s.y}%`, opacity: 0.4 + (i%3)*0.2, animationDelay:`${i*0.4}s` }} />
-                            ))}
-                            {/* Grid suelo */}
-                            <div className="absolute bottom-0 left-0 right-0 h-16 opacity-20" style={{ backgroundImage: 'linear-gradient(#6366f1 1px, transparent 1px), linear-gradient(90deg, #6366f1 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
-                            {/* Islas flotantes en perspectiva */}
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                {/* Isla START */}
-                                <div className="absolute" style={{ bottom: '28%', left: '8%' }}>
-                                    <div className="w-14 h-4 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/40 flex items-center justify-center">
-                                        <span className="text-[8px] font-black text-white">GO!</span>
-                                    </div>
-                                    <div className="w-12 h-3 mx-auto rounded-b-full bg-stone-700 opacity-80" />
-                                </div>
-                                {/* Isla Jungle */}
-                                <div className="absolute" style={{ bottom: '42%', left: '26%' }}>
-                                    <div className="w-12 h-3 rounded-full bg-green-600 shadow-md shadow-green-600/30 flex items-end justify-center pb-0.5">
-                                        <span className="text-[7px]">🌴</span>
-                                    </div>
-                                    <div className="w-10 h-2.5 mx-auto rounded-b-full bg-stone-700 opacity-80" />
-                                </div>
-                                {/* Isla Ice */}
-                                <div className="absolute" style={{ bottom: '56%', left: '46%' }}>
-                                    <div className="w-12 h-3 rounded-full bg-blue-400 shadow-md shadow-blue-400/40 flex items-end justify-center pb-0.5">
-                                        <span className="text-[7px]">❄️</span>
-                                    </div>
-                                    <div className="w-10 h-2.5 mx-auto rounded-b-full bg-blue-900 opacity-80" />
-                                </div>
-                                {/* Isla Neon */}
-                                <div className="absolute" style={{ bottom: '68%', left: '64%' }}>
-                                    <div className="w-12 h-3 rounded-full bg-violet-600 shadow-md shadow-violet-600/50 flex items-end justify-center pb-0.5">
-                                        <span className="text-[7px]">⚡</span>
-                                    </div>
-                                    <div className="w-10 h-2.5 mx-auto rounded-b-full bg-violet-950 opacity-80" />
-                                </div>
-                                {/* Isla FINISH */}
-                                <div className="absolute" style={{ bottom: '78%', right: '8%' }}>
-                                    <div className="w-16 h-4 rounded-full bg-amber-400 shadow-lg shadow-amber-400/60 flex items-center justify-center ring-1 ring-amber-300/60">
-                                        <span className="text-[8px] font-black text-amber-900">🏆</span>
-                                    </div>
-                                    <div className="w-14 h-3 mx-auto rounded-b-full bg-amber-800 opacity-80" />
-                                </div>
-                                {/* Puentes entre islas */}
-                                <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ overflow: 'visible' }}>
-                                    {[
-                                        { x1:'18%', y1:'68%', x2:'32%', y2:'55%', c:'#10b981' },
-                                        { x1:'38%', y1:'55%', x2:'52%', y2:'42%', c:'#60a5fa' },
-                                        { x1:'58%', y1:'42%', x2:'70%', y2:'30%', c:'#a78bfa' },
-                                        { x1:'76%', y1:'30%', x2:'88%', y2:'21%', c:'#fbbf24' },
-                                    ].map((l, i) => (
-                                        <line key={i} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={l.c} strokeWidth="2" strokeDasharray="4,3" opacity="0.7" />
-                                    ))}
-                                </svg>
-                                {/* Personajito */}
-                                <div className="absolute text-xl animate-bounce" style={{ bottom: '38%', left: '22%', animationDuration: '1.2s' }}>🏃</div>
-                            </div>
-                        </div>
-                        <div className="bg-indigo-600/20 backdrop-blur-md border border-indigo-500/30 px-6 py-3 rounded-2xl flex items-center gap-3">
-                            <span className="text-2xl animate-bounce">🏝️</span>
-                            <span className="text-white font-black uppercase tracking-widest text-sm">Modo Obby 3D · Isla a Isla</span>
                         </div>
                     </div>
                 ) : selectedMap ? (

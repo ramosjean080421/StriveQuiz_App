@@ -16,7 +16,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
     const [podium, setPodium] = useState<any[]>([]);
     const [allPlayers, setAllPlayers] = useState<any[]>([]);
     const [playerCount, setPlayerCount] = useState(0);
-    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'memory' | 'roblox' | 'bomb'>('classic');
+    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'bomb'>('classic');
     const [gameDuration, setGameDuration] = useState(0); 
     const [timeLeftSession, setTimeLeftSession] = useState(0);
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
@@ -58,7 +58,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
             if (game) {
                 setPin(game.pin);
                 setGameStatus(game.status);
-                setGameMode((game.game_mode as 'classic' | 'race' | 'memory' | 'roblox' | 'bomb') || 'classic');
+                setGameMode((game.game_mode as 'classic' | 'race' | 'bomb') || 'classic');
                 if (game.game_duration && game.game_duration > 0 && !game.auto_end) {
                     setGameDuration(game.game_duration);
                     if (game.status === "active") {
@@ -115,9 +115,9 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                 }
             ).subscribe();
 
-        // Obtener el conteo inicial
+        // Obtener el conteo inicial (usar Math.max para no sobreescribir eventos RT que ya llegaron)
         supabase.from('game_players').select('*', { count: 'exact', head: true }).eq('game_id', gameId).gte('current_position', 0).then(({ count }) => {
-            setPlayerCount(count || 0);
+            setPlayerCount(prev => Math.max(prev, count || 0));
         });
 
         return () => { supabase.removeChannel(channel); };
@@ -464,7 +464,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                         </div>
                     </div>
                 ) : gameMode === 'bomb' ? (
-                    <BombGameBoard gameId={gameId} players={[]} totalQuestions={0} />
+                    <BombGameBoard gameId={gameId} />
                 ) : (
                     <GameBoard gameId={gameId} />
                 )}

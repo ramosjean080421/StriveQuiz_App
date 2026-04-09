@@ -37,8 +37,6 @@ function sessionAccuracy(players: PlayerResult[]): number {
 const MEDAL: Record<number, string> = { 0: "🥇", 1: "🥈", 2: "🥉" };
 
 const MODE_LABEL: Record<string, string> = {
-    roblox: "🏝️ Obby",
-    memory: "🧠 Memoria",
     classic: "🏆 Clásico",
     race: "🏎️ Carreras",
     ludo: "🎲 Ludo",
@@ -80,6 +78,7 @@ export default function QuizReportsPage({ params }: { params: Promise<{ quizId: 
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [gameToDelete, setGameToDelete] = useState<string | null>(null);
     const [deleting, setDeleting]         = useState(false);
+    const [detailTab, setDetailTab]       = useState<'ranking' | 'precision'>('ranking');
 
     // ── Fix #1: Un solo fetch en lugar de N+1 queries ───────────────────────
     useEffect(() => {
@@ -321,11 +320,114 @@ export default function QuizReportsPage({ params }: { params: Promise<{ quizId: 
                                             </div>
                                         </div>
 
-                                        {/* Fix #6: Resumen visual de rendimiento */}
-                                        {selectedGame.players.length > 0 && (
-                                            <div className="px-6 sm:px-8 pt-6 pb-2">
-                                                <h4 className="text-xs font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-3">Distribución de Precisión</h4>
-                                                <div className="flex flex-col gap-1.5">
+                                        {/* Pestañas */}
+                                        <div className="px-6 sm:px-8 pt-5 pb-0 no-print">
+                                            <div className="flex gap-2 bg-gray-100 dark:bg-slate-800 p-1 rounded-2xl w-fit">
+                                                <button
+                                                    onClick={() => setDetailTab('ranking')}
+                                                    className={`px-5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                                                        detailTab === 'ranking'
+                                                            ? 'bg-indigo-600 text-white shadow-md'
+                                                            : 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200'
+                                                    }`}
+                                                >
+                                                    🏆 Ranking
+                                                </button>
+                                                <button
+                                                    onClick={() => setDetailTab('precision')}
+                                                    className={`px-5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                                                        detailTab === 'precision'
+                                                            ? 'bg-indigo-600 text-white shadow-md'
+                                                            : 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200'
+                                                    }`}
+                                                >
+                                                    📊 Precisión
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Contenido de la pestaña activa */}
+                                        {detailTab === 'ranking' && (
+                                            <div className="p-6 sm:p-8 pt-4">
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full text-left">
+                                                        <thead>
+                                                            <tr className="text-xs font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest border-b border-gray-100 dark:border-slate-800">
+                                                                <th className="pb-3 px-2 text-center">#</th>
+                                                                <th className="pb-3">Estudiante</th>
+                                                                <th className="pb-3 text-center">✅</th>
+                                                                <th className="pb-3 text-center">❌</th>
+                                                                <th className="pb-3 text-center">Precisión</th>
+                                                                <th className="pb-3 text-right">Puntaje</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-gray-50 dark:divide-slate-800">
+                                                            {selectedGame.players.map((player, idx) => {
+                                                                const acc = accuracy(player);
+                                                                return (
+                                                                    <tr key={idx} className="hover:bg-gray-50/60 dark:hover:bg-slate-800/40 transition-colors">
+                                                                        <td className="py-3 px-2 text-center">
+                                                                            {MEDAL[idx] ? (
+                                                                                <span className="text-lg">{MEDAL[idx]}</span>
+                                                                            ) : (
+                                                                                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-black text-gray-400 dark:text-slate-500 bg-gray-100 dark:bg-slate-800">
+                                                                                    {idx + 1}
+                                                                                </span>
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="py-3">
+                                                                            <div className="flex items-center gap-2.5">
+                                                                                <Avatar url={player.avatar_gif_url} name={player.player_name} />
+                                                                                <span className="font-bold text-gray-800 dark:text-slate-200">{player.player_name}</span>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="py-3 text-center">
+                                                                            <span className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-2.5 py-1 rounded-full text-xs font-black border border-emerald-100 dark:border-emerald-800">
+                                                                                {player.correct_answers || 0}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td className="py-3 text-center">
+                                                                            <span className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2.5 py-1 rounded-full text-xs font-black border border-red-100 dark:border-red-800">
+                                                                                {player.incorrect_answers || 0}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td className="py-3 text-center">
+                                                                            <div className="flex items-center justify-center gap-1.5">
+                                                                                <div className="w-14 h-1.5 bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                                                                    <div
+                                                                                        className={`h-full rounded-full ${acc >= 70 ? "bg-emerald-500" : acc >= 40 ? "bg-amber-400" : "bg-red-400"}`}
+                                                                                        style={{ width: `${acc}%` }}
+                                                                                    />
+                                                                                </div>
+                                                                                <span className={`text-xs font-black ${acc >= 70 ? "text-emerald-600 dark:text-emerald-400" : acc >= 40 ? "text-amber-600 dark:text-amber-400" : "text-red-500"}`}>
+                                                                                    {acc}%
+                                                                                </span>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="py-3 text-right">
+                                                                            <span className="font-black text-indigo-600 dark:text-indigo-400 text-lg">{player.score || 0}</span>
+                                                                            <span className="text-[10px] text-gray-400 font-bold ml-1 uppercase">pts</span>
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                                <div className="mt-6 flex justify-end no-print">
+                                                    <button
+                                                        onClick={() => window.print()}
+                                                        className="flex items-center gap-2 px-5 py-2.5 bg-slate-700 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-black rounded-xl transition-all shadow-md active:scale-95 border-b-4 border-slate-900 dark:border-slate-900 text-xs uppercase tracking-wider"
+                                                    >
+                                                        🖨️ Imprimir / Guardar PDF
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {detailTab === 'precision' && selectedGame.players.length > 0 && (
+                                            <div className="px-6 sm:px-8 pt-5 pb-8">
+                                                <div className="flex flex-col gap-2">
                                                     {selectedGame.players.map((p, i) => {
                                                         const acc = accuracy(p);
                                                         const total = (p.correct_answers || 0) + (p.incorrect_answers || 0);
@@ -347,87 +449,6 @@ export default function QuizReportsPage({ params }: { params: Promise<{ quizId: 
                                                 </div>
                                             </div>
                                         )}
-
-                                        {/* Tabla de jugadores */}
-                                        <div className="p-6 sm:p-8 pt-4">
-                                            <h4 className="text-xs font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-4">Ranking Detallado</h4>
-                                            <div className="overflow-x-auto">
-                                                <table className="w-full text-left">
-                                                    <thead>
-                                                        <tr className="text-xs font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest border-b border-gray-100 dark:border-slate-800">
-                                                            <th className="pb-3 px-2 text-center">#</th>
-                                                            <th className="pb-3">Estudiante</th>
-                                                            <th className="pb-3 text-center">✅</th>
-                                                            <th className="pb-3 text-center">❌</th>
-                                                            <th className="pb-3 text-center">Precisión</th>
-                                                            <th className="pb-3 text-right">Puntaje</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-gray-50 dark:divide-slate-800">
-                                                        {selectedGame.players.map((player, idx) => {
-                                                            const acc = accuracy(player);
-                                                            return (
-                                                                <tr key={idx} className="hover:bg-gray-50/60 dark:hover:bg-slate-800/40 transition-colors">
-                                                                    <td className="py-3 px-2 text-center">
-                                                                        {MEDAL[idx] ? (
-                                                                            <span className="text-lg">{MEDAL[idx]}</span>
-                                                                        ) : (
-                                                                            <span className="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-black text-gray-400 dark:text-slate-500 bg-gray-100 dark:bg-slate-800">
-                                                                                {idx + 1}
-                                                                            </span>
-                                                                        )}
-                                                                    </td>
-                                                                    <td className="py-3">
-                                                                        <div className="flex items-center gap-2.5">
-                                                                            {/* Fix #4: Avatar con fallback */}
-                                                                            <Avatar url={player.avatar_gif_url} name={player.player_name} />
-                                                                            <span className="font-bold text-gray-800 dark:text-slate-200">{player.player_name}</span>
-                                                                        </div>
-                                                                    </td>
-                                                                    <td className="py-3 text-center">
-                                                                        <span className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-2.5 py-1 rounded-full text-xs font-black border border-emerald-100 dark:border-emerald-800">
-                                                                            {player.correct_answers || 0}
-                                                                        </span>
-                                                                    </td>
-                                                                    <td className="py-3 text-center">
-                                                                        <span className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2.5 py-1 rounded-full text-xs font-black border border-red-100 dark:border-red-800">
-                                                                            {player.incorrect_answers || 0}
-                                                                        </span>
-                                                                    </td>
-                                                                    <td className="py-3 text-center">
-                                                                        <div className="flex items-center justify-center gap-1.5">
-                                                                            <div className="w-14 h-1.5 bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                                                                <div
-                                                                                    className={`h-full rounded-full ${acc >= 70 ? "bg-emerald-500" : acc >= 40 ? "bg-amber-400" : "bg-red-400"}`}
-                                                                                    style={{ width: `${acc}%` }}
-                                                                                />
-                                                                            </div>
-                                                                            <span className={`text-xs font-black ${acc >= 70 ? "text-emerald-600 dark:text-emerald-400" : acc >= 40 ? "text-amber-600 dark:text-amber-400" : "text-red-500"}`}>
-                                                                                {acc}%
-                                                                            </span>
-                                                                        </div>
-                                                                    </td>
-                                                                    <td className="py-3 text-right">
-                                                                        <span className="font-black text-indigo-600 dark:text-indigo-400 text-lg">{player.score || 0}</span>
-                                                                        <span className="text-[10px] text-gray-400 font-bold ml-1 uppercase">pts</span>
-                                                                    </td>
-                                                                </tr>
-                                                            );
-                                                        })}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-
-                                            {/* Fix #5: Botón de impresión mejorado */}
-                                            <div className="mt-6 flex justify-end no-print">
-                                                <button
-                                                    onClick={() => window.print()}
-                                                    className="flex items-center gap-2 px-5 py-2.5 bg-slate-700 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-black rounded-xl transition-all shadow-md active:scale-95 border-b-4 border-slate-900 dark:border-slate-900 text-xs uppercase tracking-wider"
-                                                >
-                                                    🖨️ Imprimir / Guardar PDF
-                                                </button>
-                                            </div>
-                                        </div>
                                     </div>
                                 ) : (
                                     <div className="h-full min-h-[400px] flex flex-col items-center justify-center bg-gray-100/50 dark:bg-slate-900/40 rounded-[2.5rem] border-4 border-dashed border-gray-200 dark:border-slate-800 p-12 text-center text-gray-400">

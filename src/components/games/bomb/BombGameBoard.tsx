@@ -18,18 +18,8 @@ function seededShuffle<T>(arr: T[], seed: string): T[] {
 
 import { supabase } from "@/lib/supabaseClient";
 
-type Player = {
-    id: string;
-    player_name: string;
-    avatar_gif_url: string;
-    current_position: number;
-    score: number;
-};
-
 interface BombGameBoardProps {
     gameId: string;
-    players: Player[];
-    totalQuestions: number;
 }
 
 export default function BombGameBoard({ gameId }: BombGameBoardProps) {

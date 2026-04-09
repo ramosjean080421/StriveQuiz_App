@@ -92,23 +92,32 @@ export default function ConnectedPlayersModal({ gameId, isOpen, onClose, onPlaye
 
     const handleKick = async (playerId: string) => {
         setKickingId(playerId);
+        // Optimistic: ocultar de la lista de inmediato
         setPlayers(prev => prev.filter(p => p.id !== playerId));
         onPlayerKicked?.();
 
         try {
-            // Eliminar de la base de datos.
-            // Esto dispara un evento DELETE en tiempo real, 
-            // el cual es atrapado por la pantalla del alumno y lo expulsa.
-            // 1. Forzar señal letal de expulsión lógica (-999)
-            await supabase.from("game_players").update({ current_position: -999 }).eq("id", playerId);
-            
-            // 2. Retrasamos el delete 1s para que el payload llegue a la TV y el Alumno reaccione antes de que la fila desaparezca
-            setTimeout(async () => {
-                await supabase.from("game_players").delete().eq("id", playerId);
-            }, 1200);
+            // 1. Señal letal (-999): el alumno ve la pantalla de expulsión antes de que se borre el registro
+            const { error: updateError } = await supabase
+                .from("game_players").update({ current_position: -999 }).eq("id", playerId);
+
+            if (updateError) throw updateError;
+
+            // 2. Borrar el registro después de que el alumno reaccione al -999
+            await new Promise(resolve => setTimeout(resolve, 1200));
+            const { error: deleteError } = await supabase
+                .from("game_players").delete().eq("id", playerId);
+
+            if (deleteError) throw deleteError;
         } catch (error) {
             console.error("Error al expulsar al jugador:", error);
             alert("Hubo un error al intentar expulsar al usuario.");
+            // Revertir: volver a mostrar al jugador en la lista
+            const { data: restored } = await supabase
+                .from("game_players")
+                .select("id, player_name, avatar_gif_url, current_position, score")
+                .eq("id", playerId).single();
+            if (restored) setPlayers(prev => [...prev, restored as Player]);
         } finally {
             setKickingId(null);
         }
