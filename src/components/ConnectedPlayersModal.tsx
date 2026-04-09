@@ -23,21 +23,31 @@ export default function ConnectedPlayersModal({ gameId, isOpen, onClose, onPlaye
     const [loading, setLoading] = useState(true);
     const [kickingId, setKickingId] = useState<string | null>(null);
 
-    // Detección de duplicados basada en palabras clave
+    // Detección de posibles duplicados por coincidencia parcial de tokens
+    // Captura: nombres exactos, abreviaciones ("Fede" vs "Federico") y apellidos compartidos ("Valverde")
     const detectDuplicates = (playerList: Player[]) => {
         const duplicates = new Set<string>();
-        
+
+        // Solo tokens con 3+ caracteres para evitar falsos positivos con palabras cortas ("de", "la", etc.)
+        const tokenize = (name: string) =>
+            name.toLowerCase().trim().split(/\s+/).filter(t => t.length >= 3);
+
         for (let i = 0; i < playerList.length; i++) {
-            const p1 = playerList[i];
-            const name1Tokens = p1.player_name.toLowerCase().trim().split(/\s+/).sort().join(" ");
-            
+            const tokens1 = tokenize(playerList[i].player_name);
+
             for (let j = i + 1; j < playerList.length; j++) {
-                const p2 = playerList[j];
-                const name2Tokens = p2.player_name.toLowerCase().trim().split(/\s+/).sort().join(" ");
-                
-                if (name1Tokens === name2Tokens && name1Tokens !== "") {
-                    duplicates.add(p1.id);
-                    duplicates.add(p2.id);
+                const tokens2 = tokenize(playerList[j].player_name);
+
+                // Hay coincidencia si algún token de uno empieza con el token del otro (o viceversa)
+                // Ej: "fede" es prefijo de "federico" → posible duplicado
+                // Ej: "valverde" aparece en ambos → posible duplicado
+                const hasMatch = tokens1.some(t1 =>
+                    tokens2.some(t2 => t1.startsWith(t2) || t2.startsWith(t1))
+                );
+
+                if (hasMatch) {
+                    duplicates.add(playerList[i].id);
+                    duplicates.add(playerList[j].id);
                 }
             }
         }

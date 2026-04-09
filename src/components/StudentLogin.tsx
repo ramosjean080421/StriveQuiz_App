@@ -50,7 +50,25 @@ export default function StudentLogin() {
                 throw new Error("La partida ya ha finalizado.");
             }
 
-            // 2. Registrar al estudiante en la tabla 'game_players'
+            // 2. Verificar si ya existe un jugador con el mismo nombre en esta partida
+            const normalizedName = playerName.toLowerCase().trim().split(/\s+/).sort().join(" ");
+            const { data: existingPlayers } = await supabase
+                .from("game_players")
+                .select("player_name")
+                .eq("game_id", game.id)
+                .gte("current_position", 0);
+
+            if (existingPlayers) {
+                const isDuplicate = existingPlayers.some(p => {
+                    const existing = p.player_name.toLowerCase().trim().split(/\s+/).sort().join(" ");
+                    return existing === normalizedName;
+                });
+                if (isDuplicate) {
+                    throw new Error("Ya hay un jugador con ese nombre en la sala. Elige otro apodo.");
+                }
+            }
+
+            // 3. Registrar al estudiante en la tabla 'game_players'
             const { data: player, error: playerError } = await supabase
                 .from("game_players")
                 .insert([
@@ -67,13 +85,13 @@ export default function StudentLogin() {
 
             if (playerError) throw playerError;
 
-            // 3. Guardar en el dispositivo la ID del jugador y su token secreto (para interactuar en partida de forma segura)
+            // 4. Guardar en el dispositivo la ID del jugador y su token secreto (para interactuar en partida de forma segura)
             sessionStorage.setItem("currentPlayerId", player.id);
             if (player.secret_token) {
                 sessionStorage.setItem("playerSecret", player.secret_token);
             }
 
-            // 4. Redirigir al área de juego del estudiante
+            // 5. Redirigir al área de juego del estudiante
             router.push(`/player/play/${game.id}`);
 
         } catch (err: any) {

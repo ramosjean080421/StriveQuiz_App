@@ -1,7 +1,7 @@
 "use client";
 
 // Vista móvil del Estudiante durante una partida activa
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, use, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import BombPlayerView from "@/components/games/bomb/BombPlayerView";
 
@@ -41,6 +41,46 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     // Sistema Anti-Trampas
     const [isBlurred, setIsBlurred] = useState(false);
 
+    // Refs siempre actualizados (evitan stale closures en eventos del navegador)
+    const gameStatusRef = useRef("waiting");
+    useEffect(() => { gameStatusRef.current = gameStatus; }, [gameStatus]);
+    const playerIdRef = useRef<string | null>(null);
+    useEffect(() => { playerIdRef.current = playerId; }, [playerId]);
+    const playerSecretRef = useRef<string | null>(null);
+    useEffect(() => { playerSecretRef.current = playerSecret; }, [playerSecret]);
+    // Evitar llamadas simultáneas a lockPlayer (blur + visibilitychange pueden disparar al mismo tiempo)
+    const isLockingRef = useRef(false);
+
+    // Anti-trampas: marcar al alumno como bloqueado en la BD
+    const lockPlayer = useCallback(async () => {
+        // Mutex: evita llamadas simultáneas (blur + visibilitychange disparan al mismo tiempo)
+        if (isLockingRef.current) return;
+        isLockingRef.current = true;
+        setIsBlurred(true);
+
+        const id = playerIdRef.current || sessionStorage.getItem("currentPlayerId");
+        const secret = playerSecretRef.current || sessionStorage.getItem("playerSecret");
+
+        if (id) {
+            // Intentar con secret_token primero (más seguro)
+            const { count } = await supabase.from("game_players")
+                .update({ is_blocked: true }, { count: 'exact' })
+                .eq("id", id)
+                .eq("secret_token", secret ?? "");
+
+            // Si el secret no coincidió (0 filas afectadas), actualizar solo por id como fallback
+            if (!count || count === 0) {
+                await supabase.from("game_players")
+                    .update({ is_blocked: true })
+                    .eq("id", id);
+            }
+        }
+
+        // Liberar el mutex al terminar (no usar cooldown — si el docente perdona y el alumno
+        // vuelve a cambiar de pestaña debe llegar una nueva alerta inmediatamente)
+        isLockingRef.current = false;
+    }, []);
+
     // Reproductor de efectos integrados
     const playSound = (type: "correct" | "incorrect" | "timeout") => {
         try {
@@ -70,77 +110,64 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         } catch (e) { }
     };
 
-    // Sistema anti cerrado accidental + descarga descarga datos
+    // Aviso anti-cierre accidental durante partida activa
     useEffect(() => {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-            // Permitir salida inmediata si fue expulsado por sistema
             if (sessionStorage.getItem("isKicked") === "true") return;
-
-            if ((gameStatus === "active" || gameStatus === "paused") && !hasFinishedAll) {
+            if ((gameStatusRef.current === "active" || gameStatusRef.current === "paused") && !hasFinishedAll) {
                 e.preventDefault();
             }
         };
-
-        const handleUnload = () => {
-            // 🛑 Solo borrar si están en la Sala de Espera (Lobby).
-            // Si la partida ya inició ("active"), se preservan sus datos y respuestas.
-            if (gameStatus !== "waiting") return;
-
-            const savedPlayerId = sessionStorage.getItem("currentPlayerId");
-            const savedSecret = sessionStorage.getItem("playerSecret");
-            if (savedPlayerId && savedSecret) {
-                const data = JSON.stringify({ id: savedPlayerId, secret: savedSecret });
-                fetch('/api/leave_player', {
-                    method: 'POST',
-                    keepalive: true,
-                    headers: { 'Content-Type': 'application/json' },
-                    body: data
-                });
-            }
-        };
-
         window.addEventListener("beforeunload", handleBeforeUnload);
-        window.addEventListener("pagehide", handleUnload);
-        window.addEventListener("unload", handleUnload);
+        return () => { window.removeEventListener("beforeunload", handleBeforeUnload); };
+    }, [hasFinishedAll]);
 
-        return () => {
-            window.removeEventListener("beforeunload", handleBeforeUnload);
-            window.removeEventListener("pagehide", handleUnload);
-            window.removeEventListener("unload", handleUnload);
-        };
-    }, [gameStatus, hasFinishedAll]);
+    // Canal de presencia dedicado — el tablero detecta si el alumno cerró el navegador
+    // (tab switch, minimizar, actualizar = NO se borran; solo cierre real de navegador)
+    useEffect(() => {
+        const savedPlayerId = sessionStorage.getItem("currentPlayerId");
+        const savedSecret = sessionStorage.getItem("playerSecret");
+        if (!savedPlayerId || !savedSecret) return;
+
+        const presenceChannel = supabase.channel(`game_${gameId}`)
+            .subscribe(async (status) => {
+                if (status === "SUBSCRIBED") {
+                    await presenceChannel.track({ player_id: savedPlayerId, secret: savedSecret });
+                }
+            });
+
+        return () => { supabase.removeChannel(presenceChannel); };
+    }, [gameId]);
 
     // Lógica Anti-Trampas (Blur, Copiar, Menú contextual)
+    // Deps vacíos: lockPlayer y gameStatusRef.current siempre son actuales gracias a los refs
     useEffect(() => {
-        const lockPlayer = async () => {
-            setIsBlurred(true);
-            if (playerId && playerSecret) {
-                await supabase.from("game_players").update({ is_blocked: true }).eq("id", playerId).eq("secret_token", playerSecret);
-            }
-        };
-
         const handleBlur = () => {
-            if (gameStatus === "active") lockPlayer();
+            if (gameStatusRef.current === "active") lockPlayer();
         };
         const handleVisibilityChange = () => {
-            if (document.hidden && gameStatus === "active") lockPlayer();
+            if (document.hidden && gameStatusRef.current === "active") lockPlayer();
         };
-        const preventCopy = (e: Event) => e.preventDefault();
+        const handleCheatAction = (e: Event) => {
+            e.preventDefault();
+            // Además de bloquear la acción, avisar al docente
+            if (gameStatusRef.current === "active") lockPlayer();
+        };
 
         window.addEventListener("blur", handleBlur);
         document.addEventListener("visibilitychange", handleVisibilityChange);
-        document.addEventListener("contextmenu", preventCopy);
-        document.addEventListener("copy", preventCopy);
-        document.addEventListener("cut", preventCopy);
+        document.addEventListener("contextmenu", handleCheatAction);
+        document.addEventListener("copy", handleCheatAction);
+        document.addEventListener("cut", handleCheatAction);
 
         return () => {
             window.removeEventListener("blur", handleBlur);
             document.removeEventListener("visibilitychange", handleVisibilityChange);
-            document.removeEventListener("contextmenu", preventCopy);
-            document.removeEventListener("copy", preventCopy);
-            document.removeEventListener("cut", preventCopy);
+            document.removeEventListener("contextmenu", handleCheatAction);
+            document.removeEventListener("copy", handleCheatAction);
+            document.removeEventListener("cut", handleCheatAction);
         };
-    }, [gameStatus, playerId, playerSecret]);
+    }, [lockPlayer]);
 
     // Cronómetro visualmente visual
     useEffect(() => {
@@ -298,18 +325,30 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                     }
                 }
             )
-            .subscribe(async (status) => {
-                if (status === "SUBSCRIBED") {
-                    const savedPlayerId = sessionStorage.getItem("currentPlayerId");
-                    if (savedPlayerId) {
-                        const savedSecret = sessionStorage.getItem("playerSecret");
-                        await channel.track({ player_id: savedPlayerId, secret: savedSecret });
-                    }
-                }
-            });
+            .subscribe();
 
         return () => { supabase.removeChannel(channel); };
     }, [gameId]);
+
+    // 4b. Fallback: si el estudiante no recibió el evento Realtime del inicio del juego
+    // (lag de red, reconexión, etc.), chequea el DB cada 4 segundos mientras está en "waiting".
+    useEffect(() => {
+        if (gameStatus !== "waiting") return;
+
+        const interval = setInterval(async () => {
+            const { data: game } = await supabase
+                .from("games")
+                .select("status, game_mode")
+                .eq("id", gameId)
+                .single();
+            if (game && game.status !== "waiting") {
+                setGameStatus(game.status);
+                if (game.game_mode) setGameMode(game.game_mode as any);
+            }
+        }, 4000);
+
+        return () => clearInterval(interval);
+    }, [gameStatus, gameId]);
 
     // 4. Re-obtener preguntas si el juego pasa a 'active' (Las preguntas no cargan de inicio por las políticas de seguridad de lectura)
     useEffect(() => {

@@ -38,6 +38,11 @@ export default function GameBoard({ gameId }: GameBoardProps) {
     const boardPathRef = useRef<BoardCoordinate[]>([]);
     useEffect(() => { boardPathRef.current = boardPath; }, [boardPath]);
 
+    // Estado del juego para el sistema de presencia (solo borrar en lobby)
+    const gameStatusRef = useRef<string>("waiting");
+    // Timers pendientes de borrado (cancelables si el alumno reconecta por refresh)
+    const pendingLeaveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
     useEffect(() => {
         const fetchGameData = async () => {
             const { data: gameConfig } = await supabase.from("games").select(`game_mode, quiz_id, quizzes (board_image_url, board_path, ludo_teams_count)`).eq("id", gameId).single();
@@ -56,12 +61,16 @@ export default function GameBoard({ gameId }: GameBoardProps) {
         const channel = supabase.channel(`game_${gameId}`, {
             config: { presence: { key: "board" } }
         })
+            .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games", filter: `id=eq.${gameId}` }, (payload) => {
+                // Rastrear estado del juego para el sistema de presencia
+                gameStatusRef.current = payload.new.status;
+            })
             .on("postgres_changes", { event: "INSERT", schema: "public", table: "game_players", filter: `game_id=eq.${gameId}` }, (payload) => {
                 setPlayers((prev) => [...prev, payload.new as Player]);
             })
             .on("postgres_changes", { event: "UPDATE", schema: "public", table: "game_players", filter: `game_id=eq.${gameId}` }, (payload) => {
                 const newPlayer = payload.new as Player & { correct_answers?: number, incorrect_answers?: number, game_id?: string };
-                
+
                 // Si el alumno se salda voluntariamente o es expulsado (< 0), lo removemos
                 if (newPlayer.current_position < 0) {
                     setPlayers((prev) => prev.filter(p => p.id !== newPlayer.id));
@@ -69,7 +78,7 @@ export default function GameBoard({ gameId }: GameBoardProps) {
                 }
 
                 const oldPlayer = playersRef.current.find(p => p.id === newPlayer.id);
-                
+
                 if (oldPlayer) {
                     // Detectar si fue "comido" (regresado a 0 desde una posición positiva)
                     if (newPlayer.current_position === 0 && oldPlayer.current_position > 0) {
@@ -77,40 +86,84 @@ export default function GameBoard({ gameId }: GameBoardProps) {
                         setEatenAnim({ playerId: newPlayer.id, x: 50, y: 50 }); // Temporal coords
                         setTimeout(() => setEatenAnim(null), 1000);
                     }
-                    
+
                 }
                 setPlayers((prev) => prev.map((p) => p.id === payload.new.id ? (payload.new as Player) : p));
             })
             .on("postgres_changes", { event: "DELETE", schema: "public", table: "game_players", filter: `game_id=eq.${gameId}` }, (payload) => {
                 setPlayers((prev) => prev.filter((p) => p.id !== payload.old.id));
             })
+            .on("presence", { event: "join" }, ({ newPresences }) => {
+                // Si el alumno reconectó (ej: actualizó la página), cancelar su timer de borrado
+                newPresences.forEach((p: any) => {
+                    const id = p.player_id || p.state?.player_id || p.state?.[0]?.player_id;
+                    if (id && pendingLeaveTimers.current.has(id)) {
+                        clearTimeout(pendingLeaveTimers.current.get(id)!);
+                        pendingLeaveTimers.current.delete(id);
+                        console.log(`[PRESENCE_JOIN] Alumno reconectó, borrado cancelado: ${id}`);
+                    }
+                });
+            })
             .on("presence", { event: "leave" }, ({ leftPresences }) => {
-                leftPresences.forEach(async (p: any) => {
-                    // Soporte para lectura plana, objeto o array en .state
+                leftPresences.forEach((p: any) => {
                     const id = p.player_id || p.state?.player_id || p.state?.[0]?.player_id;
                     const secret = p.secret || p.state?.secret || p.state?.[0]?.secret;
                     const name = p.player_name || p.state?.player_name || p.state?.[0]?.player_name;
 
                     if (id && secret) {
-                        try {
-                            console.log(`[PRESENCE_LEAVE] Borrando alumno definitivo: ${name || id}`);
-                            
-                            // Usar la ruta API segura que ejecuta el borrado definitivo en servidor para reportes
+                        // Esperar 15 segundos antes de borrar:
+                        // - Refresh de página: reconecta en ~2-5s → timer se cancela en "join"
+                        // - Cierre real de navegador: no reconecta → se borra después del timeout
+                        // - Solo borrar si el juego sigue en "waiting" (lobby)
+                        const timer = setTimeout(() => {
+                            pendingLeaveTimers.current.delete(id);
+                            if (gameStatusRef.current !== "waiting") return;
+                            console.log(`[PRESENCE_LEAVE] Alumno no reconectó, eliminando: ${name || id}`);
                             fetch('/api/leave_player', {
                                 method: 'POST',
                                 keepalive: true,
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ id, secret })
                             });
-
-                            // Dejar EXACTAMENTE igual el borrado de la lista local (que ya funciona bien)
                             setPlayers((prev) => prev.filter(pl => pl.id !== id));
-                        } catch (e) { console.error("Error on presence leave delete:", e); }
+                        }, 15000);
+                        pendingLeaveTimers.current.set(id, timer);
+                        console.log(`[PRESENCE_LEAVE] Alumno desconectado, esperando 15s: ${name || id}`);
                     }
                 });
             })
             .subscribe();
-        return () => { supabase.removeChannel(channel); };
+        return () => {
+            supabase.removeChannel(channel);
+            // Limpiar timers pendientes al desmontar
+            pendingLeaveTimers.current.forEach(timer => clearTimeout(timer));
+            pendingLeaveTimers.current.clear();
+        };
+    }, [gameId]);
+
+    // Polling de seguridad: si Supabase Realtime pierde un evento de is_blocked,
+    // el tablero lo detecta en máximo 4 segundos consultando la BD directamente.
+    useEffect(() => {
+        const poll = setInterval(async () => {
+            const { data } = await supabase
+                .from("game_players")
+                .select("id, is_blocked")
+                .eq("game_id", gameId);
+            if (!data) return;
+            setPlayers(prev => {
+                let changed = false;
+                const next = prev.map(p => {
+                    const fresh = data.find(d => d.id === p.id);
+                    if (fresh && !!fresh.is_blocked !== !!p.is_blocked) {
+                        changed = true;
+                        return { ...p, is_blocked: fresh.is_blocked };
+                    }
+                    return p;
+                });
+                return changed ? next : prev;
+            });
+        }, 4000);
+        return () => clearInterval(poll);
     }, [gameId]);
 
     // Efecto para que los avatares "caminen" casilla a casilla (Corregido: Evita carrera de estados)
