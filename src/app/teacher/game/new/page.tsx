@@ -21,6 +21,7 @@ function StartGameContent() {
     const [enableQuestionTimer, setEnableQuestionTimer] = useState(true);
     const [gameMode, setGameMode] = useState<'classic' | 'race' | 'bomb' | 'mario'>('classic');
     const [marioDifficulty, setMarioDifficulty] = useState<number>(1); // 0 = Práctica, 1 = Normal, 2 = Extremo
+    const [marioIsGrupal, setMarioIsGrupal] = useState<boolean>(false);
 
     const [dataLoaded, setDataLoaded] = useState(false);
     const [totalQuestions, setTotalQuestions] = useState(0);
@@ -84,6 +85,7 @@ function StartGameContent() {
                 game_duration: (enableGameTimer && !autoEnd) ? gameDuration : null,
                 question_duration: ['bomb', 'mario'].includes(gameMode) ? (enableQuestionTimer ? questionDuration : 15) : (enableQuestionTimer ? questionDuration : 0),
                 bonus_time_per_match: gameMode === 'mario' ? marioDifficulty : null,
+                team_distribution_mode: gameMode === 'mario' ? (marioIsGrupal ? 'multiplayer' : 'individual') : null,
                 boss_hp: ['bomb', 'mario'].includes(gameMode) ? (Number(bombQuestionCount) || 10) : 0
             };
 
@@ -276,13 +278,34 @@ function StartGameContent() {
                             <select 
                                 value={marioDifficulty}
                                 onChange={(e) => setMarioDifficulty(Number(e.target.value))}
-                                className="w-full bg-black/40 border border-indigo-400/50 rounded-xl px-4 py-3 text-white text-sm font-black focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 cursor-pointer appearance-none text-center"
+                                className="w-full bg-black/40 border border-indigo-400/50 rounded-xl px-4 py-3 text-white text-sm font-black focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 cursor-pointer appearance-none text-center mb-4"
                                 style={{ textAlignLast: 'center' }}
                             >
                                 <option value={0}>🟢 Práctica (Solo Goombas)</option>
                                 <option value={1}>🟡 Normal (Goombas + Koopas)</option>
                                 <option value={2}>🔴 Extremo (Goombas, Koopas + Bill Balas)</option>
                             </select>
+
+                            <span className="text-xs font-black text-indigo-300 uppercase tracking-widest block px-1 mt-4 drop-shadow-md pt-2 border-t border-indigo-500/30">
+                                👥 Integración Multi-Jugador
+                            </span>
+                            <p className="text-[10px] text-indigo-200/70 font-bold px-1 mb-2">
+                                Grupal: Verán los avatares de todos corriendo localmente pero las preguntas cambian por jugador.
+                            </p>
+                            <div className="flex gap-2 w-full">
+                                <button 
+                                    onClick={() => setMarioIsGrupal(false)} 
+                                    className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase transition-all duration-300 border-2 ${!marioIsGrupal ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg shadow-indigo-500/30' : 'bg-transparent border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10'}`}
+                                >
+                                    👤 Individual
+                                </button>
+                                <button 
+                                    onClick={() => setMarioIsGrupal(true)} 
+                                    className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase transition-all duration-300 border-2 ${marioIsGrupal ? 'bg-pink-600 border-pink-400 text-white shadow-lg shadow-pink-500/30' : 'bg-transparent border-pink-500/30 text-pink-300 hover:bg-pink-500/10'}`}
+                                >
+                                    🌐 Grupal
+                                </button>
+                            </div>
                         </div>
                     )}
 

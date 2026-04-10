@@ -21,7 +21,7 @@ interface Player {
 export default function ConnectedPlayersModal({ gameId, isOpen, onClose, onPlayerKicked }: ConnectedPlayersModalProps) {
     const [players, setPlayers] = useState<Player[]>([]);
     const [loading, setLoading] = useState(true);
-    const [kickingId, setKickingId] = useState<string | null>(null);
+    const [kickingIds, setKickingIds] = useState<Set<string>>(new Set());
 
     // Detección de posibles duplicados por coincidencia parcial de tokens
     // Captura: nombres exactos, abreviaciones ("Fede" vs "Federico") y apellidos compartidos ("Valverde")
@@ -101,7 +101,8 @@ export default function ConnectedPlayersModal({ gameId, isOpen, onClose, onPlaye
     }, [gameId, isOpen]);
 
     const handleKick = async (playerId: string) => {
-        setKickingId(playerId);
+        // Marcar este jugador como "en proceso de expulsión" sin afectar a otros
+        setKickingIds(prev => new Set(prev).add(playerId));
         // Optimistic: ocultar de la lista de inmediato
         setPlayers(prev => prev.filter(p => p.id !== playerId));
         onPlayerKicked?.();
@@ -129,7 +130,12 @@ export default function ConnectedPlayersModal({ gameId, isOpen, onClose, onPlaye
                 .eq("id", playerId).single();
             if (restored) setPlayers(prev => [...prev, restored as Player]);
         } finally {
-            setKickingId(null);
+            // Limpiar solo este jugador del set, sin afectar las demás expulsiones en curso
+            setKickingIds(prev => {
+                const next = new Set(prev);
+                next.delete(playerId);
+                return next;
+            });
         }
     };
 
@@ -204,14 +210,14 @@ export default function ConnectedPlayersModal({ gameId, isOpen, onClose, onPlaye
                                     
                                     <button
                                         onClick={() => handleKick(player.id)}
-                                        disabled={kickingId === player.id}
+                                        disabled={kickingIds.has(player.id)}
                                         className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg ${
-                                            kickingId === player.id 
+                                            kickingIds.has(player.id)
                                             ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
                                             : 'bg-red-600 text-white hover:bg-red-500 active:scale-95'
                                         }`}
                                     >
-                                        {kickingId === player.id ? 'EXPULSANDO...' : 'EXPULSAR'}
+                                        {kickingIds.has(player.id) ? 'EXPULSANDO...' : 'EXPULSAR'}
                                     </button>
                                 </div>
                             );

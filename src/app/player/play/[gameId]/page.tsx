@@ -25,6 +25,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     const [gameStatus, setGameStatus] = useState("waiting");
     const [gameMode, setGameMode] = useState<'classic' | 'race' | 'bomb' | 'mario'>('classic');
     const [marioDifficulty, setMarioDifficulty] = useState(1);
+    const [isGrupal, setIsGrupal] = useState(false);
     const [players, setPlayers] = useState<any[]>([]);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -244,6 +245,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 setGameStatus(game.status);
                 setGameMode(game.game_mode as any || "classic");
                 if (game.bonus_time_per_match !== null) setMarioDifficulty(game.bonus_time_per_match);
+                setIsGrupal(game.team_distribution_mode === 'multiplayer');
                 if (game.question_duration !== undefined && game.question_duration !== null) {
                     setQuestionDuration(game.question_duration);
                     if (game.question_duration > 0) {
@@ -780,7 +782,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                         </div>
                     </div>
                 )}
-                <MarioPlayerView gameId={gameId} playerId={playerId} questions={questions} isBlurred={isBlurred} onCheatDetected={lockPlayer} difficulty={marioDifficulty} />
+                <MarioPlayerView gameId={gameId} playerId={playerId} questions={questions} isBlurred={isBlurred} onCheatDetected={lockPlayer} difficulty={marioDifficulty} isGrupal={isGrupal} />
             </>
         );
     }

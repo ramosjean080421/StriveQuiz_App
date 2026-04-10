@@ -9,9 +9,10 @@ interface MarioPlayerViewProps {
     isBlurred?: boolean;
     onCheatDetected?: () => void;
     difficulty?: number;
+    isGrupal?: boolean;
 }
 
-export default function MarioPlayerView({ gameId, playerId, questions, isBlurred, onCheatDetected, difficulty = 1 }: MarioPlayerViewProps) {
+export default function MarioPlayerView({ gameId, playerId, questions, isBlurred, onCheatDetected, difficulty = 1, isGrupal = false }: MarioPlayerViewProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [score, setScore] = useState(0);
     const [lives, setLives] = useState(() => {
@@ -202,6 +203,22 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                 gain.gain.linearRampToValueAtTime(0, now + 0.3);
                 osc.start(now); osc.stop(now + 0.3);
             }
+        }
+
+        // --- MULTIPLAYER GHOSTS SETUP ---
+        const ghostsRef = { current: {} as Record<string, any> };
+        const ghostMemes: Record<string, HTMLImageElement> = {};
+        let realtimeChannel: any = null;
+        let syncTimer = 0;
+
+        if (isGrupal && gameId) {
+            realtimeChannel = supabase.channel(`mario_sync_${gameId}`, { config: { broadcast: { self: false, ack: false } } });
+            realtimeChannel.on('broadcast', { event: 'player_move' }, (payload: any) => {
+                if (payload.payload && payload.payload.id !== playerId) {
+                    ghostsRef.current[payload.payload.id] = payload.payload;
+                }
+            });
+            realtimeChannel.subscribe();
         }
 
         const keys: Record<string, boolean> = {
@@ -488,7 +505,11 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                         }
                         if (hitWall) { e.vx *= -1; e.dir *= -1; e.timer = 0; }
                     } else if (e.type === 'bill') {
-                        if (e.x < player.x - 600) e.x = player.x + 800; // Ciclar el Bill Bala si se sale de pantalla
+                        if (e.x < player.x - 600) {
+                            e.x = player.x + 800 + Math.random() * 400; // Loop bullet bills al salir de pantalla
+                            e.y = player.y - 120 + Math.random() * 150; // Se ajusta a la altura del jugador para ser amenazante
+                            if (e.y < 50) e.y = 50; // Limite superior
+                        }
                     }
 
                     e.y += e.vy || 0;
@@ -500,19 +521,9 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                                 else if (e.vy < 0) { e.y = p.y + p.h; e.vy = 0; }
                             }
                         }
-                        if (!e.timer) e.timer = 0;
-                        e.timer++;
-                        if (e.timer > 250) { e.timer = 0; e.vx *= -1; e.dir *= -1; }
-                        
-                        // Limpieza si caen por un precipicio
-                        if (e.y > (canvas?.height || 600) + 200) e.dead = true;
-                    } else if (e.type === 'bill') {
-                        if (e.x < player.x - 600) {
-                            e.x = player.x + 800 + Math.random() * 400; // Loop bullet bills al salir de pantalla
-                            e.y = player.y - 120 + Math.random() * 150; // Se ajusta a la altura del jugador para ser amenazante
-                            if (e.y < 50) e.y = 50; // Limite superior
-                        }
                     }
+                    if (!e.timer) e.timer = 0;
+                    e.timer++;
 
                     if (!player.invulnerable && checkCollision(player, e)) {
                         if (player.vy > 0 && player.y + player.h < e.y + e.h * 0.5) {
@@ -537,6 +548,30 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                     }
                 }
                 currentLvl.enemies = currentLvl.enemies.filter((e:any) => !e.dead);
+            }
+
+            if (player.x < 0) player.x = 0;
+
+            // --- MULTIPLAYER GHOST SYNC ---
+            if (isGrupal && realtimeChannel) {
+                syncTimer++;
+                if (syncTimer > 6) { // ~10 tick/segundo
+                    syncTimer = 0;
+                    realtimeChannel.send({
+                        type: 'broadcast',
+                        event: 'player_move',
+                        payload: {
+                            id: playerId,
+                            x: player.x,
+                            y: player.y,
+                            crouching: player.crouching,
+                            lastDir: player.lastDir,
+                            color: player.color,
+                            overalls: player.overalls,
+                            avatarUrl: avatarUrl
+                        }
+                    }).catch(() => {});
+                }
             }
 
             // Partículas
@@ -851,6 +886,43 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                 }
             }
 
+            // --- DRAW GHOSTS ---
+            if (isGrupal) {
+                for (let gid in ghostsRef.current) {
+                    const g = ghostsRef.current[gid];
+                    if (Math.abs(g.x - cameraX) < 1200) { // Culling optimization
+                        ctx.save();
+                        ctx.translate(Math.floor(g.x) - cameraX, Math.floor(g.y) - 0);
+                        if (g.lastDir === -1) { ctx.scale(-1, 1); }
+                        
+                        ctx.globalAlpha = 0.5; // Efecto fantasma
+                        
+                        let gDrawY = g.crouching ? 15 : 0;
+                        const headSize = 50; 
+                        const headOffset = (headSize - 30) / 2;
+
+                        ctx.fillStyle = g.overalls; 
+                        ctx.fillRect(0, gDrawY + 25, 30, 40 - (g.crouching ? 40 : 25));
+
+                        if (g.avatarUrl) {
+                            if (!ghostMemes[gid]) {
+                                ghostMemes[gid] = new Image();
+                                ghostMemes[gid].src = g.avatarUrl;
+                            }
+                            if (ghostMemes[gid].complete) {
+                                ctx.drawImage(ghostMemes[gid], -headOffset, gDrawY - 18, headSize, headSize);
+                            } else {
+                                ctx.fillStyle = g.color; ctx.fillRect(0, gDrawY, 30, 20);
+                            }
+                        } else {
+                            ctx.fillStyle = g.color; ctx.fillRect(0, gDrawY, 30, 20);
+                        }
+
+                        ctx.restore();
+                    }
+                }
+            }
+
             // Player Simple Drawing - Cabeza Cabezona Meme
             let drawY = player.crouching ? player.y + 15 : player.y; // Baja visualmente la cabeza si está agachado
 
@@ -914,6 +986,10 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             window.removeEventListener('keydown', keydownHandler);
             window.removeEventListener('keyup', keyupHandler);
             window.removeEventListener('resize', updateCanvasMetrics);
+            if (realtimeChannel) {
+                supabase.removeChannel(realtimeChannel);
+                realtimeChannel = null;
+            }
         };
     }, [gameState, selectedCharId, avatarUrl]); // Reiniciar canvas si cambia de estado a playing o el character/avatar
 
