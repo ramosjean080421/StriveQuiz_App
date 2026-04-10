@@ -49,6 +49,9 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     useEffect(() => { playerIdRef.current = playerId; }, [playerId]);
     const playerSecretRef = useRef<string | null>(null);
     useEffect(() => { playerSecretRef.current = playerSecret; }, [playerSecret]);
+    const hasFinishedAllRef = useRef(false);
+    useEffect(() => { hasFinishedAllRef.current = hasFinishedAll; }, [hasFinishedAll]);
+
     // Evitar llamadas simultáneas a lockPlayer (blur + visibilitychange pueden disparar al mismo tiempo)
     const isLockingRef = useRef(false);
 
@@ -143,16 +146,19 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     // Lógica Anti-Trampas (Blur, Copiar, Menú contextual)
     // Deps vacíos: lockPlayer y gameStatusRef.current siempre son actuales gracias a los refs
     useEffect(() => {
+        // En modo Mario, el sistema interno del juego maneja sus propios eventos para evitar falsos positivos
+        if (gameMode === 'mario') return;
+
         const handleBlur = () => {
-            if (gameStatusRef.current === "active") lockPlayer();
+            if (gameStatusRef.current === "active" && !hasFinishedAllRef.current) lockPlayer();
         };
         const handleVisibilityChange = () => {
-            if (document.hidden && gameStatusRef.current === "active") lockPlayer();
+            if (document.hidden && gameStatusRef.current === "active" && !hasFinishedAllRef.current) lockPlayer();
         };
         const handleCheatAction = (e: Event) => {
             e.preventDefault();
             // Además de bloquear la acción, avisar al docente
-            if (gameStatusRef.current === "active") lockPlayer();
+            if (gameStatusRef.current === "active" && !hasFinishedAllRef.current) lockPlayer();
         };
 
         window.addEventListener("blur", handleBlur);
@@ -168,7 +174,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
             document.removeEventListener("copy", handleCheatAction);
             document.removeEventListener("cut", handleCheatAction);
         };
-    }, [lockPlayer]);
+    }, [lockPlayer, gameMode]);
 
     // Cronómetro visualmente visual
     useEffect(() => {
@@ -734,7 +740,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                         </div>
                     </div>
                 )}
-                <MarioPlayerView gameId={gameId} playerId={playerId} questions={questions} isBlurred={isBlurred} />
+                <MarioPlayerView gameId={gameId} playerId={playerId} questions={questions} isBlurred={isBlurred} onCheatDetected={lockPlayer} />
             </>
         );
     }

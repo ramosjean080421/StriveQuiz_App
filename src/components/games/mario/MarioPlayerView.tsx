@@ -7,9 +7,10 @@ interface MarioPlayerViewProps {
     playerId: string;
     questions: any[];
     isBlurred?: boolean;
+    onCheatDetected?: () => void;
 }
 
-export default function MarioPlayerView({ gameId, playerId, questions, isBlurred }: MarioPlayerViewProps) {
+export default function MarioPlayerView({ gameId, playerId, questions, isBlurred, onCheatDetected }: MarioPlayerViewProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [score, setScore] = useState(0);
     const [lives, setLives] = useState(3);
@@ -54,6 +55,37 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
         }
     }, [isBlurred, gameState, activeQuestion]);
 
+    // Anti-trampas interno (solo actúa si está jugando, ignora menús y win screen)
+    useEffect(() => {
+        if (gameState !== 'playing') return;
+
+        const lock = () => onCheatDetected?.();
+
+        const handleVisibilityChange = () => {
+            if (document.hidden) lock();
+        };
+        const handleCheatAction = (e: Event) => {
+            e.preventDefault();
+            lock();
+        };
+
+        window.addEventListener("blur", lock);
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+        document.addEventListener("contextmenu", handleCheatAction);
+        document.addEventListener("copy", handleCheatAction);
+        document.addEventListener("cut", handleCheatAction);
+
+        return () => {
+            window.removeEventListener("blur", lock);
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+            document.removeEventListener("contextmenu", handleCheatAction);
+            document.removeEventListener("copy", handleCheatAction);
+            document.removeEventListener("cut", handleCheatAction);
+        };
+    }, [gameState, onCheatDetected]);
+
+
+
 
 
     // Seleccionador de personaje
@@ -84,6 +116,29 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             headImg = new Image();
             headImg.src = avatarUrl;
         }
+
+        // Cachear las medidas del canvas para evitar llamar getBoundingClientRect 60 veces por segundo (causante del lag)
+        let canvasMetrics = { rect: null as DOMRect | null, scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0 };
+        function updateCanvasMetrics() {
+            if (!canvas) return;
+            const rect = canvas.getBoundingClientRect();
+            const windowAspect = rect.width / rect.height;
+            const canvasAspect = canvas.width / canvas.height;
+            let scaleX = 1, scaleY = 1, offsetX = 0, offsetY = 0;
+
+            if (windowAspect > canvasAspect) {
+                scaleY = rect.height / canvas.height;
+                scaleX = scaleY;
+                offsetX = (rect.width - canvas.width * scaleX) / 2;
+            } else {
+                scaleX = rect.width / canvas.width;
+                scaleY = scaleX;
+                offsetY = (rect.height - canvas.height * scaleY) / 2;
+            }
+            canvasMetrics = { rect, scaleX, scaleY, offsetX, offsetY };
+        }
+        updateCanvasMetrics();
+        window.addEventListener('resize', updateCanvasMetrics);
         
         function initAudio() {
             if (!audioCtx) audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -519,22 +574,9 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             ctx.fillStyle = player.overalls; 
             ctx.fillRect(player.x, drawY + 25, player.w, player.h - (player.crouching ? 40 : 25));
 
-            if (overlayImgRef.current && canvas) {
-                // Posicionar el GIF animado (DOM element) exactamente sobre el jugador calculando las transformaciones de escala.
-                const rect = canvas.getBoundingClientRect();
-                const windowAspect = rect.width / rect.height;
-                const canvasAspect = canvas.width / canvas.height;
-                let scaleX, scaleY, offsetX = 0, offsetY = 0;
-
-                if (windowAspect > canvasAspect) {
-                    scaleY = rect.height / canvas.height;
-                    scaleX = scaleY;
-                    offsetX = (rect.width - canvas.width * scaleX) / 2;
-                } else {
-                    scaleX = rect.width / canvas.width;
-                    scaleY = scaleX;
-                    offsetY = (rect.height - canvas.height * scaleY) / 2;
-                }
+            if (overlayImgRef.current && canvasMetrics.rect) {
+                // Posicionar el GIF animado (DOM element) exactamente sobre el jugador usando las medidas cacheadas
+                const { rect, scaleX, scaleY, offsetX, offsetY } = canvasMetrics;
                 
                 // Aplicamos parallax al x
                 const headScreenX = (player.x - cameraX - headOffset) * scaleX + rect.left + offsetX;
@@ -566,6 +608,7 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             cancelAnimationFrame(animationFrameId);
             window.removeEventListener('keydown', keydownHandler);
             window.removeEventListener('keyup', keyupHandler);
+            window.removeEventListener('resize', updateCanvasMetrics);
         };
     }, [gameState, selectedCharId, avatarUrl]); // Reiniciar canvas si cambia de estado a playing o el character/avatar
 
