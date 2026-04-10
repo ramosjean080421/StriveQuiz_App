@@ -215,7 +215,14 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             realtimeChannel = supabase.channel(`mario_sync_${gameId}`, { config: { broadcast: { self: false, ack: false } } });
             realtimeChannel.on('broadcast', { event: 'player_move' }, (payload: any) => {
                 if (payload.payload && payload.payload.id !== playerId) {
-                    ghostsRef.current[payload.payload.id] = payload.payload;
+                    const gdata = payload.payload;
+                    ghostsRef.current[gdata.id] = gdata;
+                    // Pre-cargar la imagen del fantasma aquí (fuera del render loop) para evitar caída de FPS
+                    if (gdata.avatarUrl && !ghostMemes[gdata.id]) {
+                        const img = new Image();
+                        img.src = gdata.avatarUrl;
+                        ghostMemes[gdata.id] = img;
+                    }
                 }
             });
             realtimeChannel.subscribe();
@@ -892,30 +899,46 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                     const g = ghostsRef.current[gid];
                     if (Math.abs(g.x - cameraX) < 1200) { // Culling optimization
                         ctx.save();
-                        ctx.translate(Math.floor(g.x) - cameraX, Math.floor(g.y) - 0);
+                        ctx.translate(Math.floor(g.x) - cameraX, Math.floor(g.y));
                         if (g.lastDir === -1) { ctx.scale(-1, 1); }
                         
-                        ctx.globalAlpha = 0.5; // Efecto fantasma
+                        ctx.globalAlpha = 0.72; // Fantasmas más visibles
                         
                         let gDrawY = g.crouching ? 15 : 0;
-                        const headSize = 50; 
-                        const headOffset = (headSize - 30) / 2;
+                        const headSize = 36; 
+                        const centerX = 15;
+                        const centerY = gDrawY - 4;
+                        const radius = headSize / 2;
 
-                        ctx.fillStyle = g.overalls; 
-                        ctx.fillRect(0, gDrawY + 25, 30, 40 - (g.crouching ? 40 : 25));
+                        // Cuerpo circular (en lugar del overalls cuadrado)
+                        ctx.beginPath();
+                        ctx.arc(centerX, gDrawY + 32, 10, 0, Math.PI * 2);
+                        ctx.fillStyle = g.overalls || '#2038E0';
+                        ctx.fill();
 
-                        if (g.avatarUrl) {
-                            if (!ghostMemes[gid]) {
-                                ghostMemes[gid] = new Image();
-                                ghostMemes[gid].src = g.avatarUrl;
-                            }
-                            if (ghostMemes[gid].complete) {
-                                ctx.drawImage(ghostMemes[gid], -headOffset, gDrawY - 18, headSize, headSize);
-                            } else {
-                                ctx.fillStyle = g.color; ctx.fillRect(0, gDrawY, 30, 20);
-                            }
+                        // Cabeza circular con avatar recortado
+                        if (ghostMemes[gid] && ghostMemes[gid].complete) {
+                            ctx.save();
+                            ctx.beginPath();
+                            ctx.arc(centerX, centerY + radius, radius, 0, Math.PI * 2);
+                            ctx.clip();
+                            ctx.drawImage(ghostMemes[gid], centerX - radius, centerY, headSize, headSize);
+                            ctx.restore();
+                            // Borde del círculo
+                            ctx.beginPath();
+                            ctx.arc(centerX, centerY + radius, radius, 0, Math.PI * 2);
+                            ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+                            ctx.lineWidth = 2;
+                            ctx.stroke();
                         } else {
-                            ctx.fillStyle = g.color; ctx.fillRect(0, gDrawY, 30, 20);
+                            // Fallback: círculo de color
+                            ctx.beginPath();
+                            ctx.arc(centerX, centerY + radius, radius, 0, Math.PI * 2);
+                            ctx.fillStyle = g.color || '#E52521';
+                            ctx.fill();
+                            ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+                            ctx.lineWidth = 2;
+                            ctx.stroke();
                         }
 
                         ctx.restore();
