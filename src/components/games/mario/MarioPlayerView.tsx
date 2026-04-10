@@ -8,12 +8,30 @@ interface MarioPlayerViewProps {
     questions: any[];
     isBlurred?: boolean;
     onCheatDetected?: () => void;
+    difficulty?: number;
 }
 
-export default function MarioPlayerView({ gameId, playerId, questions, isBlurred, onCheatDetected }: MarioPlayerViewProps) {
+export default function MarioPlayerView({ gameId, playerId, questions, isBlurred, onCheatDetected, difficulty = 1 }: MarioPlayerViewProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [score, setScore] = useState(0);
-    const [lives, setLives] = useState(3);
+    const [lives, setLives] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const saved = sessionStorage.getItem(`mario_lives_${gameId}`);
+            if (saved) return parseInt(saved, 10);
+        }
+        return 3;
+    });
+    
+    // Persistir las vidas cada vez que cambian y verificar Game Over en recarga
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            sessionStorage.setItem(`mario_lives_${gameId}`, lives.toString());
+        }
+        if (lives <= 0) {
+            setGameState('gameover');
+        }
+    }, [lives, gameId]);
+
     const [gameState, setGameState] = useState<'menu' | 'playing' | 'gameover' | 'win'>('menu');
     const [isPaused, setIsPaused] = useState(false);
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -207,6 +225,8 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
         };
 
         let particles: any[] = [];
+        let floatingTexts: any[] = [];
+        
         function spawnParticles(x: number, y: number, color: string, count: number) {
             for(let i=0; i<count; i++) {
                 particles.push({
@@ -226,6 +246,8 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
         let genMountains = [];
         let genClouds = [];
         let genBushes = [];
+        let genEnemies: any[] = [];
+        const diff = difficulty; // 0=Práctica, 1=Normal, 2=Extremo
         
         let overQsCount = Math.max(1, Math.ceil(realQuestions.length * 0.8));
         const overQs = realQuestions.slice(0, overQsCount);
@@ -249,6 +271,16 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             if (i % 3 === 0) {
                 genBushes.push({ x: px + 100, y: 350, scale: 0.8 + Math.random()*0.5 });
             }
+
+            // Generador de Enemigos según Dificultad (Tamaños incrementados para mejor jugabilidad)
+            genEnemies.push({ type: 'goomba', x: px + 150, y: 305, w: 45, h: 45, vx: -1, dir: -1 });
+            if (diff >= 1 && i % 2 !== 0) {
+                genEnemies.push({ type: 'koopa', x: px + 250, y: 295, w: 40, h: 55, vx: -1.5, dir: -1 });
+            }
+            if (diff >= 2 && i % 3 === 0) {
+                // Generar los Bill Bala un poco más dispersos y grandes
+                genEnemies.push({ type: 'bill', x: px + 800, y: 180 + (Math.random()*100 - 50), w: 60, h: 45, vx: -4, dir: -1 });
+            }
         }
         
         // Agregar nubes de fondo
@@ -258,11 +290,13 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
         
         // -------- SUBMUNDO SECRETO (20% DE LAS PREGUNTAS) --------
         let genUnderQBlocks = [];
+        let genUnderEnemies: any[] = [];
         let underStartX = 300;
         let underMapLength = Math.max(1000, 400 + underQs.length * 400);
 
         for (let i = 0; i < underQs.length; i++) {
             genUnderQBlocks.push({ x: underStartX + i * 400, y: 200, w: 40, h: 40, isQuestionBlock: true, used: false, qData: underQs[i] });
+            genUnderEnemies.push({ type: 'goomba', x: underStartX + i * 400 + 100, y: 305, w: 45, h: 45, vx: -1, dir: -1 });
         }
         // --------------------------------------------------------
 
@@ -287,6 +321,7 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                 mountains: genMountains,
                 bushes: genBushes,
                 qBlocks: genQBlocks,
+                enemies: genEnemies,
                 flag: { x: Math.max(...genQBlocks.map(b => b.x), warpEntranceX) + 600, y: 50, w: 20, h: 300 }
             },
             underground: {
@@ -302,6 +337,7 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                 ],
                 clouds: [], mountains: [], bushes: [],
                 qBlocks: genUnderQBlocks,
+                enemies: genUnderEnemies,
                 flag: null
             }
         };
@@ -360,8 +396,21 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             let currentMaxSpeed = isRunning ? player.runSpeed : player.maxSpeed;
             let currentAccel = isRunning ? 1.5 : player.speed;
 
-            if (keys.ArrowLeft || keys.KeyA) { player.vx -= currentAccel; player.lastDir = -1; }
-            if (keys.ArrowRight || keys.KeyD) { player.vx += currentAccel; player.lastDir = 1; }
+            if (currentLvl.winFlagTimer) {
+                currentLvl.winFlagTimer++;
+                player.vx = 2; // Animar al jugador caminando hacia el castillo
+                player.crouching = false;
+                
+                if (currentLvl.flag.flagY === undefined) currentLvl.flag.flagY = currentLvl.flag.y + 15;
+                if (currentLvl.flag.flagY < currentLvl.flag.y + currentLvl.flag.h - 30) currentLvl.flag.flagY += 3;
+                
+                if (currentLvl.winFlagTimer > 120) {
+                    setGameState('win');
+                }
+            } else {
+                if (keys.ArrowLeft || keys.KeyA) { player.vx -= currentAccel; player.lastDir = -1; }
+                if (keys.ArrowRight || keys.KeyD) { player.vx += currentAccel; player.lastDir = 1; }
+            }
 
             player.vx *= player.friction;
             if (player.vx > player.maxSpeed && !isRunning) player.vx = player.maxSpeed;
@@ -380,22 +429,24 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
 
             player.vy += player.gravity;
 
-            if ((keys.ArrowDown || keys.KeyS) && player.grounded) {
-                player.crouching = true;
-                // Buscar si estamos encima de un Warp pipe
-                for (let p of (currentLvl.pipes || [])) {
-                    if (p.isWarp && player.x > p.x && player.x + player.w < p.x + p.w && player.y + player.h <= p.y + 10) {
-                        changeLevel(p.target, p.destX, p.destY);
-                        keys.ArrowDown = false; keys.KeyS = false;
-                        break;
+            if (!currentLvl.winFlagTimer) {
+                if ((keys.ArrowDown || keys.KeyS) && player.grounded) {
+                    player.crouching = true;
+                    // Buscar si estamos encima de un Warp pipe
+                    for (let p of (currentLvl.pipes || [])) {
+                        if (p.isWarp && player.x > p.x && player.x + player.w < p.x + p.w && player.y + player.h <= p.y + 10) {
+                            changeLevel(p.target, p.destX, p.destY);
+                            keys.ArrowDown = false; keys.KeyS = false;
+                            break;
+                        }
                     }
+                } else {
+                    player.crouching = false;
                 }
-            } else {
-                player.crouching = false;
-            }
 
-            if ((keys.ArrowUp || keys.KeyW || keys.Space) && player.grounded && !player.crouching) {
-                player.vy = player.jumpPower; player.grounded = false; playSound('jump');
+                if ((keys.ArrowUp || keys.KeyW || keys.Space) && player.grounded && !player.crouching) {
+                    player.vy = player.jumpPower; player.grounded = false; playSound('jump');
+                }
             }
 
             player.y += player.vy;
@@ -416,6 +467,78 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                 }
             }
 
+            // Update y Colisiones Enemigos
+            if (currentLvl.enemies) {
+                let checkAllSolids = [...currentLvl.platforms, ...currentLvl.qBlocks, ...(currentLvl.pipes || [])];
+                for (let e of currentLvl.enemies) {
+                    if (e.dead) continue;
+                    
+                    if (e.type !== 'bill') {
+                        e.vy = (e.vy || 0) + player.gravity; // Gravedad para los enemigos de tierra
+                    }
+                    e.x += e.vx;
+
+                    if (e.type !== 'bill') {
+                        let hitWall = false;
+                        for (let p of checkAllSolids) {
+                            if (checkCollision({ x: e.x, y: e.y + 2, w: e.w, h: e.h - 4 }, p)) {
+                                if (e.vx > 0) { e.x = p.x - e.w; hitWall = true; }
+                                else if (e.vx < 0) { e.x = p.x + p.w; hitWall = true; }
+                            }
+                        }
+                        if (hitWall) { e.vx *= -1; e.dir *= -1; e.timer = 0; }
+                    } else if (e.type === 'bill') {
+                        if (e.x < player.x - 600) e.x = player.x + 800; // Ciclar el Bill Bala si se sale de pantalla
+                    }
+
+                    e.y += e.vy || 0;
+
+                    if (e.type !== 'bill') {
+                        for (let p of checkAllSolids) {
+                            if (checkCollision(e, p)) {
+                                if (e.vy > 0) { e.y = p.y - e.h; e.vy = 0; }
+                                else if (e.vy < 0) { e.y = p.y + p.h; e.vy = 0; }
+                            }
+                        }
+                        if (!e.timer) e.timer = 0;
+                        e.timer++;
+                        if (e.timer > 250) { e.timer = 0; e.vx *= -1; e.dir *= -1; }
+                        
+                        // Limpieza si caen por un precipicio
+                        if (e.y > (canvas?.height || 600) + 200) e.dead = true;
+                    } else if (e.type === 'bill') {
+                        if (e.x < player.x - 600) {
+                            e.x = player.x + 800 + Math.random() * 400; // Loop bullet bills al salir de pantalla
+                            e.y = player.y - 120 + Math.random() * 150; // Se ajusta a la altura del jugador para ser amenazante
+                            if (e.y < 50) e.y = 50; // Limite superior
+                        }
+                    }
+
+                    if (!player.invulnerable && checkCollision(player, e)) {
+                        if (player.vy > 0 && player.y + player.h < e.y + e.h * 0.5) {
+                            e.dead = true;
+                            player.vy = -10;
+                            playSound('jump');
+                            setScore(prev => prev + 20); // Recompensa por aplastar
+                            floatingTexts.push({ text: '+20', x: e.x + e.w/2 - 15, y: e.y, life: 60 });
+                            for(let j=0; j<15; j++) {
+                                particles.push({ x: e.x + e.w/2, y: e.y, vx: (Math.random()-0.5)*8, vy: (Math.random()-0.5)*8, color: '#FFCE00', life: 30 });
+                            }
+                        } else {
+                            player.invulnerable = 60;
+                            setLives(l => {
+                                if (l - 1 <= 0) setGameState('gameover');
+                                return l - 1;
+                            });
+                            playSound('die');
+                            player.vy = -8;
+                            player.vx = -player.lastDir * 5;
+                        }
+                    }
+                }
+                currentLvl.enemies = currentLvl.enemies.filter((e:any) => !e.dead);
+            }
+
             // Partículas
             for (let i = particles.length - 1; i >= 0; i--) {
                 let p = particles[i];
@@ -423,8 +546,15 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                 if (p.life <= 0) particles.splice(i, 1);
             }
 
+            // Textos Flotantes
+            for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                floatingTexts[i].y -= 1.5;
+                floatingTexts[i].life--;
+                if (floatingTexts[i].life <= 0) floatingTexts.splice(i, 1);
+            }
+
             if (currentLvl.flag && checkCollision(player, currentLvl.flag)) {
-                setGameState('win');
+                if (!currentLvl.winFlagTimer) currentLvl.winFlagTimer = 1;
             }
             if (player.y > (canvas?.height||400) + 100) {
                 setLives(l => l - 1);
@@ -494,7 +624,9 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                 ctx.fillStyle = '#D8D8D8'; ctx.fillRect(currentLvl.flag.x + 2, currentLvl.flag.y, 3, currentLvl.flag.h);
                 ctx.fillStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(currentLvl.flag.x, currentLvl.flag.y, 8, currentLvl.flag.h);
                 ctx.fillStyle = '#FFCE00'; ctx.beginPath(); ctx.arc(currentLvl.flag.x + 4, currentLvl.flag.y, 10, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-                ctx.fillStyle = '#2038E0'; ctx.beginPath(); ctx.moveTo(currentLvl.flag.x, currentLvl.flag.y + 15); ctx.lineTo(currentLvl.flag.x - 40, currentLvl.flag.y + 25); ctx.lineTo(currentLvl.flag.x, currentLvl.flag.y + 35); ctx.closePath(); ctx.fill(); ctx.stroke();
+                
+                let renderFlagY = currentLvl.flag.flagY !== undefined ? currentLvl.flag.flagY : currentLvl.flag.y + 15;
+                ctx.fillStyle = '#2038E0'; ctx.beginPath(); ctx.moveTo(currentLvl.flag.x, renderFlagY); ctx.lineTo(currentLvl.flag.x - 40, renderFlagY + 10); ctx.lineTo(currentLvl.flag.x, renderFlagY + 20); ctx.closePath(); ctx.fill(); ctx.stroke();
             }
 
             // Pipes (Tuberías)
@@ -564,6 +696,161 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                 ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(b.x, b.y, b.w, b.h);
             }
 
+            // Dibujar Enemigos Mejorados
+            if (currentLvl.enemies) {
+                for (let e of currentLvl.enemies) {
+                    if (e.type === 'goomba') {
+                        let animTimer = e.timer || 0;
+                        let bounce = Math.sin(animTimer * 0.2) * 2.5;
+                        ctx.save();
+                        ctx.translate(e.x, e.y + bounce);
+                        
+                        let wPhase = Math.sin(animTimer * 0.3);
+                        // Zapatos - Más curvos y grandes
+                        ctx.fillStyle = "#222";
+                        ctx.beginPath(); ctx.ellipse(e.w*0.25, e.h - 5 + wPhase*2, e.w*0.35, 6, 0, 0, Math.PI*2); ctx.fill();
+                        ctx.beginPath(); ctx.ellipse(e.w*0.75, e.h - 5 - wPhase*2, e.w*0.35, 6, 0, 0, Math.PI*2); ctx.fill();
+                    
+                        // Tallo
+                        ctx.fillStyle = "#FFC88F"; 
+                        ctx.beginPath(); 
+                        if (ctx.roundRect) ctx.roundRect(e.w*0.3, e.h*0.5, e.w*0.4, e.h*0.4, 6);
+                        else ctx.rect(e.w*0.3, e.h*0.5, e.w*0.4, e.h*0.4); 
+                        ctx.fill();
+                        ctx.strokeStyle = "#8A4E1B"; ctx.lineWidth=2; ctx.stroke();
+                        
+                        // Cabeza - Mejor forma de hongo y gradiente suave
+                        let hGrad = ctx.createRadialGradient(e.w*0.3, e.h*0.2, e.w*0.1, e.w*0.5, e.h*0.4, e.w*0.8);
+                        hGrad.addColorStop(0, "#E05A00"); hGrad.addColorStop(1, "#542300");
+                        ctx.fillStyle = hGrad; 
+                        ctx.beginPath();
+                        ctx.moveTo(e.w*0.1, e.h*0.65);
+                        ctx.bezierCurveTo(-e.w*0.3, e.h*0.1, e.w*1.3, e.h*0.1, e.w*0.9, e.h*0.65);
+                        ctx.bezierCurveTo(e.w*0.8, e.h*0.75, e.w*0.2, e.h*0.75, e.w*0.1, e.h*0.65);
+                        ctx.fill();
+                        ctx.strokeStyle = "#3A1800"; ctx.lineWidth=2; ctx.stroke();
+                    
+                        // Ojos y Cejas más expresivos
+                        ctx.fillStyle = "white";
+                        ctx.beginPath(); ctx.ellipse(e.w*0.35, e.h*0.4, e.w*0.1, e.h*0.12, 0, 0, Math.PI*2); ctx.fill();
+                        ctx.beginPath(); ctx.ellipse(e.w*0.65, e.h*0.4, e.w*0.1, e.h*0.12, 0, 0, Math.PI*2); ctx.fill();
+                    
+                        ctx.fillStyle = "black";
+                        let ex = e.dir > 0 ? 1.5 : -1.5;
+                        ctx.beginPath(); ctx.ellipse(e.w*0.35 + ex, e.h*0.4, e.w*0.04, e.h*0.06, 0, 0, Math.PI*2); ctx.fill();
+                        ctx.beginPath(); ctx.ellipse(e.w*0.65 + ex, e.h*0.4, e.w*0.04, e.h*0.06, 0, 0, Math.PI*2); ctx.fill();
+                    
+                        // Cejas gruesas
+                        ctx.strokeStyle = "#111"; ctx.lineWidth = 3; ctx.lineCap = "round";
+                        ctx.beginPath(); ctx.moveTo(e.w*0.2, e.h*0.25); ctx.lineTo(e.w*0.4, e.h*0.35); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(e.w*0.8, e.h*0.25); ctx.lineTo(e.w*0.6, e.h*0.35); ctx.stroke();
+                    
+                        // Colmillos
+                        ctx.fillStyle = "white";
+                        ctx.beginPath(); ctx.moveTo(e.w*0.35, e.h*0.55); ctx.lineTo(e.w*0.45, e.h*0.68); ctx.lineTo(e.w*0.5, e.h*0.55); ctx.fill();
+                        ctx.beginPath(); ctx.moveTo(e.w*0.65, e.h*0.55); ctx.lineTo(e.w*0.55, e.h*0.68); ctx.lineTo(e.w*0.5, e.h*0.55); ctx.fill();
+                        ctx.strokeStyle = "#542300"; ctx.lineWidth=1;
+                        ctx.beginPath(); ctx.moveTo(e.w*0.35, e.h*0.55); ctx.lineTo(e.w*0.45, e.h*0.68); ctx.lineTo(e.w*0.5, e.h*0.55); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(e.w*0.65, e.h*0.55); ctx.lineTo(e.w*0.55, e.h*0.68); ctx.lineTo(e.w*0.5, e.h*0.55); ctx.stroke();
+                    
+                        ctx.restore();
+                    } else if (e.type === 'koopa') {
+                        let animTimer = e.timer || 0;
+                        let bounce = Math.sin(animTimer * 0.25) * 1.5;
+                        ctx.save();
+                        ctx.translate(e.x + e.w/2, e.y + bounce + e.h/2);
+                        ctx.scale(e.dir < 0 ? -1 : 1, 1);
+                        ctx.translate(-e.w/2, -e.h/2);
+                        
+                        ctx.fillStyle = "#E83A00";
+                        let wPhase = Math.sin(animTimer * 0.4);
+                        ctx.beginPath(); ctx.ellipse(e.w*0.3, e.h-5 + wPhase*2, 6, 4, 0, 0, Math.PI*2); ctx.fill();
+                        ctx.beginPath(); ctx.ellipse(e.w*0.7, e.h-5 - wPhase*2, 6, 4, 0, 0, Math.PI*2); ctx.fill();
+                    
+                        ctx.fillStyle = "#FFD000";
+                        ctx.beginPath(); 
+                        if(ctx.roundRect) ctx.roundRect(e.w*0.3, e.h*0.4, e.w*0.4, e.h*0.5, 5); 
+                        else ctx.rect(e.w*0.3, e.h*0.4, e.w*0.4, e.h*0.5);
+                        ctx.fill();
+                        
+                        ctx.fillStyle = "#00A800";
+                        ctx.beginPath(); 
+                        ctx.moveTo(e.w*0.2, e.h*0.9);
+                        ctx.bezierCurveTo(-e.w*0.4, e.h*0.8, -e.w*0.2, e.h*0.2, e.w*0.4, e.h*0.3);
+                        ctx.bezierCurveTo(e.w*0.4, e.h*0.8, e.w*0.3, e.h*0.9, e.w*0.2, e.h*0.9);
+                        ctx.fill();
+                        
+                        ctx.fillStyle = "#F5F5DC";
+                        ctx.beginPath(); 
+                        if(ctx.roundRect) ctx.roundRect(0, e.h*0.8, e.w*0.7, 6, 3);
+                        else ctx.rect(0, e.h*0.8, e.w*0.7, 6);
+                        ctx.fill();
+                    
+                        ctx.fillStyle = "#FFC800";
+                        ctx.beginPath(); ctx.ellipse(e.w*0.7, e.h*0.3, 10, 12, Math.PI/8, 0, Math.PI*2); ctx.fill();
+                        ctx.beginPath(); ctx.ellipse(e.w*0.9, e.h*0.3, 8, 8, 0, 0, Math.PI*2); ctx.fill();
+                    
+                        ctx.fillStyle = "white"; ctx.beginPath(); ctx.ellipse(e.w*0.75, e.h*0.25, 4, 6, 0, 0, Math.PI*2); ctx.fill();
+                        ctx.fillStyle = "black"; ctx.beginPath(); ctx.ellipse(e.w*0.8, e.h*0.25, 2, 4, 0, 0, Math.PI*2); ctx.fill();
+                    
+                        ctx.restore();
+                    } else if (e.type === 'bill') {
+                        ctx.save();
+                        ctx.translate(e.x + e.w/2, e.y + e.h/2);
+                        ctx.scale(e.dir < 0 ? -1 : 1, 1);
+                        ctx.translate(-e.w/2, -e.h/2);
+                    
+                        // Cuerpo metálico oscuro con brillo superior
+                        let bilGrad = ctx.createLinearGradient(0, 0, 0, e.h);
+                        bilGrad.addColorStop(0, "#888"); bilGrad.addColorStop(0.2, "#444"); bilGrad.addColorStop(0.6, "#111"); bilGrad.addColorStop(1, "#000");
+                    
+                        ctx.fillStyle = bilGrad;
+                        ctx.beginPath(); 
+                        ctx.moveTo(0, 0); 
+                        ctx.lineTo(e.w*0.65, 0); 
+                        // Nariz redondeada
+                        ctx.bezierCurveTo(e.w*1.1, 0, e.w*1.1, e.h, e.w*0.65, e.h); 
+                        ctx.lineTo(0, e.h); 
+                        ctx.closePath(); 
+                        ctx.fill();
+                        ctx.strokeStyle = "#000"; ctx.lineWidth=2; ctx.stroke();
+                        
+                        // Borde trasero blanco
+                        ctx.fillStyle = "#FFF"; ctx.fillRect(0, 0, 6, e.h);
+                        ctx.fillStyle = "#CCC"; ctx.fillRect(3, 0, 3, e.h);
+                        ctx.strokeRect(0, 0, 6, e.h);
+                    
+                        // Ojo amenazante más pulido
+                        ctx.fillStyle = "#FFF"; 
+                        ctx.beginPath(); ctx.ellipse(e.w*0.55, e.h*0.4, 5, 8, Math.PI/10, 0, Math.PI*2); ctx.fill();
+                        ctx.fillStyle = "#000"; 
+                        ctx.beginPath(); ctx.ellipse(e.w*0.65, e.h*0.4, 2, 4, Math.PI/10, 0, Math.PI*2); ctx.fill();
+                    
+                        // Ceño fruncido grueso
+                        ctx.strokeStyle = "#111"; ctx.lineWidth = 3; ctx.lineCap = "round";
+                        ctx.beginPath(); ctx.moveTo(e.w*0.35, e.h*0.2); ctx.lineTo(e.w*0.7, e.h*0.3); ctx.stroke();
+
+                        // Brazo musculoso clásico
+                        ctx.fillStyle = "#FFF"; 
+                        ctx.beginPath(); ctx.ellipse(e.w*0.4, e.h*0.65, 8, 6, -Math.PI/6, 0, Math.PI*2); ctx.fill();
+                        ctx.stroke();
+                        
+                        // Fuego de propulsión muy animado
+                        let fLen = e.w * 0.4 + Math.random() * 25;
+                        let fGrad = ctx.createLinearGradient(0, 0, -fLen, 0);
+                        fGrad.addColorStop(0, "#FFEA00"); fGrad.addColorStop(0.5, "#FF5500"); fGrad.addColorStop(1, "rgba(255,0,0,0)");
+                        ctx.fillStyle = fGrad;
+                        ctx.beginPath(); 
+                        ctx.moveTo(-2, e.h*0.1); 
+                        ctx.lineTo(-fLen, e.h*0.5); 
+                        ctx.lineTo(-2, e.h*0.9); 
+                        ctx.fill();
+                    
+                        ctx.restore();
+                    }
+                }
+            }
+
             // Player Simple Drawing - Cabeza Cabezona Meme
             let drawY = player.crouching ? player.y + 15 : player.y; // Baja visualmente la cabeza si está agachado
 
@@ -594,7 +881,25 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             // Particles
             for(let p of particles) { ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, 4, 4); }
 
+            // Textos flotantes
+            for(let t of floatingTexts) {
+                let op = t.life / 60;
+                ctx.fillStyle = `rgba(255, 255, 255, ${op})`;
+                ctx.font = '900 24px "Inter", sans-serif'; 
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = `rgba(0, 0, 0, ${op})`;
+                ctx.strokeText(t.text, t.x, t.y); 
+                ctx.fillText(t.text, t.x, t.y);
+            }
+
             ctx.restore();
+
+            // Efecto HUD de sangre al recibir daño (completamente integrado al canvas sin costosas llamadas DOM)
+            if (player.invulnerable > 30) {
+                let dmgIntensity = ((player.invulnerable - 30) / 30) * 0.4;
+                ctx.fillStyle = `rgba(255, 0, 0, ${dmgIntensity})`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height); 
+            }
         }
 
         function loop() {
@@ -703,7 +1008,7 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             </div>
             
             <div className="absolute top-4 right-6 text-white font-black text-2xl z-10 drop-shadow-md border-2 border-white/20 bg-black/40 px-4 py-2 rounded-xl flex items-center gap-2">
-                <span>❤️</span> x{lives}
+                <span>❤️</span> x{Math.max(0, lives)}
             </div>
 
             <canvas 
@@ -825,10 +1130,9 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             )}
 
             {gameState === 'gameover' && (
-                <div className="absolute inset-0 bg-black/90 z-50 flex flex-col items-center justify-center">
-                    <h1 className="text-7xl font-black text-red-500 uppercase tracking-widest animate-pulse mb-4 text-center">GAME OVER</h1>
-                    <p className="text-white/50 mb-8 tracking-widest uppercase">Te quedaste sin vidas</p>
-                    <button onClick={() => window.location.reload()} className="px-8 py-3 bg-red-600 text-white font-bold uppercase rounded-xl">Intentar de nuevo</button>
+                <div className="absolute inset-0 bg-black/90 z-50 flex flex-col items-center justify-center p-8 text-center">
+                    <h1 className="text-7xl font-black text-red-500 uppercase tracking-widest animate-pulse mb-4">GAME OVER</h1>
+                    <p className="text-white/50 mb-8 tracking-widest uppercase text-xl">Te quedaste sin vidas</p>
                 </div>
             )}
 

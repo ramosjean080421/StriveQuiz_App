@@ -24,6 +24,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
     const [gameStatus, setGameStatus] = useState("waiting");
     const [gameMode, setGameMode] = useState<'classic' | 'race' | 'bomb' | 'mario'>('classic');
+    const [marioDifficulty, setMarioDifficulty] = useState(1);
     const [players, setPlayers] = useState<any[]>([]);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -207,7 +208,17 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         }
     }, [currentQuestionIdx, questions, questionDuration]);
 
-
+    // Redirección segura al Podio al finalizar
+    useEffect(() => {
+        if (gameStatus === "finished" && gameMode === "mario" && typeof window !== 'undefined') {
+            const redirectTimeout = setTimeout(() => {
+                // Prevenir que el manejador de BeforeUnload congele el navegador
+                sessionStorage.setItem("isKicked", "true"); 
+                window.location.href = `/game/${gameId}/board?student=true`;
+            }, 100); // Pequeño delay para dejar que React termine el ciclo de render
+            return () => clearTimeout(redirectTimeout);
+        }
+    }, [gameStatus, gameMode, gameId]);
 
     useEffect(() => {
         // 1. Recuperar la ID del Jugador del localStorage
@@ -225,13 +236,14 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         // 2. Obtener estado de la partida, preguntas y configuracion de recompensas
         const fetchGame = async () => {
             const { data: game } = await supabase.from("games").select(`
-                status, quiz_id, auto_end, game_mode, team_distribution_mode, question_duration, boss_hp,
+                status, quiz_id, auto_end, game_mode, team_distribution_mode, question_duration, boss_hp, bonus_time_per_match,
                 quizzes (board_path)
             `).eq("id", gameId).single();
 
             if (game) {
                 setGameStatus(game.status);
                 setGameMode(game.game_mode as any || "classic");
+                if (game.bonus_time_per_match !== null) setMarioDifficulty(game.bonus_time_per_match);
                 if (game.question_duration !== undefined && game.question_duration !== null) {
                     setQuestionDuration(game.question_duration);
                     if (game.question_duration > 0) {
@@ -244,7 +256,13 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 // Obtener preguntas y aleatorizarlas
                 const { data: qData } = await supabase.from("questions").select("*").eq("quiz_id", game.quiz_id);
                 if (qData) {
-                    let shuffled = [...qData].sort(() => Math.random() - 0.5);
+                    let shuffled = [...qData];
+                    // Fisher-Yates Shuffle
+                    for (let i = shuffled.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                    }
+                    
                     let boardPath = quizData?.board_path || [];
                     if (typeof boardPath === "string") {
                         try { boardPath = JSON.parse(boardPath); } catch (e) { boardPath = []; }
@@ -381,7 +399,12 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                     }
                     const { data: qData } = await supabase.from("questions").select("*").eq("quiz_id", game.quiz_id);
                     if (qData) {
-                        let shuffled = [...qData].sort(() => Math.random() - 0.5);
+                        let shuffled = [...qData];
+                        for (let i = shuffled.length - 1; i > 0; i--) {
+                            const j = Math.floor(Math.random() * (i + 1));
+                            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                        }
+                        
                         const quizData: any = Array.isArray(game.quizzes) ? game.quizzes[0] : game.quizzes;
                         let boardPath = quizData?.board_path || [];
                         if (typeof boardPath === "string") {
@@ -634,20 +657,37 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         );
     }
 
-    if (gameStatus === "finished" || hasFinishedAll) {
+    // Lógica global de fin de juego (Excepto SuperStrive que tiene redirección al podio en finalización global)
+    if (gameStatus === "finished" && gameMode === "mario") {
+        // La redirección real se maneja en un useEffect en la parte superior,
+        // esto es solo visual mientra el navegador carga la otra página.
+        return (
+            <div className="h-screen w-screen overflow-hidden bg-gray-900 flex flex-col items-center justify-center p-6 text-center relative pointer-events-none">
+                <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-8"></div>
+                <h1 className="text-4xl font-black text-white mb-4 uppercase tracking-wider animate-pulse">
+                    DIRIGIÉNDOTE AL PODIO...
+                </h1>
+                <p className="text-gray-400 font-bold uppercase tracking-widest text-sm">El profesor finalizó la partida</p>
+            </div>
+        );
+    }
+
+    if ((gameStatus === "finished" && gameMode !== "mario") || hasFinishedAll) {
         return (
             <div className="h-screen w-screen overflow-hidden bg-gray-900 flex flex-col items-center justify-center p-6 text-center relative">
                 {/* Fondo Estrellado / Celebración */}
                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20"></div>
 
                 {/* Recompensa masiva si es que la ganó al final */}
-                <div className="relative z-10 bg-gradient-to-br from-gray-800 to-gray-900 border-2 border-indigo-500/50 p-10 rounded-[3rem] max-w-sm w-full">
-                    <span className="text-8xl mb-6 block transform hover:scale-110 transition-transform cursor-pointer">🏆</span>
+                <div className="relative z-10 bg-gradient-to-br from-gray-800 to-gray-900 border-2 border-indigo-500/50 p-10 rounded-[3rem] max-w-sm w-full shadow-2xl">
+                    <span className="text-8xl mb-6 block transform hover:scale-110 transition-transform cursor-pointer drop-shadow-[0_0_15px_rgba(250,204,21,0.5)]">🏆</span>
                     <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 mb-4 uppercase tracking-wider">
                         ¡Misión Cumplida!
                     </h1>
-                    <p className="text-gray-300 font-medium text-lg leading-relaxed">
-                        Has completado todas las casillas. Mira el tablero principal para descubrir el podio ganador y tus estadísticas.
+                    <p className="text-gray-300 font-medium text-lg leading-relaxed text-center">
+                        Has completado con éxito todas las rondas.
+                        <br/><br/>
+                        <span className="text-yellow-400 font-bold text-sm tracking-widest uppercase animate-pulse">Espera indicaciones del profesor central.</span>
                     </p>
                 </div>
             </div>
@@ -740,7 +780,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                         </div>
                     </div>
                 )}
-                <MarioPlayerView gameId={gameId} playerId={playerId} questions={questions} isBlurred={isBlurred} onCheatDetected={lockPlayer} />
+                <MarioPlayerView gameId={gameId} playerId={playerId} questions={questions} isBlurred={isBlurred} onCheatDetected={lockPlayer} difficulty={marioDifficulty} />
             </>
         );
     }

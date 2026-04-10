@@ -20,6 +20,7 @@ function StartGameContent() {
     const [enableGameTimer, setEnableGameTimer] = useState(false);
     const [enableQuestionTimer, setEnableQuestionTimer] = useState(true);
     const [gameMode, setGameMode] = useState<'classic' | 'race' | 'bomb' | 'mario'>('classic');
+    const [marioDifficulty, setMarioDifficulty] = useState<number>(1); // 0 = Práctica, 1 = Normal, 2 = Extremo
 
     const [dataLoaded, setDataLoaded] = useState(false);
     const [totalQuestions, setTotalQuestions] = useState(0);
@@ -82,7 +83,7 @@ function StartGameContent() {
                 game_mode: gameMode,
                 game_duration: (enableGameTimer && !autoEnd) ? gameDuration : null,
                 question_duration: ['bomb', 'mario'].includes(gameMode) ? (enableQuestionTimer ? questionDuration : 15) : (enableQuestionTimer ? questionDuration : 0),
-                bonus_time_per_match: null,
+                bonus_time_per_match: gameMode === 'mario' ? marioDifficulty : null,
                 boss_hp: ['bomb', 'mario'].includes(gameMode) ? (Number(bombQuestionCount) || 10) : 0
             };
 
@@ -259,6 +260,29 @@ function StartGameContent() {
                             <p className="text-[10px] text-gray-500 font-bold text-center">
                                 Se sortearán {bombQuestionCount} preguntas al azar del banco principal.
                             </p>
+                        </div>
+                    )}
+
+                    {/* Dificultad Enemigos (Sólo Mario / Super Strive) */}
+                    {gameMode === 'mario' && (
+                        <div className="p-4 rounded-[1.8rem] bg-indigo-900/40 border border-indigo-500/30 space-y-3 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-2 opacity-20 text-3xl">🍄</div>
+                            <span className="text-xs font-black text-indigo-300 uppercase tracking-widest block px-1 drop-shadow-md">
+                                ⚔️ Dificultad del Mapa
+                            </span>
+                            <p className="text-[10px] text-indigo-200/70 font-bold px-1 mb-2">
+                                Define qué tipo de enemigos acecharán a los estudiantes en su aventura.
+                            </p>
+                            <select 
+                                value={marioDifficulty}
+                                onChange={(e) => setMarioDifficulty(Number(e.target.value))}
+                                className="w-full bg-black/40 border border-indigo-400/50 rounded-xl px-4 py-3 text-white text-sm font-black focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 cursor-pointer appearance-none text-center"
+                                style={{ textAlignLast: 'center' }}
+                            >
+                                <option value={0}>🟢 Práctica (Solo Goombas)</option>
+                                <option value={1}>🟡 Normal (Goombas + Koopas)</option>
+                                <option value={2}>🔴 Extremo (Goombas, Koopas + Bill Balas)</option>
+                            </select>
                         </div>
                     )}
 

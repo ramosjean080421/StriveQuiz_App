@@ -228,11 +228,13 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
             <div className="absolute bottom-0 left-0 w-[800px] h-[800px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none mix-blend-screen"></div>
 
             {/* Header / Top Bar (Más compacto y eficiente) */}
-            <header className="relative z-20 flex-shrink-0 flex justify-between items-center px-6 py-3 bg-[#0d0d20] border-b border-white/10 shadow-lg">
+            <header className={(!canControl && gameStatus === "finished") ? "hidden" : "relative z-20 flex-shrink-0 flex justify-between items-center px-6 py-3 bg-[#0d0d20] border-b border-white/10 shadow-lg"}>
                 <div className="flex items-center gap-6">
-                    <Link href="/teacher/dashboard" className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-black rounded-xl text-sm uppercase tracking-widest transition-all active:scale-95 border-b-2 border-indigo-800 shrink-0">
-                        VOLVER
-                    </Link>
+                    {gameStatus !== "finished" && (
+                        <Link href="/teacher/dashboard" className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-black rounded-xl text-sm uppercase tracking-widest transition-all active:scale-95 border-b-2 border-indigo-800 shrink-0">
+                            VOLVER
+                        </Link>
+                    )}
                     {gameStatus !== "waiting" && (
                         <div className="bg-gradient-to-r from-pink-500 to-orange-400 px-4 py-2 rounded-xl shadow-lg border border-white/20 transform -rotate-1">
                             <p className="text-[10px] font-black uppercase tracking-widest text-white/80 mb-0.5 leading-none">CÓDIGO:</p>
@@ -341,13 +343,13 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                                 <span className="animate-bounce">🏆</span> PARTIDA FINALIZADA
                             </div>
                             <Link
-                                href="/teacher/dashboard"
+                                href={canControl ? "/teacher/dashboard" : "/"}
                                 className="group px-6 sm:px-8 py-4 sm:py-5 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl shadow-md transition-all hover:scale-105 active:scale-95 border-2 border-indigo-400 flex items-center gap-2"
                             >
                                 <svg className="w-6 h-6 transform group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                                 </svg>
-                                <span>VOLVER AL PANEL</span>
+                                <span>VOLVER AL {canControl ? "PANEL" : "INICIO"}</span>
                             </Link>
                         </div>
                     )}
