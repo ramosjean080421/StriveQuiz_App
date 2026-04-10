@@ -245,57 +245,7 @@ export default function GameBoard({ gameId }: GameBoardProps) {
                 })}
             </div>
             
-            {/* ALERTA DE ALUMNOS BLOQUEADOS (TRAMPA DETECTADA) */}
-            {players.filter(p => p.is_blocked).length > 0 && (
-                <div className="absolute top-4 right-4 z-[9999] pointer-events-none flex flex-col gap-3 w-80">
-                    {players.filter(p => p.is_blocked).map(cheater => (
-                        <div key={cheater.id} className="pointer-events-auto bg-red-600/95 backdrop-blur-xl border-2 border-red-500 p-4 rounded-2xl shadow-[0_10px_30px_rgba(220,38,38,0.4)] flex flex-col animate-fade-in transition-all duration-300 transform scale-100">
-                            <div className="flex items-center gap-3 mb-3">
-                                <div className="text-3xl drop-shadow-md animate-bounce" style={{animationDuration: '2s'}}>🚨</div>
-                                <div className="text-left text-white leading-tight">
-                                    <h3 className="text-sm font-black uppercase tracking-widest text-red-200">Abandono</h3>
-                                    <p className="font-bold text-sm">
-                                        <span className="text-white bg-black/30 px-1.5 py-0.5 rounded-md mr-1">{cheater.player_name}</span> 
-                                        salió.
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="flex gap-2 w-full">
-                                <button
-                                    onClick={async () => {
-                                        setPlayers(prev => prev.map(p => p.id === cheater.id ? { ...p, is_blocked: false } : p));
-                                        const { error } = await supabase.from("game_players").update({ is_blocked: false }).eq("id", cheater.id);
-                                        if (error) {
-                                            // Revertir si falló
-                                            setPlayers(prev => prev.map(p => p.id === cheater.id ? { ...p, is_blocked: true } : p));
-                                        }
-                                    }}
-                                    className="flex-1 bg-white text-red-700 font-black px-2 py-1.5 rounded-lg text-xs hover:bg-red-50 transition-colors shadow-md active:scale-95"
-                                >
-                                    PERDONAR
-                                </button>
-                                <button 
-                                    onClick={async () => {
-                                        // Update state locally immediately
-                                        setPlayers(prev => prev.filter(p => p.id !== cheater.id));
-                                        
-                                        // Borrarlo con API local usando la sesion actual del profesor (Fallback delete)
-                                        if (cheater.id) {
-                                            // 1. Forzar señal de update letal en vivo para el alumno
-                                            await supabase.from("game_players").update({ current_position: -999, is_blocked: true }).eq("id", cheater.id);
-                                            // 2. Destruir registro final
-                                            await supabase.from("game_players").delete().eq("id", cheater.id);
-                                        }
-                                    }}
-                                    className="flex-1 bg-black/40 hover:bg-black/60 text-white font-black px-2 py-1.5 rounded-lg text-xs transition-colors border border-white/20 active:scale-95"
-                                >
-                                    EXPULSAR
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
+
             
             <style jsx global>{`
                 @keyframes bounce-subtle {

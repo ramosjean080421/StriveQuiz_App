@@ -19,9 +19,10 @@ function StartGameContent() {
     const [autoEnd, setAutoEnd] = useState(false);
     const [enableGameTimer, setEnableGameTimer] = useState(false);
     const [enableQuestionTimer, setEnableQuestionTimer] = useState(true);
-    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'bomb'>('classic');
+    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'bomb' | 'mario'>('classic');
 
     const [dataLoaded, setDataLoaded] = useState(false);
+    const [totalQuestions, setTotalQuestions] = useState(0);
     const [gameDuration, setGameDuration] = useState(10); // Minutos
     const [questionDuration, setQuestionDuration] = useState(20); // Segundos
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
@@ -45,11 +46,28 @@ function StartGameContent() {
                         setDataLoaded(true);
                     }
                 });
+            supabase.from("questions").select("*", { count: 'exact', head: true }).eq("quiz_id", quizId)
+                .then(({ count }) => {
+                    setTotalQuestions(count || 0);
+                });
         }
     }, [quizId]);
 
     const handleStartGame = async () => {
         if (!quizId) return;
+
+        if (['bomb', 'mario'].includes(gameMode)) {
+            const requestedCount = Number(bombQuestionCount) || 10;
+            if (requestedCount > totalQuestions) {
+                if (gameMode === 'mario') {
+                    showToast(`🍄 ¡Ey Profe! Intentas poner ${requestedCount} bloques en el nivel de Mario, pero tu aventura solo tiene ${totalQuestions} preguntas. ¡Añade más preguntas o reduce los bloques!`, "error");
+                } else {
+                    showToast(`💣 ¡Cuidado! Quieres una ronda de ${requestedCount} preguntas para la bomba, pero el banco solo tiene ${totalQuestions}.`, "error");
+                }
+                return;
+            }
+        }
+
         setLoading(true);
 
         try {
@@ -63,9 +81,9 @@ function StartGameContent() {
                 auto_end: autoEnd,
                 game_mode: gameMode,
                 game_duration: (enableGameTimer && !autoEnd) ? gameDuration : null,
-                question_duration: gameMode === 'bomb' ? (enableQuestionTimer ? questionDuration : 15) : (enableQuestionTimer ? questionDuration : 0),
+                question_duration: ['bomb', 'mario'].includes(gameMode) ? (enableQuestionTimer ? questionDuration : 15) : (enableQuestionTimer ? questionDuration : 0),
                 bonus_time_per_match: null,
-                boss_hp: gameMode === 'bomb' ? (Number(bombQuestionCount) || 10) : 0
+                boss_hp: ['bomb', 'mario'].includes(gameMode) ? (Number(bombQuestionCount) || 10) : 0
             };
 
             // Primer intento: con todas las columnas
@@ -203,39 +221,43 @@ function StartGameContent() {
                     )}
 
                     {/* Duración de la Pregunta */}
-                    <div className="p-4 rounded-[1.8rem] bg-white/[0.02] border border-white/5 space-y-3">
-                            <div onClick={() => setEnableQuestionTimer(!enableQuestionTimer)} className="flex items-center justify-between cursor-pointer px-1">
-                                <span className="text-left text-xs font-bold text-gray-400 uppercase tracking-widest">⏱️ Activar Tiempo por Pregunta</span>
-                                <div className={`w-12 h-6 rounded-full p-1 flex items-center transition-colors ${enableQuestionTimer ? 'bg-indigo-500' : 'bg-gray-800'}`}>
-                                    <div className={`w-4 h-4 bg-white rounded-full transition-transform ${enableQuestionTimer ? 'translate-x-6' : 'translate-x-0'}`} />
-                                </div>
-                            </div>
-                            {enableQuestionTimer && (
-                                <input 
-                                    type="number" 
-                                    min="5" max="120"
-                                    value={questionDuration === 0 ? "" : questionDuration}
-                                    placeholder="Ingresa los segundos..."
-                                    onChange={(e) => setQuestionDuration(e.target.value === "" ? 0 : Number(e.target.value))}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm font-black focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                                />
-                            )}
-                    </div>
-
-                    {/* Cantidad de preguntas (Solo Bomba) */}
-                    {gameMode === 'bomb' && (
+                    {gameMode !== 'mario' && (
                         <div className="p-4 rounded-[1.8rem] bg-white/[0.02] border border-white/5 space-y-3">
-                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest block px-1">💣 Preguntas del juego</span>
+                                <div onClick={() => setEnableQuestionTimer(!enableQuestionTimer)} className="flex items-center justify-between cursor-pointer px-1">
+                                    <span className="text-left text-xs font-bold text-gray-400 uppercase tracking-widest">⏱️ Activar Tiempo por Pregunta</span>
+                                    <div className={`w-12 h-6 rounded-full p-1 flex items-center transition-colors ${enableQuestionTimer ? 'bg-indigo-500' : 'bg-gray-800'}`}>
+                                        <div className={`w-4 h-4 bg-white rounded-full transition-transform ${enableQuestionTimer ? 'translate-x-6' : 'translate-x-0'}`} />
+                                    </div>
+                                </div>
+                                {enableQuestionTimer && (
+                                    <input 
+                                        type="number" 
+                                        min="5" max="120"
+                                        value={questionDuration === 0 ? "" : questionDuration}
+                                        placeholder="Ingresa los segundos..."
+                                        onChange={(e) => setQuestionDuration(e.target.value === "" ? 0 : Number(e.target.value))}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm font-black focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                    />
+                                )}
+                        </div>
+                    )}
+
+                    {/* Cantidad de preguntas (Bomba y Mario) */}
+                    {['bomb', 'mario'].includes(gameMode) && (
+                        <div className="p-4 rounded-[1.8rem] bg-white/[0.02] border border-white/5 space-y-3">
+                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest block px-1">
+                                {gameMode === 'bomb' ? '💣 Preguntas del reto' : '🍄 Bloques en el mundo'}
+                            </span>
                             <input
                                 type="number"
                                 min="1" max="200"
                                 value={bombQuestionCount === '' ? '' : bombQuestionCount}
-                                placeholder="Ej. 10 preguntas..."
+                                placeholder="Ej. 10..."
                                 onChange={(e) => setBombQuestionCount(e.target.value === '' ? '' : Number(e.target.value))}
                                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm font-black focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                             />
                             <p className="text-[10px] text-gray-500 font-bold text-center">
-                                Se sortearán al azar del banco. Todos los alumnos verán las mismas preguntas.
+                                Se sortearán {bombQuestionCount} preguntas al azar del banco principal.
                             </p>
                         </div>
                     )}

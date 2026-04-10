@@ -85,7 +85,7 @@ function QuizBuilderContent() {
     const [localMaps, setLocalMaps] = useState<{ id: number, name: string, url: string }[]>([]);
     const [selectedMap, setSelectedMap] = useState<any>(null);
     const [boardPath, setBoardPath] = useState<Coordinate[]>([]);
-    const [gameMode, setGameMode] = useState<"classic" | "race" | "bomb">("classic");
+    const [gameMode, setGameMode] = useState<"classic" | "race" | "bomb" | "mario">("classic");
     const [ludoTeamsCount, setLudoTeamsCount] = useState<number>(4);
     const [ludoPathData, setLudoPathData] = useState<any>({
         bases: [],
@@ -242,11 +242,11 @@ function QuizBuilderContent() {
             showToast("Por favor ingresa un título para la aventura.", "error");
             return;
         }
-        if (gameMode !== 'bomb' && boardPath.length < 2) {
+        if (!['bomb', 'mario'].includes(gameMode) && boardPath.length < 2) {
             showToast("Por favor traza al menos 2 casillas en el tablero.", "error");
             return;
         }
-        if (gameMode !== 'bomb' && !selectedMap) {
+        if (!['bomb', 'mario'].includes(gameMode) && !selectedMap) {
             showToast("Por favor selecciona un escenario.", "error");
             return;
         }
@@ -258,8 +258,8 @@ function QuizBuilderContent() {
             if (!user) throw new Error("No autenticado");
             const payload = {
                 title,
-                board_image_url: gameMode === 'bomb' ? '/logotransparente.png' : selectedMap.url,
-                board_path: gameMode === 'bomb' ? [] : boardPath,
+                board_image_url: ['bomb', 'mario'].includes(gameMode) ? '/logotransparente.png' : selectedMap.url,
+                board_path: ['bomb', 'mario'].includes(gameMode) ? [] : boardPath,
                 game_mode: gameMode,
             };
 
@@ -346,11 +346,12 @@ function QuizBuilderContent() {
                         {/* 1. Selector de Reglas (Modo) */}
                         <div className="mb-6">
                             <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2 block">1. Elige cómo jugar (Modo)</label>
-                            <div className="grid grid-cols-3 gap-2">
+                            <div className="grid grid-cols-4 gap-2">
                                 {[
                                     { id: 'classic', icon: '🏃', name: 'Clásico' },
                                     { id: 'race', icon: '🏎️', name: 'Carreras' },
-                                    { id: 'bomb', icon: '💣', name: 'Bomba' }
+                                    { id: 'bomb', icon: '💣', name: 'Bomba' },
+                                    { id: 'mario', icon: '🌟', name: 'Super Strive' }
                                 ].map((mode) => (
                                     <button
                                         key={mode.id}
@@ -379,8 +380,8 @@ function QuizBuilderContent() {
 
 
 
-                        {/* 2. Selector de Escenario (Mapa) - Solo si NO es Bomba */}
-                        {gameMode !== 'bomb' && (
+                        {/* 2. Selector de Escenario (Mapa) - Solo si NO es Bomba o Mario */}
+                        {!['bomb', 'mario'].includes(gameMode) && (
                             <div className="pt-4 border-t border-gray-100">
                                 <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-3 block">2. Elige dónde jugar (Escenario)</label>
                                 {localMaps.length === 0 ? (
@@ -439,7 +440,7 @@ function QuizBuilderContent() {
 
 
                     {/* Sección 3: Instrucciones / Controles de Ruta */}
-                    {gameMode !== 'bomb' && <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-slate-800 dark:to-slate-800 p-4 rounded-2xl border border-indigo-100/50 dark:border-slate-700 mt-6">
+                    {!['bomb', 'mario'].includes(gameMode) && <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-slate-800 dark:to-slate-800 p-4 rounded-2xl border border-indigo-100/50 dark:border-slate-700 mt-6">
                         <h3 className="font-bold text-indigo-900 dark:text-indigo-300 text-sm mb-3 flex items-center gap-2">
                             <span className="text-lg">⚙️</span> Trazar Ruta
                         </h3>
@@ -470,8 +471,8 @@ function QuizBuilderContent() {
                         disabled={
                             saving ||
                             !title ||
-                            (gameMode !== 'bomb' && !selectedMap) ||
-                            (gameMode !== 'bomb' && boardPath.length < 2)
+                            (!['bomb', 'mario'].includes(gameMode) && !selectedMap) ||
+                            (!['bomb', 'mario'].includes(gameMode) && boardPath.length < 2)
                         }
                         className="w-full flex items-center justify-center gap-2 py-4 px-4 text-base font-bold rounded-2xl text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5 active:scale-95 transition-all outline-none"
                     >
@@ -491,7 +492,7 @@ function QuizBuilderContent() {
                 {/* Patrón de Fondo de Puntos Estrellado */}
                 <div className="absolute inset-0 opacity-[0.04] pointer-events-none z-0" style={{ backgroundImage: 'radial-gradient(white 2px, transparent 2px)', backgroundSize: '30px 30px' }}></div>
 
-                {gameMode === 'bomb' ? (
+                {['bomb', 'mario'].includes(gameMode) ? (
                     <div className="relative z-10 w-full flex flex-col items-center justify-center gap-8 animate-fade-in-up select-none">
                         {/* Fondo de cuadrícula naranja */}
                         <div className="absolute inset-0 pointer-events-none opacity-10"
@@ -502,36 +503,64 @@ function QuizBuilderContent() {
                             {/* Glow rings */}
                             <div className="absolute inset-0 rounded-[3rem] pointer-events-none" style={{ boxShadow: 'inset 0 0 60px rgba(255,80,0,0.08)' }} />
 
-                            {/* Bomb grande animada */}
-                            <div className="relative flex items-center justify-center">
-                                <div className="absolute w-40 h-40 rounded-full bg-orange-500/10 animate-ping" style={{ animationDuration: '2s' }} />
-                                <div className="absolute w-32 h-32 rounded-full bg-orange-500/15 animate-ping" style={{ animationDuration: '2.5s', animationDelay: '0.3s' }} />
-                                <div className="text-[7rem] leading-none animate-[bombBounce_2s_ease-in-out_infinite] drop-shadow-[0_0_30px_rgba(255,120,0,0.8)]">💣</div>
-                            </div>
+                            {/* Animación Interactiva Mode-Specific */}
+                            {gameMode === 'bomb' ? (
+                                <div className="relative flex items-center justify-center">
+                                    <div className="absolute w-40 h-40 rounded-full bg-orange-500/10 animate-ping" style={{ animationDuration: '2s' }} />
+                                    <div className="absolute w-32 h-32 rounded-full bg-orange-500/15 animate-ping" style={{ animationDuration: '2.5s', animationDelay: '0.3s' }} />
+                                    <div className="text-[7rem] leading-none animate-[bombBounce_2s_ease-in-out_infinite] drop-shadow-[0_0_30px_rgba(255,120,0,0.8)]">💣</div>
+                                </div>
+                            ) : (
+                                <div className="relative flex items-center justify-center group h-40 w-40 cursor-pointer">
+                                    {/* Luces y brillos */}
+                                    <div className="absolute w-48 h-48 rounded-full bg-[#5C94FC]/20 animate-pulse duration-1000"></div>
+                                    
+                                    {/* Bloque (?) estilo retro */}
+                                    <div className="absolute bottom-4 w-28 h-28 bg-[#FF9C00] border-[6px] border-[#8B4513] shadow-[inset_0_0_0_6px_#FFCE00,0_10px_30px_rgba(255,156,0,0.5)] flex items-center justify-center z-20 group-hover:-translate-y-2 group-hover:bg-[#8B4513] group-hover:shadow-[inset_0_0_0_6px_#5E2805,0_20px_40px_rgba(255,156,0,0.7)] transition-all duration-300">
+                                        <span className="text-[#8B4513] font-black text-6xl group-hover:opacity-0 transition-opacity duration-200" style={{ textShadow: '2px 2px 0px #FFCE00' }}>?</span>
+                                        <div className="absolute inset-2 border-[4px] border-[#8B4513]/20 pointer-events-none group-hover:opacity-0"></div>
+                                        <div className="absolute top-1 left-1 w-2 h-2 bg-[#8B4513]/40"></div>
+                                        <div className="absolute top-1 right-1 w-2 h-2 bg-[#8B4513]/40"></div>
+                                        <div className="absolute bottom-1 left-1 w-2 h-2 bg-[#8B4513]/40"></div>
+                                        <div className="absolute bottom-1 right-1 w-2 h-2 bg-[#8B4513]/40"></div>
+                                    </div>
+                                    
+                                    {/* Item sorpresa (Hongo) que sale del bloque */}
+                                    <div className="absolute bottom-4 text-[5.5rem] leading-none opacity-0 group-hover:opacity-100 group-hover:bottom-[110px] transition-all duration-500 cubic-bezier([.17,.89,.32,1.28]) z-10 filter drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)]">🍄</div>
+                                </div>
+                            )}
 
-                            <div className="text-center">
-                                <h2 className="text-4xl font-black text-white uppercase tracking-[0.15em] drop-shadow-lg">TRIVIA BOMBA</h2>
-                                <p className="text-orange-400 font-black text-xs uppercase tracking-[0.3em] mt-2">Modo Eliminación</p>
+                            <div className="text-center mt-4">
+                                <h2 className="text-4xl font-black text-white uppercase tracking-[0.15em] drop-shadow-lg">
+                                    {gameMode === 'bomb' ? 'TRIVIA BOMBA' : '🌟 SUPER STRIVE'}
+                                </h2>
+                                <p className={`font-black text-xs uppercase tracking-[0.3em] mt-2 ${gameMode === 'bomb' ? 'text-orange-400' : 'text-[#5C94FC]'}`}>
+                                    {gameMode === 'bomb' ? 'Modo Eliminación' : 'Plataformas & Preguntas'}
+                                </p>
                             </div>
 
                             {/* Mini reglas visuales */}
-                            <div className="grid grid-cols-3 gap-4 mt-2">
-                                {[
-                                    { icon: '💣', label: 'Bomba aleatoria' },
-                                    { icon: '❌', label: 'Fallas = Explota' },
-                                    { icon: '🏆', label: 'Último en pie gana' },
-                                ].map((r, i) => (
-                                    <div key={i} className="flex flex-col items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3">
-                                        <span className="text-2xl">{r.icon}</span>
-                                        <span className="text-[10px] font-black text-white/60 uppercase tracking-wider text-center leading-tight">{r.label}</span>
-                                    </div>
-                                ))}
-                            </div>
+                            {gameMode === 'bomb' && (
+                                <div className="grid grid-cols-3 gap-4 mt-2">
+                                    {[
+                                        { icon: '💣', label: 'Bomba aleatoria' },
+                                        { icon: '❌', label: 'Fallas = Explota' },
+                                        { icon: '🏆', label: 'Último en pie gana' },
+                                    ].map((r, i) => (
+                                        <div key={i} className="flex flex-col items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3">
+                                            <span className="text-2xl">{r.icon}</span>
+                                            <span className="text-[10px] font-black text-white/60 uppercase tracking-wider text-center leading-tight">{r.label}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
-                        <div className="bg-orange-500/10 border border-orange-500/30 px-6 py-3 rounded-2xl flex items-center gap-3">
-                            <span className="text-xl animate-bounce">💣</span>
-                            <span className="text-orange-300 font-black uppercase tracking-widest text-sm">Modo Bomba — No requiere tablero</span>
+                        <div className={`px-6 py-3 rounded-2xl flex items-center gap-3 border ${gameMode === 'bomb' ? 'bg-orange-500/10 border-orange-500/30' : 'bg-[#5C94FC]/10 border-[#5C94FC]/30'}`}>
+                            <span className="text-xl animate-bounce">{gameMode === 'bomb' ? '💣' : '🌟'}</span>
+                            <span className={`${gameMode === 'bomb' ? 'text-orange-300' : 'text-[#8AB3FF]'} font-black uppercase tracking-widest text-sm`}>
+                                Modo Especial — No requiere tablero
+                            </span>
                         </div>
                     </div>
                 ) : selectedMap ? (

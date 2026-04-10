@@ -4,6 +4,7 @@
 import { useEffect, useState, use, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import BombPlayerView from "@/components/games/bomb/BombPlayerView";
+import MarioPlayerView from "@/components/games/mario/MarioPlayerView";
 
 interface Question {
     id: string;
@@ -22,7 +23,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     const [questions, setQuestions] = useState<Question[]>([]);
     const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
     const [gameStatus, setGameStatus] = useState("waiting");
-    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'bomb'>('classic');
+    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'bomb' | 'mario'>('classic');
     const [players, setPlayers] = useState<any[]>([]);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -171,6 +172,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
     // Cronómetro visualmente visual
     useEffect(() => {
+        if (gameMode === 'bomb' || gameMode === 'mario') return;
         if (gameStatus === "waiting" || gameStatus === "finished" || gameStatus === "paused" || hasFinishedAll || answering || questions.length === 0 || questionDuration <= 0) return;
 
         const timer = setInterval(() => {
@@ -217,7 +219,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         // 2. Obtener estado de la partida, preguntas y configuracion de recompensas
         const fetchGame = async () => {
             const { data: game } = await supabase.from("games").select(`
-                status, quiz_id, auto_end, game_mode, team_distribution_mode, question_duration,
+                status, quiz_id, auto_end, game_mode, team_distribution_mode, question_duration, boss_hp,
                 quizzes (board_path)
             `).eq("id", gameId).single();
 
@@ -245,6 +247,14 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
                     if ((mode === 'classic' || mode === 'race') && (boardPath && boardPath.length > 0)) {
                         shuffled = shuffled.slice(0, boardPath.length);
+                    }
+                    
+                    // Limitar preguntas en Mario modo según la configuración
+                    if (mode === 'mario') {
+                        const limit = Number(game.boss_hp);
+                        if (limit > 0 && shuffled.length > limit) {
+                            shuffled = shuffled.slice(0, limit);
+                        }
                     }
 
                     setQuestions(shuffled);
@@ -675,14 +685,65 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
     // Modo bomba: BombPlayerView maneja sus propios estados (active, finished, eliminado)
     if (gameMode === 'bomb' && (gameStatus === 'active' || gameStatus === 'finished') && playerId) {
-        return <BombPlayerView gameId={gameId} playerId={playerId} />;
+        return (
+            <>
+                {isBlurred && (
+                    <div className="fixed inset-0 z-[10000] bg-gray-950/95 flex flex-col items-center justify-center p-6 text-center backdrop-blur-xl">
+                        <div className="bg-red-500/10 border border-red-500/30 p-10 rounded-[3rem] max-w-md shadow-2xl">
+                            <span className="text-8xl mb-6 block animate-bounce">🙈</span>
+                            <h1 className="text-3xl font-black text-red-500 mb-4 uppercase tracking-widest leading-none">
+                                ¡NO HAGAS TRAMPA!
+                            </h1>
+                            <p className="text-gray-300 font-medium text-lg leading-relaxed mb-8">
+                                Ocultamos las preguntas porque detectamos un intento de hacer trampa o uso de otra aplicación. <br /><br />
+                                <strong className="text-red-400">El profesor ha sido notificado.</strong> Espera a que te permita regresar al juego.
+                            </p>
+                            <div className="flex items-center gap-3 opacity-40 justify-center">
+                                <div className="w-2 h-2 bg-red-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                <div className="w-2 h-2 bg-red-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                <div className="w-2 h-2 bg-red-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                <BombPlayerView gameId={gameId} playerId={playerId} />
+            </>
+        );
+    }
+    
+    // Modo mario: MarioPlayerView también maneja su ciclo de juego.
+    if (gameMode === 'mario' && (gameStatus === 'active' || gameStatus === 'finished') && playerId) {
+        return (
+            <>
+                {isBlurred && (
+                    <div className="fixed inset-0 z-[10000] bg-gray-950/95 flex flex-col items-center justify-center p-6 text-center backdrop-blur-xl">
+                        <div className="bg-red-500/10 border border-red-500/30 p-10 rounded-[3rem] max-w-md shadow-2xl">
+                            <span className="text-8xl mb-6 block animate-bounce">🙈</span>
+                            <h1 className="text-3xl font-black text-red-500 mb-4 uppercase tracking-widest leading-none">
+                                ¡NO HAGAS TRAMPA!
+                            </h1>
+                            <p className="text-gray-300 font-medium text-lg leading-relaxed mb-8">
+                                Ocultamos las preguntas porque detectamos un intento de hacer trampa o uso de otra aplicación. <br /><br />
+                                <strong className="text-red-400">El profesor ha sido notificado.</strong> Espera a que te permita regresar al juego.
+                            </p>
+                            <div className="flex items-center gap-3 opacity-40 justify-center">
+                                <div className="w-2 h-2 bg-red-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                <div className="w-2 h-2 bg-red-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                <div className="w-2 h-2 bg-red-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                <MarioPlayerView gameId={gameId} playerId={playerId} questions={questions} isBlurred={isBlurred} />
+            </>
+        );
     }
 
     return (
         <div className="h-screen w-screen flex flex-col bg-[#111827] overflow-y-auto relative font-sans custom-scrollbar select-none" style={{ backgroundImage: bgPattern, backgroundSize: '24px 24px' }}>
-            {/* Overlay Anti-Trampas */}
+            {/* Overlay Anti-Trampas Classic */}
             {isBlurred && (
-                <div className="fixed inset-0 z-[9999] bg-gray-950/95 flex flex-col items-center justify-center p-6 text-center backdrop-blur-xl">
+                <div className="fixed inset-0 z-[10000] bg-gray-950/95 flex flex-col items-center justify-center p-6 text-center backdrop-blur-xl">
                     <div className="bg-red-500/10 border border-red-500/30 p-10 rounded-[3rem] max-w-md shadow-2xl">
                         <span className="text-8xl mb-6 block animate-bounce">🙈</span>
                         <h1 className="text-3xl font-black text-red-500 mb-4 uppercase tracking-widest leading-none">
@@ -700,7 +761,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                     </div>
                 </div>
             )}
-
+            
             {/* Header Mini - Progreso */}
             <div className="bg-slate-900 px-4 py-4 flex justify-between items-center z-10 sticky top-0 border-b-4 border-slate-950 shadow-md">
                 <div className="flex items-center gap-3">

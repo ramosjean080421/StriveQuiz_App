@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import GameBoard from "@/components/GameBoard";
 import ConnectedPlayersModal from "@/components/ConnectedPlayersModal";
 import BombGameBoard from "@/components/games/bomb/BombGameBoard";
+import MarioGameBoard from "@/components/games/mario/MarioGameBoard";
 import Link from "next/link";
 
 export default function GameRoomBoard({ params }: { params: Promise<{ gameId: string }> }) {
@@ -16,11 +17,12 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
     const [podium, setPodium] = useState<any[]>([]);
     const [allPlayers, setAllPlayers] = useState<any[]>([]);
     const [playerCount, setPlayerCount] = useState(0);
-    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'bomb'>('classic');
+    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'bomb' | 'mario'>('classic');
     const [gameDuration, setGameDuration] = useState(0); 
     const [timeLeftSession, setTimeLeftSession] = useState(0);
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [blockedPlayers, setBlockedPlayers] = useState<any[]>([]);
 
     const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
         setToast({ message, type });
@@ -58,7 +60,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
             if (game) {
                 setPin(game.pin);
                 setGameStatus(game.status);
-                setGameMode((game.game_mode as 'classic' | 'race' | 'bomb') || 'classic');
+                setGameMode((game.game_mode as 'classic' | 'race' | 'bomb' | 'mario') || 'classic');
                 if (game.game_duration && game.game_duration > 0 && !game.auto_end) {
                     setGameDuration(game.game_duration);
                     if (game.status === "active") {
@@ -107,13 +109,31 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
             )
             .on('postgres_changes', { event: '*', schema: 'public', table: 'game_players', filter: `game_id=eq.${gameId}` },
                 (payload) => {
-                    if (payload.eventType === 'INSERT') {
-                        setPlayerCount(prev => prev + 1);
-                    } else if (payload.eventType === 'DELETE') {
-                        setPlayerCount(prev => Math.max(0, prev - 1));
+                    // Refetch the exact count to guarantee true synchronization, bypassing +1/-1 drift
+                    supabase.from('game_players').select('*', { count: 'exact', head: true })
+                        .eq('game_id', gameId).gte('current_position', 0)
+                        .then(({ count }) => {
+                            setPlayerCount(count || 0);
+                        });
+
+                    if (payload.eventType === 'UPDATE') {
+                        // Manejo de tramposos en tiempo real
+                        if (payload.new.is_blocked) {
+                            setBlockedPlayers(prev => {
+                                if (prev.find(p => p.id === payload.new.id)) return prev;
+                                return [...prev, payload.new];
+                            });
+                        } else if (!payload.new.is_blocked) {
+                            setBlockedPlayers(prev => prev.filter(p => p.id !== payload.new.id));
+                        }
                     }
                 }
             ).subscribe();
+
+        // Obtener jugadores bloqueados actualmente
+        supabase.from('game_players').select('*').eq('game_id', gameId).eq('is_blocked', true).then(({ data }) => {
+            if (data) setBlockedPlayers(data);
+        });
 
         // Obtener el conteo inicial (usar Math.max para no sobreescribir eventos RT que ya llegaron)
         supabase.from('game_players').select('*', { count: 'exact', head: true }).eq('game_id', gameId).gte('current_position', 0).then(({ count }) => {
@@ -123,6 +143,20 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
         return () => { supabase.removeChannel(channel); };
 
     }, [gameId]);
+
+    const handleForgivePlayer = async (playerId: string) => {
+        await supabase.from("game_players").update({ is_blocked: false }).eq("id", playerId);
+        setBlockedPlayers(prev => prev.filter(p => p.id !== playerId));
+    };
+
+    const handleKickPlayer = async (playerId: string) => {
+        setBlockedPlayers(prev => prev.filter(p => p.id !== playerId));
+        // Penalización letal
+        await supabase.from("game_players").update({ current_position: -999 }).eq("id", playerId);
+        setTimeout(async () => {
+            await supabase.from("game_players").delete().eq("id", playerId);
+        }, 1200);
+    };
 
     useEffect(() => {
         if (gameStatus !== "active" || timeLeftSession <= 0) return;
@@ -323,7 +357,19 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
             {/* Contenedor del Mapa Central o Podio (Ocupa el resto de la pantalla) */}
             <main className={`flex-1 relative z-10 flex ${gameStatus === "finished" ? "flex-col overflow-y-auto items-center justify-start h-full custom-scrollbar p-2 sm:p-4 pt-10" : gameStatus === "waiting" ? "items-center justify-center overflow-hidden" : "p-2 sm:p-4 items-center justify-center overflow-hidden"}`}>
                 {gameStatus === "finished" ? (
-                    <div className="flex flex-col items-center justify-start w-full max-w-5xl animate-fade-in relative pb-20">
+                    <div className="flex flex-col items-center justify-start w-full h-full min-h-screen text-white max-w-5xl animate-fade-in relative pb-20 z-20">
+                        {gameMode === 'mario' && (
+                            <div className="fixed inset-0 -z-10 bg-[#5C94FC] overflow-hidden pointer-events-none">
+                                {/* Piso de tierra */}
+                                <div className="absolute bottom-0 w-full h-24 bg-[#FF9C00]/80 border-t-8 border-[#000]"></div>
+                                <div className="absolute bottom-24 w-full h-8 bg-green-500 border-t-[6px] border-black border-b-[6px]"></div>
+                                
+                                {/* Decorativos Retro */}
+                                <div className="absolute top-20 left-[10%] text-white text-[8rem] opacity-70 drop-shadow-md z-0" style={{filter: 'drop-shadow(10px 10px 0px rgba(0,0,0,0.1))'}}>☁️</div>
+                                <div className="absolute top-40 right-[15%] text-white text-[12rem] opacity-70 drop-shadow-md z-0" style={{filter: 'drop-shadow(10px 10px 0px rgba(0,0,0,0.1))'}}>☁️</div>
+                                <div className="absolute bottom-32 left-[20%] text-[8rem] z-10" style={{filter: 'drop-shadow(10px 10px 0px rgba(0,0,0,0.2))'}}>🍄</div>
+                            </div>
+                        )}
                         {/* Confeti Sencillo CSS */}
                         <div className="absolute inset-0 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 animate-pulse"></div>
                         <h2 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-600 mb-12 drop-shadow-xl uppercase tracking-widest text-center mt-10">
@@ -465,6 +511,8 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                     </div>
                 ) : gameMode === 'bomb' ? (
                     <BombGameBoard gameId={gameId} />
+                ) : gameMode === 'mario' ? (
+                    <MarioGameBoard gameId={gameId} />
                 ) : (
                     <GameBoard gameId={gameId} />
                 )}
@@ -475,6 +523,40 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
             />
+
+            {/* ALERTA DE ALUMNOS BLOQUEADOS (TRAMPA DETECTADA) - ESTILO ORIGINAL FLOTANTE */}
+            {blockedPlayers.length > 0 && (
+                <div className="absolute top-4 right-4 z-[100000] pointer-events-none flex flex-col gap-3 w-80">
+                    {blockedPlayers.map(cheater => (
+                        <div key={cheater.id} className="pointer-events-auto bg-red-600/95 backdrop-blur-xl border-2 border-red-500 p-4 rounded-2xl shadow-[0_10px_30px_rgba(220,38,38,0.4)] flex flex-col animate-fade-in transition-all duration-300 transform scale-100">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="text-3xl drop-shadow-md animate-bounce" style={{animationDuration: '2s'}}>🚨</div>
+                                <div className="text-left text-white leading-tight">
+                                    <h3 className="text-sm font-black uppercase tracking-widest text-red-200">Abandono</h3>
+                                    <p className="font-bold text-sm">
+                                        <span className="text-white bg-black/30 px-1.5 py-0.5 rounded-md mr-1">{cheater.player_name}</span> 
+                                        salió.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex gap-2 w-full">
+                                <button
+                                    onClick={() => handleForgivePlayer(cheater.id)}
+                                    className="flex-1 bg-white text-red-700 font-black px-2 py-1.5 rounded-lg text-xs hover:bg-red-50 transition-colors shadow-md active:scale-95"
+                                >
+                                    PERDONAR
+                                </button>
+                                <button 
+                                    onClick={() => handleKickPlayer(cheater.id)}
+                                    className="flex-1 bg-black/40 hover:bg-black/60 text-white font-black px-2 py-1.5 rounded-lg text-xs transition-colors border border-white/20 active:scale-95"
+                                >
+                                    EXPULSAR
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {/* Música de Juego */}
             <audio id="bg-music" loop src="https://cdns-preview-f.dzcdn.net/stream/c-f458e0aae13fa26ea7f2c69bb128deba-3.mp3"></audio>
