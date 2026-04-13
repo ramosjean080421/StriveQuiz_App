@@ -111,13 +111,24 @@ export default function GameBoard({ gameId }: GameBoardProps) {
                     const name = p.player_name || p.state?.player_name || p.state?.[0]?.player_name;
 
                     if (id && secret) {
-                        // Esperar 15 segundos antes de borrar:
+                        // Esperar 30 segundos antes de borrar (aumentado de 15s):
                         // - Refresh de página: reconecta en ~2-5s → timer se cancela en "join"
+                        // - Laptop con WiFi intermitente: puede tardar ~20s en reconectar
                         // - Cierre real de navegador: no reconecta → se borra después del timeout
-                        // - Solo borrar si el juego sigue en "waiting" (lobby)
-                        const timer = setTimeout(() => {
+                        const timer = setTimeout(async () => {
                             pendingLeaveTimers.current.delete(id);
-                            if (gameStatusRef.current !== "waiting") return;
+                            // Doble verificación: consultar el estado real del juego en la BD
+                            // Evita falsa expulsión cuando gameStatusRef es desactualizado
+                            // (ej: alumno se desconecta justo cuando el profe inicia la partida)
+                            const { data: freshGame } = await supabase
+                                .from("games")
+                                .select("status")
+                                .eq("id", gameId)
+                                .single();
+                            if (!freshGame || freshGame.status !== "waiting") {
+                                console.log(`[PRESENCE_LEAVE] Juego ya iniciado, canceling expulsión de: ${name || id}`);
+                                return;
+                            }
                             console.log(`[PRESENCE_LEAVE] Alumno no reconectó, eliminando: ${name || id}`);
                             fetch('/api/leave_player', {
                                 method: 'POST',
@@ -126,9 +137,9 @@ export default function GameBoard({ gameId }: GameBoardProps) {
                                 body: JSON.stringify({ id, secret })
                             });
                             setPlayers((prev) => prev.filter(pl => pl.id !== id));
-                        }, 15000);
+                        }, 30000);
                         pendingLeaveTimers.current.set(id, timer);
-                        console.log(`[PRESENCE_LEAVE] Alumno desconectado, esperando 15s: ${name || id}`);
+                        console.log(`[PRESENCE_LEAVE] Alumno desconectado, esperando 30s: ${name || id}`);
                     }
                 });
             })

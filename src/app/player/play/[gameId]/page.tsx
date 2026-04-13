@@ -54,6 +54,9 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     const hasFinishedAllRef = useRef(false);
     useEffect(() => { hasFinishedAllRef.current = hasFinishedAll; }, [hasFinishedAll]);
 
+    // Mutex síncrono para el cronómetro: evita que el timer y el botón de respuesta procesen al mismo tiempo
+    const isAnsweringRef = useRef(false);
+
     // Evitar llamadas simultáneas a lockPlayer (blur + visibilitychange pueden disparar al mismo tiempo)
     const isLockingRef = useRef(false);
 
@@ -187,7 +190,11 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
             setTimeLeft(prev => {
                 if (prev <= 1) {
                     clearInterval(timer);
-                    handleAnswerSubmit(-1); // -1 significa que se acabó el tiempo
+                    // Verificar con el ref síncrono: si el alumno ya presionó una respuesta
+                    // en este mismo tick, no disparar el timeout encima
+                    if (!isAnsweringRef.current) {
+                        handleAnswerSubmit(-1); // -1 significa que se acabó el tiempo
+                    }
                     return 0;
                 }
                 return prev - 1;
@@ -427,7 +434,8 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     }, [gameStatus, questions.length, gameId]);
 
     const handleAnswerSubmit = async (answerPayload: any) => {
-        if (answering || gameStatus !== "active") return;
+        if (isAnsweringRef.current || gameStatus !== "active") return;
+        isAnsweringRef.current = true; // Bloquear síncronamente antes de cualquier setState
         setAnswering(true);
 
         const question = questions[currentQuestionIdx];
@@ -498,6 +506,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
                 if (pError || count === 0) {
                     console.error("Error updating player record (Secret mismatch or DB error):", pError, "Rows affected:", count);
+                    isAnsweringRef.current = false; // Liberar mutex en caso de error
                     setFeedback(null);
                     setAnswering(false);
                     setErrorMessage("⚠️ Error de conexión al guardar tu respuesta. Recarga la página e intenta de nuevo.");
@@ -513,6 +522,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
 
         // Esperar feedback antes de la siguiente pregunta
         setTimeout(() => {
+            isAnsweringRef.current = false; // Liberar mutex síncrono
             setFeedback(null);
             setAnswering(false);
 
