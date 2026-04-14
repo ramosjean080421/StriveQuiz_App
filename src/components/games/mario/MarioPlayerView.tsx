@@ -279,16 +279,26 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             if (i % 3 === 0) {
                 genBushes.push({ x: px + 100, y: 350, scale: 0.8 + Math.random()*0.5 });
             }
+        }
 
-            // Generador de Enemigos según Dificultad (Tamaños incrementados para mejor jugabilidad)
-            genEnemies.push({ type: 'goomba', x: px + 150, y: 305, w: 45, h: 45, vx: -1, dir: -1 });
-            if (diff >= 1 && i % 2 !== 0) {
-                genEnemies.push({ type: 'koopa', x: px + 250, y: 295, w: 40, h: 55, vx: -1.5, dir: -1 });
+        // --- GENERACIÓN DE ENEMIGOS BASADA EN LONGITUD TOTAL DEL MAPA ---
+        // 1 goomba por segmento (cada 280px) a lo largo del mapa completo.
+        const overEnemyEnd = Math.max(...genQBlocks.map((b: any) => b.x), warpEntranceX) + 500;
+        const overEnemySpacing = 280;
+        let segIdx = 0;
+        for (let ex = 200; ex < overEnemyEnd; ex += overEnemySpacing) {
+            // Alternamos dirección para variedad
+            const dir = segIdx % 2 === 0 ? -1 : 1;
+            genEnemies.push({ type: 'goomba', x: ex + 60, y: 305, w: 45, h: 45, vx: dir * 1, dir });
+            // Koopa en segmentos alternos si dificultad >= Normal
+            if (diff >= 1 && segIdx % 2 !== 0) {
+                genEnemies.push({ type: 'koopa', x: ex + 60, y: 295, w: 40, h: 55, vx: -1.5, dir: -1 });
             }
-            if (diff >= 2 && i % 3 === 0) {
-                // Generar los Bill Bala un poco más dispersos y grandes
-                genEnemies.push({ type: 'bill', x: px + 800, y: 180 + (Math.random()*100 - 50), w: 60, h: 45, vx: -4, dir: -1 });
+            // Bill bala cada 3 segmentos si dificultad Extremo
+            if (diff >= 2 && segIdx % 3 === 0) {
+                genEnemies.push({ type: 'bill', x: ex + overEnemySpacing * 2, y: 180 + (Math.random()*100 - 50), w: 60, h: 45, vx: -4, dir: -1 });
             }
+            segIdx++;
         }
         
         // Agregar nubes de fondo
@@ -304,7 +314,11 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
 
         for (let i = 0; i < underQs.length; i++) {
             genUnderQBlocks.push({ x: underStartX + i * 400, y: 200, w: 40, h: 40, isQuestionBlock: true, used: false, qData: underQs[i] });
-            genUnderEnemies.push({ type: 'goomba', x: underStartX + i * 400 + 100, y: 305, w: 45, h: 45, vx: -1, dir: -1 });
+        }
+        // Enemigos del submundo: 1 goomba cada 250px a lo largo de todo el submundo
+        for (let ex = underStartX - 50; ex < underMapLength + 100; ex += 250) {
+            const dir = Math.floor(ex / 250) % 2 === 0 ? -1 : 1;
+            genUnderEnemies.push({ type: 'goomba', x: ex + 60, y: 305, w: 45, h: 45, vx: dir * 1, dir });
         }
         // --------------------------------------------------------
 
@@ -353,6 +367,13 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
         let currentActiveLevel = 'overworld';
         let currentLvl = levels[currentActiveLevel];
 
+        // Cache de sólidos (se reconstruye solo al cambiar de nivel, no en cada frame)
+        let cachedSolids: any[] = [];
+        function rebuildSolidsCache() {
+            cachedSolids = [...currentLvl.platforms, ...currentLvl.qBlocks, ...(currentLvl.pipes || [])];
+        }
+        rebuildSolidsCache();
+
         function changeLevel(levelName: string, x: number, y: number) {
             playSound('pipe');
             currentActiveLevel = levelName;
@@ -362,6 +383,7 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             player.vx = 0;
             player.vy = 0;
             player.crouching = false;
+            rebuildSolidsCache(); // Reconstruir cache al cambiar de nivel
         }
 
         function triggerQuestion(block: any) {
@@ -427,8 +449,8 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
 
             player.x += player.vx;
 
-            let allSolids = [...currentLvl.platforms, ...currentLvl.qBlocks, ...(currentLvl.pipes || [])];
-            for (let p of allSolids) {
+            // Usar cachedSolids en vez de recrear el array cada frame
+            for (let p of cachedSolids) {
                 if (checkCollision(player, p)) {
                     if (player.vx > 0) { player.x = p.x - player.w; player.vx = 0; }
                     else if (player.vx < 0) { player.x = p.x + p.w; player.vx = 0; }
@@ -479,7 +501,7 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             player.y += player.vy;
             player.grounded = false;
 
-            for (let p of allSolids) {
+            for (let p of cachedSolids) {
                 if (checkCollision(player, p)) {
                     if (player.vy > 0) { 
                         player.y = p.y - player.h; player.vy = 0; player.grounded = true; 
@@ -489,6 +511,7 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                             (p as any).used = true;
                             spawnParticles(p.x + p.w/2, p.y, '#FF9C00', 10);
                             triggerQuestion(p);
+                            rebuildSolidsCache(); // el bloque cambió estado, refrescar
                         }
                     }
                 }
@@ -496,18 +519,24 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
 
             // Update y Colisiones Enemigos
             if (currentLvl.enemies) {
-                let checkAllSolids = [...currentLvl.platforms, ...currentLvl.qBlocks, ...(currentLvl.pipes || [])];
+                // Radio de activación: solo procesar enemigos cercanos al jugador
+                const ACTIVE_RADIUS = 900;
+                let hasDead = false;
                 for (let e of currentLvl.enemies) {
                     if (e.dead) continue;
-                    
+                    // Culling espacial: enemigos lejanos se congelan (sin IA ni colisiones)
+                    if (Math.abs(e.x - player.x) > ACTIVE_RADIUS) continue;
+
                     if (e.type !== 'bill') {
-                        e.vy = (e.vy || 0) + player.gravity; // Gravedad para los enemigos de tierra
+                        e.grounded = false;
+                        e.vy = (e.vy || 0) + player.gravity;
                     }
+
                     e.x += e.vx;
 
                     if (e.type !== 'bill') {
                         let hitWall = false;
-                        for (let p of checkAllSolids) {
+                        for (let p of cachedSolids) {
                             if (checkCollision({ x: e.x, y: e.y + 2, w: e.w, h: e.h - 4 }, p)) {
                                 if (e.vx > 0) { e.x = p.x - e.w; hitWall = true; }
                                 else if (e.vx < 0) { e.x = p.x + p.w; hitWall = true; }
@@ -516,28 +545,39 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                         if (hitWall) { e.vx *= -1; e.dir *= -1; e.timer = 0; }
                     } else if (e.type === 'bill') {
                         if (e.x < player.x - 600) {
-                            e.x = player.x + 800 + Math.random() * 400; // Loop bullet bills al salir de pantalla
-                            e.y = player.y - 120 + Math.random() * 150; // Se ajusta a la altura del jugador para ser amenazante
-                            if (e.y < 50) e.y = 50; // Limite superior
+                            e.x = player.x + 800 + Math.random() * 400;
+                            e.y = player.y - 120 + Math.random() * 150;
+                            if (e.y < 50) e.y = 50;
                         }
                     }
 
                     e.y += e.vy || 0;
 
                     if (e.type !== 'bill') {
-                        for (let p of checkAllSolids) {
+                        for (let p of cachedSolids) {
                             if (checkCollision(e, p)) {
-                                if (e.vy > 0) { e.y = p.y - e.h; e.vy = 0; }
+                                if (e.vy > 0) { e.y = p.y - e.h; e.vy = 0; e.grounded = true; }
                                 else if (e.vy < 0) { e.y = p.y + p.h; e.vy = 0; }
                             }
                         }
+                    }
+
+                    // Detección de caída al vacío (solo cuando está en el suelo)
+                    if (e.type !== 'bill' && e.grounded) {
+                        const lookX = e.vx > 0 ? e.x + e.w + 4 : e.x - 4;
+                        const probeRect = { x: lookX, y: e.y + e.h + 1, w: 8, h: 10 };
+                        let groundAhead = false;
+                        for (let p of cachedSolids) {
+                            if (checkCollision(probeRect, p)) { groundAhead = true; break; }
+                        }
+                        if (!groundAhead) { e.vx *= -1; e.dir *= -1; e.timer = 0; }
                     }
                     if (!e.timer) e.timer = 0;
                     e.timer++;
 
                     if (!player.invulnerable && checkCollision(player, e)) {
                         if (player.vy > 0 && player.y + player.h < e.y + e.h * 0.5) {
-                            e.dead = true;
+                            e.dead = true; hasDead = true;
                             player.vy = -10;
                             playSound('jump');
                             setScore(prev => prev + 20);
@@ -547,10 +587,9 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                             }
                         } else {
                             player.invulnerable = 60;
-                            // Penalización fija: -100pts por choque con enemigo (mínimo 0)
                             setScore(prev => {
-                                const newScore = Math.max(0, prev - 100);
-                                floatingTexts.push({ text: '-100', x: player.x, y: player.y - 10, life: 80 });
+                                const newScore = Math.max(0, prev - 80);
+                                floatingTexts.push({ text: '-80', x: player.x, y: player.y - 10, life: 80 });
                                 return newScore;
                             });
                             playSound('die');
@@ -559,7 +598,8 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                         }
                     }
                 }
-                currentLvl.enemies = currentLvl.enemies.filter((e:any) => !e.dead);
+                // Filtrar muertos solo si murió alguno este frame
+                if (hasDead) currentLvl.enemies = currentLvl.enemies.filter((e:any) => !e.dead);
             }
 
             if (player.x < 0) player.x = 0;
@@ -611,25 +651,37 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             }
         }
 
+        // Cachear gradiente del cielo para no recrearlo en cada frame
+        let skyGradCache: CanvasGradient | null = null;
+        let lastCanvasHeight = -1;
+
         function draw() {
             if(!ctx || !canvas) return;
             let cameraX = player.x - canvas.width / 2 + player.w / 2;
-            if (cameraX < 0 && !currentLvl.isCave) cameraX = 0; // Detener la cámara al inicio, pero en cueva puede ser flexible
+            if (cameraX < 0 && !currentLvl.isCave) cameraX = 0;
 
-            // Fondo principal basado en el entorno
+            // Viewport para culling (con margen ampliado)
+            const vpLeft  = cameraX - 200;
+            const vpRight = cameraX + canvas.width + 200;
+
+            // Fondo principal
             if (currentLvl.isCave) {
-                ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, canvas.width, canvas.height); // Fondo de caverna oscuro
+                ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
             } else {
-                let skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-                skyGrad.addColorStop(0, '#3E76F2'); skyGrad.addColorStop(1, '#8AB3FF');
-                ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                if (!skyGradCache || canvas.height !== lastCanvasHeight) {
+                    skyGradCache = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                    skyGradCache.addColorStop(0, '#3E76F2'); skyGradCache.addColorStop(1, '#8AB3FF');
+                    lastCanvasHeight = canvas.height;
+                }
+                ctx.fillStyle = skyGradCache; ctx.fillRect(0, 0, canvas.width, canvas.height);
             }
 
             ctx.save();
             ctx.translate(-cameraX, 0);
 
-            // Mountains (Colinas redondeadas clásicas)
+            // Mountains — solo las visibles en cámara
             for (let m of currentLvl.mountains) {
+                if (m.x + m.w < vpLeft || m.x - m.w > vpRight) continue;
                 // Fondo de montaña
                 let mGrad = ctx.createLinearGradient(m.x, m.y - m.h, m.x, m.y);
                 mGrad.addColorStop(0, '#5CF45C'); mGrad.addColorStop(1, '#00A800');
@@ -645,8 +697,9 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                 ctx.beginPath(); ctx.ellipse(m.x + m.w / 2 + 12, m.y - m.h / 1.8, 3, 7, 0, 0, Math.PI * 2); ctx.fill();
             }
 
-            // Bushes
+            // Bushes — solo visibles
             for (let b of currentLvl.bushes) {
+                if (b.x + 80 < vpLeft || b.x - 80 > vpRight) continue;
                 ctx.save();
                 ctx.translate(b.x, b.y); ctx.scale(b.scale, b.scale);
                 ctx.fillStyle = '#00A800';
@@ -655,8 +708,10 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                 ctx.restore();
             }
 
-            // Clouds (Move slowly with parallax)
+            // Clouds — parallax, visibilidad aproximada
             for (let c of currentLvl.clouds) {
+                const cloudScreenX = c.x + (cameraX * 0.5);
+                if (cloudScreenX + 120 < vpLeft || cloudScreenX - 120 > vpRight) continue;
                 ctx.save();
                 ctx.translate(c.x + (cameraX * 0.5), c.y); // Parallax invertido relativo a la cámara
                 ctx.scale(c.scale, c.scale);
@@ -677,8 +732,9 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                 ctx.fillStyle = '#2038E0'; ctx.beginPath(); ctx.moveTo(currentLvl.flag.x, renderFlagY); ctx.lineTo(currentLvl.flag.x - 40, renderFlagY + 10); ctx.lineTo(currentLvl.flag.x, renderFlagY + 20); ctx.closePath(); ctx.fill(); ctx.stroke();
             }
 
-            // Pipes (Tuberías)
+            // Pipes — solo visibles
             for (let p of currentLvl.pipes) {
+                if (p.x + p.w < vpLeft || p.x > vpRight) continue;
                 let pipeGrad = ctx.createLinearGradient(p.x, 0, p.x + p.w, 0);
                 pipeGrad.addColorStop(0, '#00A800'); pipeGrad.addColorStop(0.5, '#5CF45C'); pipeGrad.addColorStop(1, '#005500');
                 
@@ -690,8 +746,11 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                 ctx.strokeRect(p.x - 2, p.y, p.w + 4, 20);
             }
 
-            // Solids (Platforms/Pisos)
+            // Solids — solo visibles (las plataformas son enormes, clampear al viewport)
             for(let p of currentLvl.platforms) {
+                const drawX = Math.max(p.x, vpLeft);
+                const drawW = Math.min(p.x + p.w, vpRight) - drawX;
+                if (drawW <= 0) continue;
                 if (currentLvl.isCave) {
                     // Diseño Ladrillos Azules de Caverna
                     ctx.fillStyle = '#003399'; ctx.fillRect(p.x, p.y, p.w, p.h);
@@ -717,8 +776,9 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                 }
             }
 
-            // QBlocks (Bloques de Pregunta 3D Style)
+            // QBlocks — solo visibles
             for(let b of currentLvl.qBlocks) {
+                if (b.x + b.w < vpLeft || b.x > vpRight) continue;
                 if(b.used) {
                     ctx.fillStyle = '#8B4513'; ctx.fillRect(b.x, b.y, b.w, b.h);
                     ctx.strokeStyle = '#5E2805'; ctx.lineWidth = 3; ctx.strokeRect(b.x, b.y, b.w, b.h);
@@ -744,9 +804,10 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                 ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(b.x, b.y, b.w, b.h);
             }
 
-            // Dibujar Enemigos Mejorados
+            // Enemigos — solo los visibles en cámara
             if (currentLvl.enemies) {
                 for (let e of currentLvl.enemies) {
+                    if (e.x + e.w < vpLeft || e.x > vpRight) continue;
                     if (e.type === 'goomba') {
                         let animTimer = e.timer || 0;
                         let bounce = Math.sin(animTimer * 0.2) * 2.5;
@@ -1053,13 +1114,13 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             }).eq("id", playerId);
 
         } else {
-            // Penalización fija: -100pts por respuesta incorrecta (mínimo 0)
-            setScore(prev => Math.max(0, prev - 100));
+            // Penalización fija: -80pts por respuesta incorrecta (mínimo 0)
+            setScore(prev => Math.max(0, prev - 80));
             gameEngine.current.resumeGame(false);
             
             // Registrar fallo y actualizar score en base de datos
             const { data: cur } = await supabase.from("game_players").select("score, incorrect_answers").eq("id", playerId).single();
-            const newDbScore = Math.max(0, (cur?.score || 0) - 100);
+            const newDbScore = Math.max(0, (cur?.score || 0) - 80);
             await supabase.from("game_players").update({
                 score: newDbScore,
                 incorrect_answers: (cur?.incorrect_answers || 0) + 1
