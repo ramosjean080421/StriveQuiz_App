@@ -15,24 +15,7 @@ interface MarioPlayerViewProps {
 export default function MarioPlayerView({ gameId, playerId, questions, isBlurred, onCheatDetected, difficulty = 1, isGrupal = false }: MarioPlayerViewProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [score, setScore] = useState(0);
-    const [lives, setLives] = useState(() => {
-        if (typeof window !== 'undefined') {
-            const saved = sessionStorage.getItem(`mario_lives_${gameId}`);
-            if (saved) return parseInt(saved, 10);
-        }
-        return 3;
-    });
     
-    // Persistir las vidas cada vez que cambian y verificar Game Over en recarga
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            sessionStorage.setItem(`mario_lives_${gameId}`, lives.toString());
-        }
-        if (lives <= 0) {
-            setGameState('gameover');
-        }
-    }, [lives, gameId]);
-
     const [gameState, setGameState] = useState<'menu' | 'playing' | 'gameover' | 'win'>('menu');
     const [isPaused, setIsPaused] = useState(false);
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -245,7 +228,8 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             vx: 0, vy: 0, speed: selChar.speed, maxSpeed: 5, runSpeed: 9,
             friction: 0.85, jumpPower: selChar.jumpPower, gravity: selChar.gravity,
             grounded: false, color: selChar.color, overalls: selChar.overalls, lastDir: 1, invulnerable: 0,
-            crouching: false, name: selChar.name
+            crouching: false, name: selChar.name,
+            canDoubleJump: false, hasDoubleJumped: false
         };
 
         let particles: any[] = [];
@@ -468,9 +452,28 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                     player.crouching = false;
                 }
 
+                // Salto simple: al estar en el suelo
                 if ((keys.ArrowUp || keys.KeyW || keys.Space) && player.grounded && !player.crouching) {
-                    player.vy = player.jumpPower; player.grounded = false; playSound('jump');
+                    player.vy = player.jumpPower; player.grounded = false;
+                    player.canDoubleJump = true; player.hasDoubleJumped = false;
+                    playSound('jump');
+                    // Limpiar la tecla para no re-disparar doble salto inmediatamente
+                    keys.ArrowUp = false; keys.KeyW = false; keys.Space = false;
                 }
+                // Doble salto: al presionar jump mientras está en el aire (una sola vez)
+                else if ((keys.ArrowUp || keys.KeyW || keys.Space) && !player.grounded && player.canDoubleJump && !player.hasDoubleJumped) {
+                    player.vy = player.jumpPower * 0.85; // Ligeramente menos potente
+                    player.hasDoubleJumped = true;
+                    player.canDoubleJump = false;
+                    playSound('jump');
+                    keys.ArrowUp = false; keys.KeyW = false; keys.Space = false;
+                }
+            }
+
+            // Resetear doble salto al aterrizar
+            if (player.grounded) {
+                player.canDoubleJump = true;
+                player.hasDoubleJumped = false;
             }
 
             player.y += player.vy;
@@ -537,16 +540,18 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                             e.dead = true;
                             player.vy = -10;
                             playSound('jump');
-                            setScore(prev => prev + 20); // Recompensa por aplastar
+                            setScore(prev => prev + 20);
                             floatingTexts.push({ text: '+20', x: e.x + e.w/2 - 15, y: e.y, life: 60 });
                             for(let j=0; j<15; j++) {
                                 particles.push({ x: e.x + e.w/2, y: e.y, vx: (Math.random()-0.5)*8, vy: (Math.random()-0.5)*8, color: '#FFCE00', life: 30 });
                             }
                         } else {
                             player.invulnerable = 60;
-                            setLives(l => {
-                                if (l - 1 <= 0) setGameState('gameover');
-                                return l - 1;
+                            // Penalización fija: -100pts por choque con enemigo (mínimo 0)
+                            setScore(prev => {
+                                const newScore = Math.max(0, prev - 100);
+                                floatingTexts.push({ text: '-100', x: player.x, y: player.y - 10, life: 80 });
+                                return newScore;
                             });
                             playSound('die');
                             player.vy = -8;
@@ -599,8 +604,9 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                 if (!currentLvl.winFlagTimer) currentLvl.winFlagTimer = 1;
             }
             if (player.y > (canvas?.height||400) + 100) {
-                setLives(l => l - 1);
+                // Caída al vacío: solo respawn, sin penalización de puntos
                 player.x = 50; player.y = 100; player.vy = 0;
+                player.canDoubleJump = false; player.hasDoubleJumped = false;
                 playSound('die');
             }
         }
@@ -1036,27 +1042,26 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
         }
         
         if (isCorrect) {
-            setScore(prev => prev + 100);
+            setScore(prev => prev + 200);
             gameEngine.current.resumeGame(true);
             
             // Lógica para enviar a Supabase
             const { data: cur } = await supabase.from("game_players").select("score, correct_answers").eq("id", playerId).single();
             await supabase.from("game_players").update({
-                score: (cur?.score || 0) + 100,
+                score: (cur?.score || 0) + 200,
                 correct_answers: (cur?.correct_answers || 0) + 1
             }).eq("id", playerId);
 
         } else {
-            setLives(prev => {
-                const newLives = prev - 1;
-                if(newLives <= 0) setGameState('gameover');
-                return newLives;
-            });
+            // Penalización fija: -100pts por respuesta incorrecta (mínimo 0)
+            setScore(prev => Math.max(0, prev - 100));
             gameEngine.current.resumeGame(false);
             
-            // Registrar fallo en base de datos
-            const { data: cur } = await supabase.from("game_players").select("incorrect_answers").eq("id", playerId).single();
+            // Registrar fallo y actualizar score en base de datos
+            const { data: cur } = await supabase.from("game_players").select("score, incorrect_answers").eq("id", playerId).single();
+            const newDbScore = Math.max(0, (cur?.score || 0) - 100);
             await supabase.from("game_players").update({
+                score: newDbScore,
                 incorrect_answers: (cur?.incorrect_answers || 0) + 1
             }).eq("id", playerId);
         }
@@ -1102,12 +1107,8 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
 
     return (
         <div className="relative w-[100vw] h-[100dvh] bg-gray-900 overflow-hidden flex items-center justify-center font-sans">
-            <div className="absolute top-4 left-6 text-white font-black text-2xl z-10 drop-shadow-md border-2 border-white/20 bg-black/40 px-4 py-2 rounded-xl">
-                SCORE: {score.toString().padStart(6, '0')}
-            </div>
-            
-            <div className="absolute top-4 right-6 text-white font-black text-2xl z-10 drop-shadow-md border-2 border-white/20 bg-black/40 px-4 py-2 rounded-xl flex items-center gap-2">
-                <span>❤️</span> x{Math.max(0, lives)}
+            <div className="absolute top-4 left-6 text-white font-black text-2xl z-10 drop-shadow-md border-2 border-white/20 bg-black/40 px-4 py-2 rounded-xl flex items-center gap-2">
+                <span>⚡</span> <span className="text-yellow-300">{score.toString().padStart(6, '0')}</span> <span className="text-xs font-bold text-white/50">pts</span>
             </div>
 
             <canvas 
