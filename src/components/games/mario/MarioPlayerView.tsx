@@ -10,9 +10,10 @@ interface MarioPlayerViewProps {
     onCheatDetected?: () => void;
     difficulty?: number;
     isGrupal?: boolean;
+    theme?: 'overworld' | 'castle';
 }
 
-export default function MarioPlayerView({ gameId, playerId, questions, isBlurred, onCheatDetected, difficulty = 1, isGrupal = false }: MarioPlayerViewProps) {
+export default function MarioPlayerView({ gameId, playerId, questions, isBlurred, onCheatDetected, difficulty = 1, isGrupal = false, theme = 'overworld' }: MarioPlayerViewProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [score, setScore] = useState(0);
     
@@ -162,6 +163,21 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                 gain.gain.setValueAtTime(0.1, now);
                 gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
                 osc.start(now); osc.stop(now + 0.1);
+            } else if (type === 'yoshi_jump') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.linearRampToValueAtTime(600, now + 0.2);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.linearRampToValueAtTime(0, now + 0.2);
+                osc.start(now); osc.stop(now + 0.2);
+            } else if (type === 'yoshi_spawn') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(500, now);
+                osc.frequency.linearRampToValueAtTime(800, now + 0.1);
+                osc.frequency.linearRampToValueAtTime(600, now + 0.3);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.linearRampToValueAtTime(0, now + 0.3);
+                osc.start(now); osc.stop(now + 0.3);
             } else if (type === 'coin') {
                 osc.type = 'sine';
                 osc.frequency.setValueAtTime(987.77, now);
@@ -199,8 +215,8 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             realtimeChannel.on('broadcast', { event: 'player_move' }, (payload: any) => {
                 if (payload.payload && payload.payload.id !== playerId) {
                     const gdata = payload.payload;
-                    ghostsRef.current[gdata.id] = gdata;
-                    // Pre-cargar la imagen del fantasma aquí (fuera del render loop) para evitar caída de FPS
+                    ghostsRef.current[gdata.id] = { ...ghostsRef.current[gdata.id], ...gdata }; // Merge
+                    // El avatarUrl ahora solo se asume que lo sacaremos del DB, pero permitimos legacy payload support if passed
                     if (gdata.avatarUrl && !ghostMemes[gdata.id]) {
                         const img = new Image();
                         img.src = gdata.avatarUrl;
@@ -211,10 +227,14 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             realtimeChannel.subscribe();
         }
 
+        // Cache positions para delta checking de realtime
+        let lastSentPos = { x: -1, y: -1, lastDir: 0, crouching: false };
+
+
         const keys: Record<string, boolean> = {
             ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false,
             KeyA: false, KeyD: false, KeyW: false, KeyS: false, Space: false,
-            ShiftLeft: false, ShiftRight: false
+            ShiftLeft: false, ShiftRight: false, KeyE: false
         };
 
         const keydownHandler = (e: KeyboardEvent) => { initAudio(); if (keys.hasOwnProperty(e.code)) keys[e.code] = true; };
@@ -229,7 +249,8 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             friction: 0.85, jumpPower: selChar.jumpPower, gravity: selChar.gravity,
             grounded: false, color: selChar.color, overalls: selChar.overalls, lastDir: 1, invulnerable: 0,
             crouching: false, name: selChar.name,
-            canDoubleJump: false, hasDoubleJumped: false
+            canDoubleJump: false, hasDoubleJumped: false,
+            streak: 0, hasYoshi: false, flutterTimer: 0, tongueActive: 0
         };
 
         let particles: any[] = [];
@@ -320,6 +341,58 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             const dir = Math.floor(ex / 250) % 2 === 0 ? -1 : 1;
             genUnderEnemies.push({ type: 'goomba', x: ex + 60, y: 305, w: 45, h: 45, vx: dir * 1, dir });
         }
+        // -------- CASTILLO DE LAVA DE BOWSER --------
+        let genCastleQBlocks = [];
+        let genCastleEnemies: any[] = [];
+        let genLavaPits: any[] = [];
+        let genCastlePlatforms: any[] = [];
+        let genLavaBubbles: any[] = [];
+        
+        let castleStartX = 300;
+        let minQuestionsLength = 600 + realQuestions.length * 500;
+        
+        let currentX = -500;
+        // Plataforma inicial segura para el jugador (evita que aparezca flotando o sobre un foso)
+        let firstPlatW = 1200;
+        genCastlePlatforms.push({ x: currentX, y: 350, w: firstPlatW, h: 250 });
+        currentX += firstPlatW;
+
+        while (currentX < minQuestionsLength + 1000) {
+            let gap = 150 + Math.random() * 150;
+            let platW = 400 + Math.random() * 500;
+            
+            genLavaPits.push({ x: currentX, y: 450, w: gap, h: 150 });
+            
+            // Un solo Podoboo justo en el centro del charco de lava
+            genLavaBubbles.push({ type: 'podoboo', x: currentX + gap/2 - 15, y: 480 + Math.random() * 20, w: 30, h: 40, vx: 0, timer: Math.random() * 200 });
+
+            
+            currentX += gap;
+            genCastlePlatforms.push({ x: currentX, y: 350, w: platW, h: 250 });
+            currentX += platW;
+        }
+        
+        let finalCastleX = currentX - 300; // Colocar la bandera sobre la última plataforma sólida
+
+        
+        for (let i = 0; i < realQuestions.length; i++) {
+            let px = castleStartX + i * 500; // distribuidos en plataformas
+            
+            // Si cae en foso de lava, lo movemos
+            let isInGap = false;
+            for (let pit of genLavaPits) {
+                if (px >= pit.x && px <= pit.x + pit.w) { px = pit.x + pit.w + 50; isInGap = true; break; }
+            }
+            
+            genCastleQBlocks.push({ x: px, y: 200, w: 40, h: 40, isQuestionBlock: true, used: false, qData: realQuestions[i] });
+            genCastleEnemies.push({ type: 'goomba', x: px + 100, y: 305, w: 45, h: 45, vx: Math.random() > 0.5 ? 1 : -1, dir: 1 });
+            if (i % 3 === 0) {
+                genCastleEnemies.push({ type: 'drybones', x: px + 250, y: 295, w: 40, h: 55, vx: -1.5, dir: -1 });
+            }
+        }
+        
+        // Agregar enemigos fuego al pool
+        genCastleEnemies.push(...genLavaBubbles);
         // --------------------------------------------------------
 
         let levels: Record<string, any> = {
@@ -361,10 +434,21 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                 qBlocks: genUnderQBlocks,
                 enemies: genUnderEnemies,
                 flag: null
+            },
+            castle: {
+                isCave: false,
+                isCastle: true,
+                platforms: genCastlePlatforms,
+                pipes: [],
+                lavaPits: genLavaPits,
+                clouds: [], mountains: [], bushes: [],
+                qBlocks: genCastleQBlocks,
+                enemies: genCastleEnemies,
+                flag: { x: finalCastleX, y: 50, w: 80, h: 300 } // Bowser door o hacha
             }
         };
 
-        let currentActiveLevel = 'overworld';
+        let currentActiveLevel = theme === 'castle' ? 'castle' : 'overworld';
         let currentLvl = levels[currentActiveLevel];
 
         // Cache de sólidos (se reconstruye solo al cambiar de nivel, no en cada frame)
@@ -407,8 +491,18 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                 if(correct) {
                     playSound('coin'); 
                     if(activeBlock) spawnParticles(activeBlock.x + 20, activeBlock.y, '#FFCE00', 30);
+                    
+                    player.streak += 1;
+                    if (player.streak >= 3 && !player.hasYoshi) {
+                        player.hasYoshi = true;
+                        player.streak = 0;
+                        playSound('yoshi_spawn');
+                        spawnParticles(player.x + 15, player.y + 20, '#00FF00', 50);
+                        floatingTexts.push({ text: '¡YOSHI!', x: player.x, y: player.y - 60, color: '#00FF00', life: 80 });
+                    }
                 } else {
                     playSound('die');
+                    player.streak = 0;
                 }
                 setActiveQuestion(null);
                 setActiveBlock(null);
@@ -421,6 +515,10 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             if(gameEngine.current.isPaused) return;
 
             if (player.invulnerable > 0) player.invulnerable--;
+            if (player.flutterTimer > 0) {
+                player.flutterTimer--;
+                if (player.flutterTimer <= 0) player.gravity = selChar.gravity; // Restore gravity
+            }
 
             let isRunning = keys.ShiftLeft || keys.ShiftRight;
             let currentMaxSpeed = isRunning ? player.runSpeed : player.maxSpeed;
@@ -478,16 +576,52 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                 if ((keys.ArrowUp || keys.KeyW || keys.Space) && player.grounded && !player.crouching) {
                     player.vy = player.jumpPower; player.grounded = false;
                     player.canDoubleJump = true; player.hasDoubleJumped = false;
-                    playSound('jump');
-                    // Limpiar la tecla para no re-disparar doble salto inmediatamente
+                    playSound(player.hasYoshi ? 'yoshi_jump' : 'jump');
                     keys.ArrowUp = false; keys.KeyW = false; keys.Space = false;
                 }
-                // Doble salto: al presionar jump mientras está en el aire (una sola vez)
+                
+                // --- LENGUA YOSHI ---
+                if (keys.KeyE && player.hasYoshi && player.tongueActive === 0) {
+                    player.tongueActive = 20; //frames de lengua duracion
+                    playSound('coin'); 
+                    keys.KeyE = false;
+                }
+                
+                if (player.tongueActive > 0) {
+                    player.tongueActive--;
+                    let tW = (20 - Math.abs(player.tongueActive - 10)) * 6; // Crece hasta 60px y encoge
+                    let tongueRect = {
+                        x: player.lastDir === 1 ? player.x + player.w : player.x - tW,
+                        y: player.y + 10,
+                        w: tW,
+                        h: 20
+                    };
+                    
+                    for (let e of currentLvl.enemies) {
+                        if (!e.dead && !e.beingEaten && !e.collapsed && e.type !== 'podoboo' && checkCollision(tongueRect, e)) {
+                            e.beingEaten = true;
+                            e.vx = 0; 
+                            e.vy = 0;
+                        }
+                    }
+                }
+                
+                // Doble salto / Flutter jump: al presionar jump mientras está en el aire
                 else if ((keys.ArrowUp || keys.KeyW || keys.Space) && !player.grounded && player.canDoubleJump && !player.hasDoubleJumped) {
-                    player.vy = player.jumpPower * 0.85; // Ligeramente menos potente
                     player.hasDoubleJumped = true;
                     player.canDoubleJump = false;
-                    playSound('jump');
+                    
+                    if (player.hasYoshi) {
+                        player.vy = player.jumpPower * 0.9;
+                        player.gravity = selChar.gravity * 0.45; // Flutter hover effect
+                        player.flutterTimer = 25;
+                        playSound('yoshi_jump');
+                        spawnParticles(player.x + 15, player.y + 40, '#FFFFFF', 10);
+                    } else {
+                        player.vy = player.jumpPower * 0.85; // Ligeramente menos potente
+                        playSound('jump');
+                        spawnParticles(player.x + 15, player.y + 40, '#FFFFFF', 5);
+                    }
                     keys.ArrowUp = false; keys.KeyW = false; keys.Space = false;
                 }
             }
@@ -527,14 +661,35 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                     // Culling espacial: enemigos lejanos se congelan (sin IA ni colisiones)
                     if (Math.abs(e.x - player.x) > ACTIVE_RADIUS) continue;
 
-                    if (e.type !== 'bill') {
+                    if (e.beingEaten) {
+                        // Jalar rápidamente hacia la boca de Yoshi y encoger
+                        let mouthX = player.lastDir === 1 ? player.x + player.w : player.x;
+                        let mouthY = player.y + 10;
+                        e.x += (mouthX - e.x) * 0.4;
+                        e.y += (mouthY - e.y) * 0.4;
+                        e.w = Math.max(0, e.w - 5); 
+                        e.h = Math.max(0, e.h - 5);
+                        
+                        // Si llega a la boca o desaparece
+                        if (Math.abs(e.x - mouthX) < 15 || e.w === 0) {
+                            e.dead = true;
+                            hasDead = true; 
+                            playSound('coin');
+                            setScore(prev => prev + 50);
+                        }
+                        continue;
+                    }
+
+                    if (e.type === 'podoboo') {
+                        if (e.baseY === undefined) e.baseY = e.y;
+                    } else if (e.type !== 'bill') {
                         e.grounded = false;
                         e.vy = (e.vy || 0) + player.gravity;
                     }
 
                     e.x += e.vx;
 
-                    if (e.type !== 'bill') {
+                    if (e.type !== 'bill' && e.type !== 'podoboo') {
                         let hitWall = false;
                         for (let p of cachedSolids) {
                             if (checkCollision({ x: e.x, y: e.y + 2, w: e.w, h: e.h - 4 }, p)) {
@@ -546,14 +701,18 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                     } else if (e.type === 'bill') {
                         if (e.x < player.x - 600) {
                             e.x = player.x + 800 + Math.random() * 400;
-                            e.y = player.y - 120 + Math.random() * 150;
+                            e.y = 120 + Math.random() * 100; // Siempre vuela medio/alto, independiente del jugador
                             if (e.y < 50) e.y = 50;
                         }
                     }
 
-                    e.y += e.vy || 0;
+                    if (e.type === 'podoboo') {
+                        e.y = e.baseY - Math.abs(Math.sin((e.timer || 0) * 0.04)) * 320;
+                    } else {
+                        e.y += e.vy || 0;
+                    }
 
-                    if (e.type !== 'bill') {
+                    if (e.type !== 'bill' && e.type !== 'podoboo') {
                         for (let p of cachedSolids) {
                             if (checkCollision(e, p)) {
                                 if (e.vy > 0) { e.y = p.y - e.h; e.vy = 0; e.grounded = true; }
@@ -563,7 +722,7 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                     }
 
                     // Detección de caída al vacío (solo cuando está en el suelo)
-                    if (e.type !== 'bill' && e.grounded) {
+                    if (e.type !== 'bill' && e.type !== 'podoboo' && e.grounded) {
                         const lookX = e.vx > 0 ? e.x + e.w + 4 : e.x - 4;
                         const probeRect = { x: lookX, y: e.y + e.h + 1, w: 8, h: 10 };
                         let groundAhead = false;
@@ -572,29 +731,56 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                         }
                         if (!groundAhead) { e.vx *= -1; e.dir *= -1; e.timer = 0; }
                     }
+                    if (e.collapsed) {
+                        e.collapseTimer--;
+                        if (e.collapseTimer <= 0) {
+                            e.collapsed = false;
+                            e.vx = e.dir * 1.5;
+                        }
+                    }
+
                     if (!e.timer) e.timer = 0;
                     e.timer++;
 
-                    if (!player.invulnerable && checkCollision(player, e)) {
-                        if (player.vy > 0 && player.y + player.h < e.y + e.h * 0.5) {
-                            e.dead = true; hasDead = true;
-                            player.vy = -10;
-                            playSound('jump');
-                            setScore(prev => prev + 20);
-                            floatingTexts.push({ text: '+20', x: e.x + e.w/2 - 15, y: e.y, life: 60 });
-                            for(let j=0; j<15; j++) {
-                                particles.push({ x: e.x + e.w/2, y: e.y, vx: (Math.random()-0.5)*8, vy: (Math.random()-0.5)*8, color: '#FFCE00', life: 30 });
+                    if (!player.invulnerable && checkCollision(player, e) && !e.collapsed) {
+                        if (player.vy > 0 && player.y + player.h < e.y + e.h * 0.5 && e.type !== 'podoboo') {
+                            if (e.type === 'drybones') {
+                                e.collapsed = true;
+                                e.collapseTimer = 300;
+                                e.vx = 0;
+                                player.vy = -8;
+                                playSound('jump');
+                                setScore(prev => prev + 10);
+                                floatingTexts.push({ text: 'CRUNCH!', x: e.x, y: e.y - 10, color: '#FFFFFF', life: 60 });
+                            } else {
+                                e.dead = true; hasDead = true;
+                                player.vy = -10;
+                                playSound('jump');
+                                setScore(prev => prev + 20);
+                                floatingTexts.push({ text: '+20', x: e.x + e.w/2 - 15, y: e.y, life: 60 });
+                                for(let j=0; j<15; j++) {
+                                    particles.push({ x: e.x + e.w/2, y: e.y, vx: (Math.random()-0.5)*8, vy: (Math.random()-0.5)*8, color: '#FFCE00', life: 30 });
+                                }
                             }
                         } else {
-                            player.invulnerable = 60;
-                            setScore(prev => {
-                                const newScore = Math.max(0, prev - 80);
-                                floatingTexts.push({ text: '-80', x: player.x, y: player.y - 10, life: 80 });
-                                return newScore;
-                            });
-                            playSound('die');
-                            player.vy = -8;
-                            player.vx = -player.lastDir * 5;
+                            if (player.hasYoshi) {
+                                player.hasYoshi = false;
+                                player.streak = 0;
+                                player.invulnerable = 60;
+                                player.vy = -8;
+                                playSound('die'); // Yoshi perdido
+                                spawnParticles(player.x, player.y, '#00FF00', 30);
+                            } else {
+                                player.invulnerable = 60;
+                                setScore(prev => {
+                                    const newScore = Math.max(0, prev - 80);
+                                    floatingTexts.push({ text: '-80', x: player.x, y: player.y - 10, color: '#FF0000', life: 80 });
+                                    return newScore;
+                                });
+                                playSound('die');
+                                player.vy = -8;
+                                player.vx = -player.lastDir * 5;
+                            }
                         }
                     }
                 }
@@ -607,22 +793,34 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             // --- MULTIPLAYER GHOST SYNC ---
             if (isGrupal && realtimeChannel) {
                 syncTimer++;
-                if (syncTimer > 6) { // ~10 tick/segundo
+                // 1) Reducimos la frecuencia de envío a un 33% 
+                // (~15 ticks = de 10 msg/s bajamos a ~4 msg/s)
+                if (syncTimer > 15) {
                     syncTimer = 0;
-                    realtimeChannel.send({
-                        type: 'broadcast',
-                        event: 'player_move',
-                        payload: {
-                            id: playerId,
-                            x: player.x,
-                            y: player.y,
-                            crouching: player.crouching,
-                            lastDir: player.lastDir,
-                            color: player.color,
-                            overalls: player.overalls,
-                            avatarUrl: avatarUrl
-                        }
-                    }).catch(() => {});
+                    
+                    // 2) Delta Threshold: No enviar NADA si el jugador está completamente quieto 
+                    const dx = Math.abs(player.x - lastSentPos.x);
+                    const dy = Math.abs(player.y - lastSentPos.y);
+                    const posChanged = dx > 2 || dy > 2; // toleramos vibraciones minúsculas
+                    const stateChanged = player.crouching !== lastSentPos.crouching || player.lastDir !== lastSentPos.lastDir;
+                    
+                    if (posChanged || stateChanged) {
+                        lastSentPos = { x: player.x, y: player.y, crouching: player.crouching, lastDir: player.lastDir };
+                        realtimeChannel.send({
+                            type: 'broadcast',
+                            event: 'player_move',
+                            payload: {
+                                id: playerId,
+                                x: player.x,
+                                y: player.y,
+                                crouching: player.crouching,
+                                lastDir: player.lastDir
+                                // Hemos quitado color, overalls y avatarUrl para ahorrar Ancho de Banda Supabase. 
+                                // ¿Por qué? Porque el Cliente Render dibuja fantasmas usando el Estado Interno actual React 
+                                // (O podemos pasarlos una sola vez en presence).
+                            }
+                        }).catch(() => {});
+                    }
                 }
             }
 
@@ -644,9 +842,13 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                 if (!currentLvl.winFlagTimer) currentLvl.winFlagTimer = 1;
             }
             if (player.y > (canvas?.height||400) + 100) {
-                // Caída al vacío: solo respawn, sin penalización de puntos
+                // Caída al vacío: respawn, sin penalización, pero en castillo te mata Yoshi
                 player.x = 50; player.y = 100; player.vy = 0;
                 player.canDoubleJump = false; player.hasDoubleJumped = false;
+                if (player.hasYoshi) {
+                    player.hasYoshi = false;
+                    player.streak = 0;
+                }
                 playSound('die');
             }
         }
@@ -667,6 +869,24 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             // Fondo principal
             if (currentLvl.isCave) {
                 ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            } else if (currentLvl.isCastle) {
+                if (!skyGradCache || canvas.height !== lastCanvasHeight) {
+                    skyGradCache = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                    skyGradCache.addColorStop(0, '#2b0000'); skyGradCache.addColorStop(1, '#880000');
+                    lastCanvasHeight = canvas.height;
+                }
+                ctx.fillStyle = skyGradCache; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Castle columns background (parallax)
+                ctx.save();
+                ctx.fillStyle = '#1a0000';
+                for(let c=0; c<canvas.width + 200; c+=300) {
+                    let colX = c - (cameraX * 0.3) % 300;
+                    ctx.fillRect(colX, 0, 100, canvas.height);
+                    ctx.fillStyle = '#110000'; ctx.fillRect(colX, 0, 15, canvas.height); ctx.fillRect(colX + 85, 0, 15, canvas.height);
+                    ctx.fillStyle = '#1a0000'; // restore
+                }
+                ctx.restore();
             } else {
                 if (!skyGradCache || canvas.height !== lastCanvasHeight) {
                     skyGradCache = ctx.createLinearGradient(0, 0, 0, canvas.height);
@@ -751,7 +971,23 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                 const drawX = Math.max(p.x, vpLeft);
                 const drawW = Math.min(p.x + p.w, vpRight) - drawX;
                 if (drawW <= 0) continue;
-                if (currentLvl.isCave) {
+                if (currentLvl.isCastle) {
+                    ctx.fillStyle = '#6e1d1d'; ctx.fillRect(p.x, p.y, p.w, p.h);
+                    ctx.fillStyle = '#4a0c0c';
+                    for (let ix = 0; ix < p.w; ix += 40) {
+                        for (let iy = 0; iy < p.h; iy += 40) {
+                            ctx.strokeRect(p.x + ix, p.y + iy, 40, 40);
+                            ctx.fillRect(p.x + ix + 4, p.y + iy + 4, 32, 32);
+                        }
+                    }
+                    ctx.fillStyle = '#2b0000';
+                    for (let iRand = 0; iRand < p.w; iRand += 120) {
+                        ctx.fillRect(p.x + iRand + 10, p.y + 10, 8, 8);
+                    }
+                    ctx.lineWidth = 4; ctx.strokeStyle = '#111'; ctx.strokeRect(p.x, p.y, p.w, p.h);
+                    // Add lava detail on top
+                    ctx.fillStyle = '#FF4500'; ctx.fillRect(p.x, p.y, p.w, 3);
+                } else if (currentLvl.isCave) {
                     // Diseño Ladrillos Azules de Caverna
                     ctx.fillStyle = '#003399'; ctx.fillRect(p.x, p.y, p.w, p.h);
                     ctx.strokeStyle = '#001A4D'; ctx.lineWidth = 2;
@@ -773,6 +1009,27 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                     }
                     ctx.lineWidth = 3; ctx.strokeStyle = '#000'; ctx.strokeRect(p.x, p.y, p.w, p.h);
                     ctx.beginPath(); ctx.moveTo(p.x, p.y + 15); ctx.lineTo(p.x + p.w, p.y + 15); ctx.stroke();
+                }
+            }
+
+            // Lava Pits
+            if (currentLvl.lavaPits) {
+                let lavaAnim = Math.sin(Date.now() / 200) * 5;
+                for (let l of currentLvl.lavaPits) {
+                    if (l.x + l.w < vpLeft || l.x > vpRight) continue;
+                    let lGrad = ctx.createLinearGradient(0, l.y, 0, l.y + l.h);
+                    lGrad.addColorStop(0, '#FF4500'); lGrad.addColorStop(1, '#8B0000');
+                    ctx.fillStyle = lGrad;
+                    // Draw bubbling top
+                    ctx.beginPath();
+                    ctx.moveTo(l.x, l.y + l.h);
+                    ctx.lineTo(l.x, l.y + 10 + lavaAnim);
+                    for (let lx = l.x; lx < l.x + l.w; lx += 20) {
+                        ctx.lineTo(lx + 10, l.y + (lx % 40 === 0 ? 5 - lavaAnim : 15 + lavaAnim));
+                    }
+                    ctx.lineTo(l.x + l.w, l.y + l.h);
+                    ctx.closePath();
+                    ctx.fill();
                 }
             }
 
@@ -863,47 +1120,77 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                         ctx.beginPath(); ctx.moveTo(e.w*0.65, e.h*0.55); ctx.lineTo(e.w*0.55, e.h*0.68); ctx.lineTo(e.w*0.5, e.h*0.55); ctx.stroke();
                     
                         ctx.restore();
+                    } else if (e.type === 'drybones') {
+                        let animTimer = e.timer || 0;
+                        if (e.collapsed) {
+                            // Draw pile of bones
+                            ctx.save();
+                            ctx.translate(e.x + e.w/2, e.y + e.h); // Bottom anchor
+                            // A shake animation exactly before reassembling
+                            let shake = (e.collapseTimer < 40) ? Math.sin(e.collapseTimer * 0.8) * 3 : 0;
+                            ctx.translate(shake, 0);
+
+                            ctx.fillStyle = "#EAEAEA";
+                            ctx.strokeStyle = "#444"; ctx.lineWidth = 2;
+                            
+                            // Skull base
+                            ctx.beginPath(); ctx.ellipse(-10, -5, 10, 8, -Math.PI/6, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                            // Ribcage 
+                            ctx.beginPath(); ctx.ellipse(5, -8, 12, 6, Math.PI/12, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                            // Bone arm 1
+                            ctx.beginPath(); ctx.roundRect(-20, -4, 15, 4, 2); ctx.fill(); ctx.stroke();
+                            // Bone arm 2
+                            ctx.beginPath(); ctx.roundRect(5, -4, 12, 4, 2); ctx.fill(); ctx.stroke();
+
+                            ctx.restore();
+                        } else {
+                            let bounce = Math.sin(animTimer * 0.25) * 1.5;
+                            ctx.save();
+                            ctx.translate(e.x + e.w/2, e.y + bounce + e.h/2);
+                            ctx.scale(e.dir < 0 ? -1 : 1, 1);
+                            ctx.translate(-e.w/2, -e.h/2);
+                            
+                            // Zapatos grises
+                            ctx.fillStyle = "#777";
+                            let wPhase = Math.sin(animTimer * 0.4);
+                            ctx.beginPath(); ctx.ellipse(e.w*0.3, e.h-5 + wPhase*2, 6, 4, 0, 0, Math.PI*2); ctx.fill();
+                            ctx.beginPath(); ctx.ellipse(e.w*0.7, e.h-5 - wPhase*2, 6, 4, 0, 0, Math.PI*2); ctx.fill();
+                        
+                            // Shell de hueso
+                            ctx.fillStyle = "#EAEAEA";
+                            ctx.beginPath(); 
+                            ctx.moveTo(e.w*0.2, e.h*0.9);
+                            ctx.bezierCurveTo(-e.w*0.4, e.h*0.8, -e.w*0.2, e.h*0.2, e.w*0.4, e.h*0.3);
+                            ctx.bezierCurveTo(e.w*0.4, e.h*0.8, e.w*0.3, e.h*0.9, e.w*0.2, e.h*0.9);
+                            ctx.fill();
+                            ctx.strokeStyle = "#444"; ctx.lineWidth = 2; ctx.stroke();
+                            
+                            // Costillas (cuerpo)
+                            ctx.fillStyle = "#AAA"; // Background dark for ribs
+                            ctx.beginPath(); 
+                            if(ctx.roundRect) ctx.roundRect(e.w*0.3, e.h*0.4, e.w*0.4, e.h*0.5, 5); 
+                            else ctx.rect(e.w*0.3, e.h*0.4, e.w*0.4, e.h*0.5);
+                            ctx.fill();
+                            // Dibujar las costillas horizontales
+                            ctx.fillStyle = "#FFF";
+                            for(let ry = e.h*0.45; ry < e.h*0.8; ry += 8) {
+                                ctx.fillRect(e.w*0.25, ry, e.w*0.5, 4);
+                            }
+
+                            // Cabeza blanca y vacía
+                            ctx.fillStyle = "#FFF";
+                            ctx.beginPath(); ctx.ellipse(e.w*0.7, e.h*0.3, 10, 12, Math.PI/8, 0, Math.PI*2); ctx.fill();
+                            ctx.beginPath(); ctx.ellipse(e.w*0.9, e.h*0.3, 10, 8, -Math.PI/6, 0, Math.PI*2); ctx.fill();
+                            ctx.stroke(); // Borde
+                        
+                            // Ojos vacíos negros con brillo rojo amenazante
+                            ctx.fillStyle = "#000"; ctx.beginPath(); ctx.ellipse(e.w*0.75, e.h*0.25, 4, 6, 0, 0, Math.PI*2); ctx.fill();
+                            ctx.fillStyle = "#F00"; ctx.beginPath(); ctx.ellipse(e.w*0.78, e.h*0.25, 1.5, 1.5, 0, 0, Math.PI*2); ctx.fill();
+                        
+                            ctx.restore();
+                        }
                     } else if (e.type === 'koopa') {
                         let animTimer = e.timer || 0;
-                        let bounce = Math.sin(animTimer * 0.25) * 1.5;
-                        ctx.save();
-                        ctx.translate(e.x + e.w/2, e.y + bounce + e.h/2);
-                        ctx.scale(e.dir < 0 ? -1 : 1, 1);
-                        ctx.translate(-e.w/2, -e.h/2);
-                        
-                        ctx.fillStyle = "#E83A00";
-                        let wPhase = Math.sin(animTimer * 0.4);
-                        ctx.beginPath(); ctx.ellipse(e.w*0.3, e.h-5 + wPhase*2, 6, 4, 0, 0, Math.PI*2); ctx.fill();
-                        ctx.beginPath(); ctx.ellipse(e.w*0.7, e.h-5 - wPhase*2, 6, 4, 0, 0, Math.PI*2); ctx.fill();
-                    
-                        ctx.fillStyle = "#FFD000";
-                        ctx.beginPath(); 
-                        if(ctx.roundRect) ctx.roundRect(e.w*0.3, e.h*0.4, e.w*0.4, e.h*0.5, 5); 
-                        else ctx.rect(e.w*0.3, e.h*0.4, e.w*0.4, e.h*0.5);
-                        ctx.fill();
-                        
-                        ctx.fillStyle = "#00A800";
-                        ctx.beginPath(); 
-                        ctx.moveTo(e.w*0.2, e.h*0.9);
-                        ctx.bezierCurveTo(-e.w*0.4, e.h*0.8, -e.w*0.2, e.h*0.2, e.w*0.4, e.h*0.3);
-                        ctx.bezierCurveTo(e.w*0.4, e.h*0.8, e.w*0.3, e.h*0.9, e.w*0.2, e.h*0.9);
-                        ctx.fill();
-                        
-                        ctx.fillStyle = "#F5F5DC";
-                        ctx.beginPath(); 
-                        if(ctx.roundRect) ctx.roundRect(0, e.h*0.8, e.w*0.7, 6, 3);
-                        else ctx.rect(0, e.h*0.8, e.w*0.7, 6);
-                        ctx.fill();
-                    
-                        ctx.fillStyle = "#FFC800";
-                        ctx.beginPath(); ctx.ellipse(e.w*0.7, e.h*0.3, 10, 12, Math.PI/8, 0, Math.PI*2); ctx.fill();
-                        ctx.beginPath(); ctx.ellipse(e.w*0.9, e.h*0.3, 8, 8, 0, 0, Math.PI*2); ctx.fill();
-                    
-                        ctx.fillStyle = "white"; ctx.beginPath(); ctx.ellipse(e.w*0.75, e.h*0.25, 4, 6, 0, 0, Math.PI*2); ctx.fill();
-                        ctx.fillStyle = "black"; ctx.beginPath(); ctx.ellipse(e.w*0.8, e.h*0.25, 2, 4, 0, 0, Math.PI*2); ctx.fill();
-                    
-                        ctx.restore();
-                    } else if (e.type === 'bill') {
                         ctx.save();
                         ctx.translate(e.x + e.w/2, e.y + e.h/2);
                         ctx.scale(e.dir < 0 ? -1 : 1, 1);
@@ -949,12 +1236,28 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                         let fGrad = ctx.createLinearGradient(0, 0, -fLen, 0);
                         fGrad.addColorStop(0, "#FFEA00"); fGrad.addColorStop(0.5, "#FF5500"); fGrad.addColorStop(1, "rgba(255,0,0,0)");
                         ctx.fillStyle = fGrad;
-                        ctx.beginPath(); 
-                        ctx.moveTo(-2, e.h*0.1); 
-                        ctx.lineTo(-fLen, e.h*0.5); 
-                        ctx.lineTo(-2, e.h*0.9); 
-                        ctx.fill();
+                        ctx.beginPath(); ctx.moveTo(-2, e.h*0.1); ctx.lineTo(-fLen, e.h*0.5); ctx.lineTo(-2, e.h*0.9); ctx.fill();
                     
+                        ctx.restore();
+                    } else if (e.type === 'podoboo') {
+                        ctx.save();
+                        ctx.translate(e.x + e.w/2, e.y + e.h/2);
+                        
+                        let fGrad = ctx.createRadialGradient(0, 5, 5, 0, 0, e.w);
+                        fGrad.addColorStop(0, '#FFF500'); fGrad.addColorStop(0.4, '#FF4500'); fGrad.addColorStop(1, 'rgba(255,0,0,0)');
+                        ctx.fillStyle = fGrad;
+                        ctx.beginPath(); ctx.arc(0, 0, e.w, 0, Math.PI*2); ctx.fill();
+                        
+                        // Ojos
+                        ctx.fillStyle = '#000';
+                        ctx.beginPath(); ctx.ellipse(-5, -5, 3, 6, 0, 0, Math.PI*2); ctx.fill();
+                        ctx.beginPath(); ctx.ellipse(5, -5, 3, 6, 0, 0, Math.PI*2); ctx.fill();
+                        
+                        // Particle trail
+                        if (Math.random() > 0.5) {
+                            particles.push({ x: e.x + e.w/2, y: e.y + e.h, vx: (Math.random()-0.5)*2, vy: Math.random()*2, color: '#FF4500', life: 10 });
+                        }
+                        
                         ctx.restore();
                     }
                 }
@@ -1016,12 +1319,63 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             // Player Simple Drawing - Cabeza Cabezona Meme
             let drawY = player.crouching ? player.y + 15 : player.y; // Baja visualmente la cabeza si está agachado
 
-            const headSize = player.w + 20; // Cabeza gigante meme
+            if (player.hasYoshi) {
+                // Dibujar a Yoshi
+                ctx.save();
+                ctx.translate(player.x + player.w/2, drawY + player.h); // Anclaje en base
+                if (player.lastDir === -1) ctx.scale(-1, 1);
+                
+                // Cuerpo de Yoshi verde
+                ctx.fillStyle = '#00D100'; 
+                ctx.beginPath(); ctx.ellipse(-5, -15, 12, 16, 0, 0, Math.PI*2); ctx.fill();
+                // Montura roja
+                ctx.fillStyle = '#FF0000'; ctx.beginPath(); ctx.ellipse(-5, -25, 10, 5, 0, 0, Math.PI*2); ctx.fill();
+                // Cola
+                ctx.fillStyle = '#00D100'; ctx.beginPath(); ctx.moveTo(-15, -10); ctx.lineTo(-25, -5); ctx.lineTo(-12, 0); ctx.fill();
+                // Brazo
+                ctx.fillStyle = '#00D100'; ctx.beginPath(); ctx.ellipse(2, -15, 4, 8, Math.PI/4, 0, Math.PI*2); ctx.fill();
+                // Zapatos Naranjas
+                ctx.fillStyle = '#FF7A00'; ctx.beginPath(); ctx.ellipse(-8, 0, 8, 5, 0, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(5, 0, 8, 5, 0, 0, Math.PI*2); ctx.fill();
+                // Cabeza animada por flutter
+                let headY = (player.flutterTimer > 0) ? -35 : -28;
+                ctx.fillStyle = '#00D100'; ctx.beginPath(); ctx.ellipse(12, headY, 14, 12, 0, 0, Math.PI*2); ctx.fill();
+                // Mejilla blanca
+                ctx.fillStyle = '#FFF'; ctx.beginPath(); ctx.ellipse(15, headY+5, 10, 8, 0, 0, Math.PI*2); ctx.fill();
+                // Nariz grande
+                ctx.fillStyle = '#00D100'; ctx.beginPath(); ctx.ellipse(20, headY-2, 10, 12, 0, 0, Math.PI*2); ctx.fill();
+                // Ojos
+                ctx.fillStyle = '#FFF'; ctx.beginPath(); ctx.ellipse(12, headY-12, 6, 8, 0, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(14, headY-12, 2, 4, 0, 0, Math.PI*2); ctx.fill();
+                // Púas rojas
+                ctx.fillStyle = '#FF0000'; ctx.beginPath(); ctx.moveTo(0, headY-5); ctx.lineTo(-8, headY-10); ctx.lineTo(-2, headY); ctx.fill();
+
+                // LENGUA
+                if (player.tongueActive > 0) {
+                    let tW = (20 - Math.abs(player.tongueActive - 10)) * 6;
+                    ctx.fillStyle = '#FF4D4D';
+                    ctx.beginPath();
+                    if(ctx.roundRect) ctx.roundRect(22, headY - 8, tW, 8, 4);
+                    else ctx.rect(22, headY - 8, tW, 8);
+                    ctx.fill();
+                    ctx.fillStyle = '#FFF';
+                    ctx.fillRect(25, headY - 6, Math.max(0, tW - 10), 2);
+                }
+
+                ctx.restore();
+                
+                // Elevar al jugador porque está montando
+                drawY -= 15;
+            }
+
+            const headSize = player.hasYoshi ? player.w + 5 : player.w + 20; // Cabeza reducida pero visible en Yoshi
             const headOffset = (headSize - player.w) / 2;
             
-            // Dibujamos el Overol en Canvas
-            ctx.fillStyle = player.overalls; 
-            ctx.fillRect(player.x, drawY + 25, player.w, player.h - (player.crouching ? 40 : 25));
+            // Dibujamos el Overol en Canvas solo si no está en Yoshi
+            if (!player.hasYoshi) {
+                ctx.fillStyle = player.overalls; 
+                ctx.fillRect(player.x, drawY + 25, player.w, player.h - (player.crouching ? 40 : 25));
+            }
 
             if (overlayImgRef.current && canvasMetrics.rect) {
                 // Posicionar el GIF animado (DOM element) exactamente sobre el jugador usando las medidas cacheadas
@@ -1044,15 +1398,18 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             for(let p of particles) { ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, 4, 4); }
 
             // Textos flotantes
+            ctx.save();
             for(let t of floatingTexts) {
-                let op = t.life / 60;
-                ctx.fillStyle = `rgba(255, 255, 255, ${op})`;
+                let op = Math.max(0, Math.min(1, t.life / 60));
+                ctx.globalAlpha = op;
+                ctx.fillStyle = t.color || '#FFFFFF';
                 ctx.font = '900 24px "Inter", sans-serif'; 
                 ctx.lineWidth = 4;
-                ctx.strokeStyle = `rgba(0, 0, 0, ${op})`;
+                ctx.strokeStyle = '#000000';
                 ctx.strokeText(t.text, t.x, t.y); 
                 ctx.fillText(t.text, t.x, t.y);
             }
+            ctx.restore();
 
             ctx.restore();
 
@@ -1189,7 +1546,7 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             />
 
             <div className="absolute bottom-6 text-white/50 text-sm font-bold tracking-widest text-center w-full uppercase">
-                Controles: WASD / Flechas. Shift para correr.
+                Controles: WASD / Flechas. Shift correr. Presiona E para sacar la lengua de Yoshi.
             </div>
 
             {/* Modal de Pregunta Interactivo */}

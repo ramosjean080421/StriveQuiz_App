@@ -5,7 +5,6 @@ import { useEffect, useState, use } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import GameBoard from "@/components/GameBoard";
 import ConnectedPlayersModal from "@/components/ConnectedPlayersModal";
-import BombGameBoard from "@/components/games/bomb/BombGameBoard";
 import MarioGameBoard from "@/components/games/mario/MarioGameBoard";
 import Link from "next/link";
 
@@ -17,7 +16,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
     const [podium, setPodium] = useState<any[]>([]);
     const [allPlayers, setAllPlayers] = useState<any[]>([]);
     const [playerCount, setPlayerCount] = useState(0);
-    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'bomb' | 'mario'>('classic');
+    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'mario'>('classic');
     const [gameDuration, setGameDuration] = useState(0); 
     const [timeLeftSession, setTimeLeftSession] = useState(0);
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
@@ -60,7 +59,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
             if (game) {
                 setPin(game.pin);
                 setGameStatus(game.status);
-                setGameMode((game.game_mode as 'classic' | 'race' | 'bomb' | 'mario') || 'classic');
+                setGameMode((game.game_mode as 'classic' | 'race' | 'mario') || 'classic');
                 if (game.game_duration && game.game_duration > 0 && !game.auto_end) {
                     setGameDuration(game.game_duration);
                     if (game.status === "active") {
@@ -159,7 +158,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
     };
 
     useEffect(() => {
-        if (gameStatus !== "active" || timeLeftSession <= 0) return;
+        if (gameStatus !== "active" || timeLeftSession <= 0 || gameMode === "mario") return;
 
         const timer = setInterval(() => {
             setTimeLeftSession(prev => {
@@ -181,14 +180,8 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
         const newStatus = "active";
         const updateData: any = { status: newStatus, started_at: new Date().toISOString() };
 
-        if (gameMode === 'bomb') {
-            const { data: players } = await supabase.from("game_players")
-                .select("id").eq("game_id", gameId).gte("current_position", 0);
-            if (players && players.length > 0) {
-                const randomHolder = players[Math.floor(Math.random() * players.length)];
-                updateData.bomb_holder_id = randomHolder.id;
-                updateData.current_question_index = 0;
-            }
+        if (gameMode === 'mario') {
+            // Nothing extra for now
         }
 
         await supabase.from("games").update(updateData).eq("id", gameId);
@@ -245,7 +238,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                     )}
 
                     {/* Master Timer Session */}
-                    {gameStatus === "active" && timeLeftSession > 0 && (
+                    {gameMode !== 'mario' && gameStatus === "active" && timeLeftSession > 0 && (
                         <div className="bg-gradient-to-r from-indigo-500/20 to-purple-500/20 px-5 py-2 rounded-xl border border-indigo-400/30 backdrop-blur-md flex flex-col items-center">
                             <p className="text-[9px] font-black uppercase tracking-widest text-indigo-300 mb-0.5">TIEMPO RESTANTE</p>
                             <h2 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 to-purple-200">
@@ -511,8 +504,6 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                             </div>
                         </div>
                     </div>
-                ) : gameMode === 'bomb' ? (
-                    <BombGameBoard gameId={gameId} />
                 ) : gameMode === 'mario' ? (
                     <MarioGameBoard gameId={gameId} />
                 ) : (

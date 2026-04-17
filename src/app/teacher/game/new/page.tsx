@@ -17,9 +17,10 @@ function StartGameContent() {
     const [autoEnd, setAutoEnd] = useState(false);
     const [enableGameTimer, setEnableGameTimer] = useState(false);
     const [enableQuestionTimer, setEnableQuestionTimer] = useState(true);
-    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'bomb' | 'mario'>('classic');
+    const [gameMode, setGameMode] = useState<'classic' | 'race' | 'mario'>('classic');
     const [marioDifficulty, setMarioDifficulty] = useState<number>(1);
     const [marioIsGrupal, setMarioIsGrupal] = useState<boolean>(false);
+    const [marioMapTheme, setMarioMapTheme] = useState<'overworld' | 'castle'>('overworld');
 
     const [dataLoaded, setDataLoaded] = useState(false);
     const [totalQuestions, setTotalQuestions] = useState(0);
@@ -52,13 +53,10 @@ function StartGameContent() {
     const handleStartGame = async () => {
         if (!quizId) return;
 
-        if (['bomb', 'mario'].includes(gameMode)) {
+        if (['mario'].includes(gameMode)) {
             const requestedCount = Number(bombQuestionCount) || 10;
             if (requestedCount > totalQuestions) {
-                showToast(gameMode === 'mario'
-                    ? `🍄 Intentas poner ${requestedCount} bloques, pero solo hay ${totalQuestions} preguntas.`
-                    : `💣 Quieres ${requestedCount} preguntas, pero el banco solo tiene ${totalQuestions}.`,
-                    "error");
+                showToast(`🍄 Intentas poner ${requestedCount} bloques, pero solo hay ${totalQuestions} preguntas.`, "error");
                 return;
             }
         }
@@ -80,16 +78,17 @@ function StartGameContent() {
                 quiz_id: quizId, pin, status: "waiting", auto_end: autoEnd,
                 game_mode: gameMode,
                 game_duration: (enableGameTimer && !autoEnd) ? gameDuration : null,
-                question_duration: ['bomb', 'mario'].includes(gameMode)
+                question_duration: ['mario'].includes(gameMode)
                     ? (enableQuestionTimer ? questionDuration : 15)
                     : (enableQuestionTimer ? questionDuration : 0),
-                boss_hp: ['bomb', 'mario'].includes(gameMode) ? (Number(bombQuestionCount) || 10) : 0
+                boss_hp: ['mario'].includes(gameMode) ? (Number(bombQuestionCount) || 10) : 0
             };
 
             const extendedInsertData: any = {
                 ...baseInsertData,
                 bonus_time_per_match: gameMode === 'mario' ? marioDifficulty : null,
                 team_distribution_mode: gameMode === 'mario' ? (marioIsGrupal ? 'multiplayer' : 'individual') : null,
+                game_duration: gameMode === 'mario' ? (marioMapTheme === 'castle' ? 2 : 1) : baseInsertData.game_duration
             };
 
             let { data: newGame, error } = await supabase.from("games").insert([extendedInsertData]).select().single();
@@ -189,7 +188,7 @@ function StartGameContent() {
                             {/* Chips */}
                             <div className="flex flex-wrap gap-1.5 justify-center mt-3">
                                 <span className="text-[9px] px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-gray-400 font-bold uppercase tracking-wider whitespace-nowrap">
-                                    {gameMode === 'mario' ? '🍄 SuperStrive' : gameMode === 'bomb' ? '💣 Bomba' : gameMode === 'race' ? '🏎️ Carrera' : '🎮 Clásico'}
+                                    {gameMode === 'mario' ? '🍄 SuperStrive' : gameMode === 'race' ? '🏎️ Carrera' : '🎮 Clásico'}
                                 </span>
                                 {gameMode !== 'mario' && autoEnd && <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold uppercase tracking-wider">🏁 Auto-fin</span>}
                                 {enableGameTimer && !autoEnd && gameDuration > 0 && gameMode !== 'mario' && <span className="text-[9px] px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 font-bold uppercase tracking-wider whitespace-nowrap">⏳ {gameDuration} min</span>}
@@ -257,10 +256,10 @@ function StartGameContent() {
                             )}
 
                             {/* Bloques / Preguntas del reto */}
-                            {['bomb', 'mario'].includes(gameMode) && (
+                            {['mario'].includes(gameMode) && (
                                 <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/[0.06] space-y-2">
                                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
-                                        {gameMode === 'bomb' ? '💣 Preguntas del reto' : '🍄 Bloques en el mundo'}
+                                        {'🍄 Bloques en el mundo'}
                                     </span>
                                     <input type="number" min="1" max="200"
                                         value={bombQuestionCount === '' ? '' : bombQuestionCount} placeholder="Ej. 10..."
@@ -273,33 +272,42 @@ function StartGameContent() {
 
                         {/* Panel exclusivo SuperStrive */}
                         {gameMode === 'mario' && (
-                            <div className="p-5 rounded-2xl bg-indigo-900/30 border border-indigo-500/25 relative overflow-hidden">
+                            <div className="p-4 rounded-2xl bg-indigo-900/30 border border-indigo-500/25 relative overflow-hidden flex flex-col gap-4">
                                 <div className="absolute top-2 right-3 opacity-10 text-5xl pointer-events-none select-none">🍄</div>
-                                <div className="grid grid-cols-2 gap-5">
-                                    <div className="space-y-2">
-                                        <span className="text-xs font-black text-indigo-300 uppercase tracking-widest block">⚔️ Dificultad</span>
-                                        <p className="text-[10px] text-indigo-200/60 font-bold">Enemigos que enfrentarán los estudiantes.</p>
+                                <div className="grid grid-cols-2 gap-4 relative z-10">
+                                    <div className="space-y-1">
+                                        <span className="text-[11px] font-black text-indigo-300 uppercase tracking-widest block">⚔️ Dificultad</span>
+                                        <p className="text-[9px] text-indigo-200/60 font-bold mb-1 block">Enemigos generados.</p>
                                         <select value={marioDifficulty} onChange={(e) => setMarioDifficulty(Number(e.target.value))}
-                                            className="w-full bg-black/40 border border-indigo-400/40 rounded-xl px-3 py-2 text-white text-xs font-black focus:outline-none cursor-pointer appearance-none text-center"
+                                            className="w-full bg-black/40 border border-indigo-400/40 rounded-xl px-2 py-1.5 text-white text-xs font-black focus:outline-none cursor-pointer appearance-none text-center"
                                             style={{ textAlignLast: 'center' }}>
-                                            <option value={0}>🟢 Práctica (Solo Goombas)</option>
-                                            <option value={1}>🟡 Normal (Goombas + Koopas)</option>
+                                            <option value={0}>🟢 Práctica (Goombas)</option>
+                                            <option value={1}>🟡 Normal (G + Koopas)</option>
                                             <option value={2}>🔴 Extremo (+ Bill Balas)</option>
                                         </select>
                                     </div>
-                                    <div className="space-y-2">
-                                        <span className="text-xs font-black text-indigo-300 uppercase tracking-widest block">👥 Modo de Juego</span>
-                                        <p className="text-[10px] text-indigo-200/60 font-bold">Grupal: ven los avatares de todos.</p>
-                                        <div className="flex gap-2">
-                                            <button onClick={() => setMarioIsGrupal(false)}
-                                                className={`flex-1 py-2 rounded-xl text-xs font-black uppercase transition-all border-2 whitespace-nowrap ${!marioIsGrupal ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg shadow-indigo-500/30' : 'bg-transparent border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10'}`}>
-                                                👤 Individual
-                                            </button>
-                                            <button onClick={() => setMarioIsGrupal(true)}
-                                                className={`flex-1 py-2 rounded-xl text-xs font-black uppercase transition-all border-2 whitespace-nowrap ${marioIsGrupal ? 'bg-pink-600 border-pink-400 text-white shadow-lg shadow-pink-500/30' : 'bg-transparent border-pink-500/30 text-pink-300 hover:bg-pink-500/10'}`}>
-                                                🌐 Grupal
-                                            </button>
-                                        </div>
+                                    <div className="space-y-1">
+                                        <span className="text-[11px] font-black text-indigo-300 uppercase tracking-widest block">🗺️ Mapa Base</span>
+                                        <p className="text-[9px] text-indigo-200/60 font-bold mb-1 block">Entorno en el cual juegan.</p>
+                                        <select value={marioMapTheme} onChange={(e) => setMarioMapTheme(e.target.value as any)}
+                                            className="w-full bg-black/40 border border-indigo-400/40 rounded-xl px-2 py-1.5 text-white text-xs font-black focus:outline-none cursor-pointer appearance-none text-center"
+                                            style={{ textAlignLast: 'center' }}>
+                                            <option value="overworld">🟩 TIERRA (Clásico)</option>
+                                            <option value="castle">🌋 CASTILLO (Lava)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="space-y-1 mt-1 relative z-10">
+                                    <span className="text-[11px] font-black text-indigo-300 uppercase tracking-widest block text-center">👥 Modo de Juego</span>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => setMarioIsGrupal(false)}
+                                            className={`flex-1 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all border-2 whitespace-nowrap ${!marioIsGrupal ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg shadow-indigo-500/30' : 'bg-transparent border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10'}`}>
+                                            👤 INDIVIDUAL
+                                        </button>
+                                        <button onClick={() => setMarioIsGrupal(true)}
+                                            className={`flex-1 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all border-2 whitespace-nowrap ${marioIsGrupal ? 'bg-pink-600 border-pink-400 text-white shadow-lg shadow-pink-500/30' : 'bg-transparent border-pink-500/30 text-pink-300 hover:bg-pink-500/10'}`}>
+                                            🌐 GRUPAL (FANTASMAS)
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -309,14 +317,14 @@ function StartGameContent() {
                         {gameMode !== 'mario' && (
                             <div className="p-4 rounded-2xl bg-white/[0.015] border border-white/[0.04] flex items-center gap-4">
                                 <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-xl shrink-0">
-                                    {gameMode === 'bomb' ? '💣' : gameMode === 'race' ? '🏎️' : '🎮'}
+                                    {gameMode === 'race' ? '🏎️' : '🎮'}
                                 </div>
                                 <div>
                                     <p className="text-xs font-black text-white/60 uppercase tracking-widest">
-                                        {gameMode === 'bomb' ? 'Modo Bomba' : gameMode === 'race' ? 'Modo Carrera' : 'Modo Clásico'}
+                                        {gameMode === 'race' ? 'Modo Carrera' : 'Modo Clásico'}
                                     </p>
                                     <p className="text-[10px] text-gray-500 font-bold mt-0.5">
-                                        {gameMode === 'bomb' ? 'Responde en equipo antes de que explote el tiempo.' : gameMode === 'race' ? 'El primero en llegar al final gana la carrera.' : 'Avanza en el tablero respondiendo correctamente.'}
+                                        {gameMode === 'race' ? 'El primero en llegar al final gana la carrera.' : 'Avanza en el tablero respondiendo correctamente.'}
                                     </p>
                                 </div>
                                 <div className="ml-auto text-right shrink-0">
