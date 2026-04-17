@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { checkPlayerName } from "@/actions/validateName";
 
 export default function StudentLogin() {
     const router = useRouter();
@@ -37,12 +36,6 @@ export default function StudentLogin() {
         setIsLoading(true);
 
         try {
-            // 0. Validar el nombre usando la función del servidor para Leet Speak y Levenshtein
-            const validation = await checkPlayerName(playerName);
-            if (!validation.isValid) {
-                throw new Error(validation.reason);
-            }
-
             // 1. Buscar si la partida existe y está en modo 'waiting' o 'active' usando el PIN
             const { data: game, error: gameError } = await supabase
                 .from("games")
