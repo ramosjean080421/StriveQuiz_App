@@ -16,6 +16,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
     const [podium, setPodium] = useState<any[]>([]);
     const [allPlayers, setAllPlayers] = useState<any[]>([]);
     const [playerCount, setPlayerCount] = useState(0);
+    const [pendingCount, setPendingCount] = useState(0);
     const [gameMode, setGameMode] = useState<'classic' | 'race' | 'mario'>('classic');
     const [gameDuration, setGameDuration] = useState(0); 
     const [timeLeftSession, setTimeLeftSession] = useState(0);
@@ -114,6 +115,12 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                         .then(({ count }) => {
                             setPlayerCount(count || 0);
                         });
+                        
+                    supabase.from('game_players').select('*', { count: 'exact', head: true })
+                        .eq('game_id', gameId).eq('current_position', -100)
+                        .then(({ count }) => {
+                            setPendingCount(count || 0);
+                        });
 
                     if (payload.eventType === 'UPDATE') {
                         // Manejo de tramposos en tiempo real
@@ -137,6 +144,10 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
         // Obtener el conteo inicial (usar Math.max para no sobreescribir eventos RT que ya llegaron)
         supabase.from('game_players').select('*', { count: 'exact', head: true }).eq('game_id', gameId).gte('current_position', 0).then(({ count }) => {
             setPlayerCount(prev => Math.max(prev, count || 0));
+        });
+        
+        supabase.from('game_players').select('*', { count: 'exact', head: true }).eq('game_id', gameId).eq('current_position', -100).then(({ count }) => {
+            setPendingCount(count || 0);
         });
 
         return () => { supabase.removeChannel(channel); };
@@ -258,10 +269,15 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                     {(gameStatus === "waiting" || gameStatus === "active" || gameStatus === "paused") && canControl && (
                         <button 
                             onClick={() => setIsModalOpen(true)}
-                            className="hidden lg:flex items-center gap-2 bg-[#2d3748] hover:bg-[#3f4a61] transition-all active:scale-95 px-4 py-2 rounded-xl text-white font-black border border-white/20 shadow-lg cursor-pointer"
+                            className="hidden lg:flex relative items-center gap-2 bg-[#2d3748] hover:bg-[#3f4a61] transition-all active:scale-95 px-4 py-2 rounded-xl text-white font-black border border-white/20 shadow-lg cursor-pointer"
                         >
                             <span>👤</span>
                             {playerCount} Conectados
+                            {pendingCount > 0 && (
+                                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full animate-bounce shadow-[0_0_10px_rgba(239,68,68,0.8)] border border-red-300 z-10">
+                                    {pendingCount}
+                                </span>
+                            )}
                         </button>
                     )}
                 </div>

@@ -14,6 +14,7 @@ export default function Home() {
   const [showNameTooltip, setShowNameTooltip] = useState(false);
   const [shuffledMemes, setShuffledMemes] = useState<string[]>([]);
   const [selectedGif, setSelectedGif] = useState("");
+  const [waitingGameId, setWaitingGameId] = useState<string | null>(null);
 
   useEffect(() => {
     const loadAvatars = async () => {
@@ -65,6 +66,48 @@ export default function Home() {
     }
   }, []);
 
+  // Escuchar si el docente acepta o rechaza al alumno
+  useEffect(() => {
+    if (!waitingGameId) return;
+
+    const playerId = sessionStorage.getItem("currentPlayerId");
+    if (!playerId) return;
+
+    const channel = supabase.channel(`waiting_room_${playerId}`)
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'game_players', 
+        filter: `id=eq.${playerId}` 
+      }, (payload) => {
+        if (payload.new.current_position === 0) {
+           // Aprobado
+           router.push(`/player/play/${waitingGameId}`);
+        } else if (payload.new.current_position === -999) {
+           // Denegado de alguna otra forma
+           setError("No se te permitio el ingreso.");
+           setWaitingGameId(null);
+           isJoiningRef.current = false;
+        }
+      })
+      .on('postgres_changes', {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'game_players',
+        filter: `id=eq.${playerId}`
+      }, () => {
+         // Denegado (Registro borrado)
+         setError("No se te permitio el ingreso.");
+         setWaitingGameId(null);
+         isJoiningRef.current = false;
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [waitingGameId, router]);
+
   // --- Teacher State ---
   const [identifier, setIdentifier] = useState("");
   const [username, setUsername] = useState("");
@@ -86,22 +129,16 @@ export default function Home() {
     isJoiningRef.current = true;
     setError(null);
 
-    // Validación de nombre y apellido
     const trimmedName = playerName.trim().replace(/\s+/g, ' ');
+
+    // Validación de nombre y apellido
     if (trimmedName.split(/\s+/).length < 2) {
       setError("Debes colocar al menos tu nombre y un apellido.");
       isJoiningRef.current = false;
       return;
     }
 
-    // Filtro básico anti-groserías
-    const BAD_WORDS = ["puta", "puto", "mierd", "pendej", "cabron", "cabrón", "coño", "zorra", "perra", "idiot", "estupid", "estúpid", "imbecil", "imbécil", "maricon", "maricón"];
-    const nameLower = trimmedName.toLowerCase();
-    if (BAD_WORDS.some(word => nameLower.includes(word))) {
-      setError("Por favor, usa un nombre apropiado y respetuoso.");
-      isJoiningRef.current = false;
-      return;
-    }
+    // (Sin filtro de groserías en el cliente, la revisión es puramente manual por el docente)
 
     setLoading(true);
 
@@ -137,7 +174,7 @@ export default function Home() {
 
       const { data: player, error: playerError } = await supabase
         .from("game_players")
-        .insert([{ game_id: game.id, player_name: trimmedName, avatar_gif_url: selectedGif, current_position: 0, score: 0 }])
+        .insert([{ game_id: game.id, player_name: trimmedName, avatar_gif_url: selectedGif, current_position: -100, score: 0 }])
         .select()
         .single();
 
@@ -147,7 +184,9 @@ export default function Home() {
       if (player.secret_token) {
         sessionStorage.setItem("playerSecret", player.secret_token);
       }
-      router.push(`/player/play/${game.id}`);
+      
+      // Pasar al estado de espera
+      setWaitingGameId(game.id);
     } catch (err: any) {
       setError(err.message || "Error al intentar entrar a la sala.");
       isJoiningRef.current = false;
@@ -274,20 +313,22 @@ export default function Home() {
             </h2>
 
             {/* Selector de Pestañas */}
-            <div className="flex mt-6 bg-gray-100/80 rounded-xl p-1">
-              <button
-                onClick={() => { setActiveTab("student"); setError(null); }}
-                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === "student" ? "bg-white text-indigo-600" : "text-gray-500 hover:text-gray-700"}`}
-              >
-                🎓 Soy Estudiante
-              </button>
-              <button
-                onClick={() => { setActiveTab("teacher"); setError(null); }}
-                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === "teacher" ? "bg-white text-indigo-600" : "text-gray-500 hover:text-gray-700"}`}
-              >
-                👨‍🏫 Soy Profesor
-              </button>
-            </div>
+            {!waitingGameId && (
+              <div className="flex mt-6 bg-gray-100/80 rounded-xl p-1">
+                <button
+                  onClick={() => { setActiveTab("student"); setError(null); }}
+                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === "student" ? "bg-white text-indigo-600" : "text-gray-500 hover:text-gray-700"}`}
+                >
+                  🎓 Soy Estudiante
+                </button>
+                <button
+                  onClick={() => { setActiveTab("teacher"); setError(null); }}
+                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === "teacher" ? "bg-white text-indigo-600" : "text-gray-500 hover:text-gray-700"}`}
+                >
+                  👨‍🏫 Soy Profesor
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="relative z-10 mt-5">
@@ -298,8 +339,24 @@ export default function Home() {
               </div>
             )}
 
+            {/* MODO ESPERA */}
+            {activeTab === "student" && waitingGameId && (
+              <div className="flex flex-col items-center justify-center py-10 space-y-6 animate-fade-in text-center">
+                 <div className="relative">
+                   <div className="absolute inset-0 bg-indigo-500 blur-xl opacity-30 rounded-full animate-pulse"></div>
+                   <span className="text-6xl relative block animate-bounce-short">⏳</span>
+                 </div>
+                 <h3 className="text-2xl font-black text-indigo-900 tracking-tight leading-tight">
+                   Esperando a ser aprobado por el docente
+                 </h3>
+                 <p className="text-gray-500 font-bold text-sm bg-gray-100 p-4 rounded-xl border border-gray-200">
+                   El profesor está revisando tu nombre de ingreso en la sala. Prepárate...
+                 </p>
+              </div>
+            )}
+
             {/* FORMULARIO DE ESTUDIANTE */}
-            {activeTab === "student" && (
+            {activeTab === "student" && !waitingGameId && (
               <form onSubmit={handleStudentJoin} className="space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">PIN de la Sala</label>

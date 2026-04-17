@@ -177,12 +177,9 @@ export default function QuizQuestionsManager({ params }: { params: Promise<{ qui
             showToast("Para Pareo, todos los pares deben estar llenos.", 'error'); return;
         }
 
-        // Evitar preguntas repetidas
-        const isDuplicate = questions.some(q => q.id !== editQuestionId && q.question_text.trim().toLowerCase() === newText.trim().toLowerCase());
-        if (isDuplicate) {
-            showToast("Esta pregunta ya existe en tu banco.", "error");
-            return;
-        }
+        // Se removió el filtro de isDuplicate aquí para que los profesores puedan tener la misma 
+        // pregunta genérica repetida en el banco (ej: "Selecciona la respuesta correcta:") 
+        // sin que les salte error.
 
         setSaving(true);
         const newQ: any = {
