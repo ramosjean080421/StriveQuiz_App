@@ -78,17 +78,28 @@ export default function TeacherDashboard() {
                 if (profileErr) {
                     if (profileErr.code === 'PGRST116') {
                         // Error PGRST116: La fila NO existe (Nuevo usuario con Google)
-                        console.log("[Dashboard] Creando perfil de docente bloqueado para nuevo usuario...");
-                        
-                        await supabase.from("teacher_profiles").insert([{
-                            id: authData.user.id,
-                            email: authData.user.email?.toLowerCase(),
-                            username: authData.user.email?.split('@')[0],
-                            full_name: authData.user.user_metadata?.full_name || authData.user.email?.split('@')[0],
-                            is_approved: false // Bloqueado por defecto
-                        }]);
-                        
-                        setIsApproved(false);
+                        // Antes de crear, verificar si ya existe un perfil aprobado con este email (migración)
+                        const { data: existingByEmail } = await supabase
+                            .from("teacher_profiles")
+                            .select("id, is_approved, is_admin")
+                            .eq("email", authData.user.email?.toLowerCase())
+                            .maybeSingle();
+
+                        if (existingByEmail) {
+                            // Ya existe perfil con este email - usar ese
+                            setIsApproved(existingByEmail.is_approved === true);
+                            setIsAdmin(existingByEmail.is_admin === true || authData.user.email?.toLowerCase() === 'jheam2505@gmail.com');
+                        } else {
+                            console.log("[Dashboard] Creando perfil de docente bloqueado para nuevo usuario...");
+                            await supabase.from("teacher_profiles").insert([{
+                                id: authData.user.id,
+                                email: authData.user.email?.toLowerCase(),
+                                username: authData.user.email?.split('@')[0],
+                                full_name: authData.user.user_metadata?.full_name || authData.user.email?.split('@')[0],
+                                is_approved: false // Bloqueado por defecto
+                            }]);
+                            setIsApproved(false);
+                        }
                     } else {
                         // Si falla porque la columna no existe u otro error de sintaxis, 
                         // dejamos pasar para evitar que se caiga el sistema (Retrocompatibilidad).
