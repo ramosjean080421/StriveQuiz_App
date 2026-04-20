@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import * as Ably from "ably";
 
 interface MarioPlayerViewProps {
     gameId: string;
@@ -207,16 +208,17 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
         // --- MULTIPLAYER GHOSTS SETUP ---
         const ghostsRef = { current: {} as Record<string, any> };
         const ghostMemes: Record<string, HTMLImageElement> = {};
-        let realtimeChannel: any = null;
+        let realtimeChannel: Ably.RealtimeChannel | null = null;
+        let ablyClient: Ably.Realtime | null = null;
         let syncTimer = 0;
 
         if (isGrupal && gameId) {
-            realtimeChannel = supabase.channel(`mario_sync_${gameId}`, { config: { broadcast: { self: false, ack: false } } });
-            realtimeChannel.on('broadcast', { event: 'player_move' }, (payload: any) => {
-                if (payload.payload && payload.payload.id !== playerId) {
-                    const gdata = payload.payload;
-                    ghostsRef.current[gdata.id] = { ...ghostsRef.current[gdata.id], ...gdata }; // Merge
-                    // El avatarUrl ahora solo se asume que lo sacaremos del DB, pero permitimos legacy payload support if passed
+            ablyClient = new Ably.Realtime({ key: process.env.NEXT_PUBLIC_ABLY_KEY! });
+            realtimeChannel = ablyClient.channels.get(`mario_sync_${gameId}`);
+            realtimeChannel.subscribe('player_move', (msg: Ably.Message) => {
+                const gdata = msg.data;
+                if (gdata && gdata.id !== playerId) {
+                    ghostsRef.current[gdata.id] = { ...ghostsRef.current[gdata.id], ...gdata };
                     if (gdata.avatarUrl && !ghostMemes[gdata.id]) {
                         const img = new Image();
                         img.src = gdata.avatarUrl;
@@ -224,7 +226,6 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                     }
                 }
             });
-            realtimeChannel.subscribe();
         }
 
         // Cache positions para delta checking de realtime
@@ -795,7 +796,7 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                 syncTimer++;
                 // 1) Reducimos la frecuencia de envío a un 33% 
                 // (~15 ticks = de 10 msg/s bajamos a ~4 msg/s)
-                if (syncTimer > 15) {
+                if (syncTimer > 60) {
                     syncTimer = 0;
                     
                     // 2) Delta Threshold: No enviar NADA si el jugador está completamente quieto 
@@ -806,19 +807,12 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                     
                     if (posChanged || stateChanged) {
                         lastSentPos = { x: player.x, y: player.y, crouching: player.crouching, lastDir: player.lastDir };
-                        realtimeChannel.send({
-                            type: 'broadcast',
-                            event: 'player_move',
-                            payload: {
-                                id: playerId,
-                                x: player.x,
-                                y: player.y,
-                                crouching: player.crouching,
-                                lastDir: player.lastDir
-                                // Hemos quitado color, overalls y avatarUrl para ahorrar Ancho de Banda Supabase. 
-                                // ¿Por qué? Porque el Cliente Render dibuja fantasmas usando el Estado Interno actual React 
-                                // (O podemos pasarlos una sola vez en presence).
-                            }
+                        realtimeChannel.publish('player_move', {
+                            id: playerId,
+                            x: player.x,
+                            y: player.y,
+                            crouching: player.crouching,
+                            lastDir: player.lastDir
                         }).catch(() => {});
                     }
                 }
@@ -1434,8 +1428,12 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             window.removeEventListener('keyup', keyupHandler);
             window.removeEventListener('resize', updateCanvasMetrics);
             if (realtimeChannel) {
-                supabase.removeChannel(realtimeChannel);
+                realtimeChannel.unsubscribe();
                 realtimeChannel = null;
+            }
+            if (ablyClient) {
+                ablyClient.close();
+                ablyClient = null;
             }
         };
     }, [gameState, selectedCharId, avatarUrl]); // Reiniciar canvas si cambia de estado a playing o el character/avatar

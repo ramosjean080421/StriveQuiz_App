@@ -131,14 +131,51 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         return () => { window.removeEventListener("beforeunload", handleBeforeUnload); };
     }, [hasFinishedAll]);
 
-    // Canal de presencia dedicado — el tablero detecta si el alumno cerró el navegador
-    // (tab switch, minimizar, actualizar = NO se borran; solo cierre real de navegador)
+    // Canal unificado: presencia (detección de desconexión) + escucha de cambios de partida
+    // Fusionados en un solo canal para reducir conexiones Realtime a la mitad
     useEffect(() => {
         const savedPlayerId = sessionStorage.getItem("currentPlayerId");
         const savedSecret = sessionStorage.getItem("playerSecret");
         if (!savedPlayerId || !savedSecret) return;
 
         const presenceChannel = supabase.channel(`game_${gameId}`)
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
+                (payload) => {
+                    setGameStatus(payload.new.status);
+                    if (payload.new.game_mode) setGameMode(payload.new.game_mode);
+                }
+            )
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'game_players', filter: `game_id=eq.${gameId}` },
+                (payload) => {
+                    if (payload.eventType === 'INSERT') {
+                        setPlayers(prev => [...prev, payload.new]);
+                    } else if (payload.eventType === 'UPDATE') {
+                        if (payload.new.current_position < 0) {
+                            setPlayers(prev => prev.filter(p => p.id !== payload.new.id));
+                        } else {
+                            setPlayers(prev => prev.map(p => p.id === payload.new.id ? payload.new : p));
+                        }
+
+                        if (payload.new.id === savedPlayerId) {
+                            if (payload.new.current_position === -999) {
+                                sessionStorage.setItem("isKicked", "true");
+                                window.location.href = "/?kicked=true";
+                                return;
+                            }
+                            if (payload.new.is_blocked === false) {
+                                setIsBlurred(false);
+                            }
+                        }
+                    } else if (payload.eventType === 'DELETE') {
+                        setPlayers(prev => prev.filter(p => p.id !== payload.old.id));
+
+                        if (payload.old.id === savedPlayerId) {
+                            sessionStorage.setItem("isKicked", "true");
+                            window.location.href = "/?kicked=true";
+                        }
+                    }
+                }
+            )
             .subscribe(async (status) => {
                 if (status === "SUBSCRIBED") {
                     await presenceChannel.track({ player_id: savedPlayerId, secret: savedSecret });
@@ -325,55 +362,6 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         };
 
         fetchGame();
-
-        // 3. Escuchar cambios de estado de la partida
-        const channel = supabase.channel(`game_updates_${gameId}`)
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
-                (payload) => {
-                    setGameStatus(payload.new.status);
-                    if (payload.new.game_mode) setGameMode(payload.new.game_mode);
-                }
-            )
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'game_players', filter: `game_id=eq.${gameId}` },
-                (payload) => {
-                    if (payload.eventType === 'INSERT') {
-                        setPlayers(prev => [...prev, payload.new]);
-                    } else if (payload.eventType === 'UPDATE') {
-                        // Si fue expulsado (posición negativa), sacarlo de la lista visible
-                        if (payload.new.current_position < 0) {
-                            setPlayers(prev => prev.filter(p => p.id !== payload.new.id));
-                        } else {
-                            setPlayers(prev => prev.map(p => p.id === payload.new.id ? payload.new : p));
-                        }
-
-                        const savedPlayerId = sessionStorage.getItem("currentPlayerId");
-                        if (payload.new.id === savedPlayerId) {
-                            // Si el profe lo asiló lógicamente (es la señal de expulsión forzada si RLS falló)
-                            if (payload.new.current_position === -999) {
-                                sessionStorage.setItem("isKicked", "true");
-                                window.location.href = "/?kicked=true";
-                                return;
-                            }
-
-                            // Si fue perdonado
-                            if (payload.new.is_blocked === false) {
-                                setIsBlurred(false);
-                            }
-                        }
-                    } else if (payload.eventType === 'DELETE') {
-                        setPlayers(prev => prev.filter(p => p.id !== payload.old.id));
-
-                        const savedPlayerId = sessionStorage.getItem("currentPlayerId");
-                        if (payload.old.id === savedPlayerId) {
-                            sessionStorage.setItem("isKicked", "true");
-                            window.location.href = "/?kicked=true";
-                        }
-                    }
-                }
-            )
-            .subscribe();
-
-        return () => { supabase.removeChannel(channel); };
     }, [gameId]);
 
     // 4b. Fallback: si el estudiante no recibió el evento Realtime del inicio del juego
