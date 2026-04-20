@@ -109,28 +109,29 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
             )
             .on('postgres_changes', { event: '*', schema: 'public', table: 'game_players', filter: `game_id=eq.${gameId}` },
                 (payload) => {
-                    // Refetch the exact count to guarantee true synchronization, bypassing +1/-1 drift
-                    supabase.from('game_players').select('*', { count: 'exact', head: true })
-                        .eq('game_id', gameId).gte('current_position', 0)
-                        .then(({ count }) => {
-                            setPlayerCount(count || 0);
-                        });
-                        
-                    supabase.from('game_players').select('*', { count: 'exact', head: true })
-                        .eq('game_id', gameId).eq('current_position', -100)
-                        .then(({ count }) => {
-                            setPendingCount(count || 0);
-                        });
+                    if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE' || payload.eventType === 'DELETE') {
+                        // Refetch the exact count to guarantee true synchronization, bypassing +1/-1 drift
+                        supabase.from('game_players').select('*', { count: 'exact', head: true })
+                            .eq('game_id', gameId).gte('current_position', 0)
+                            .then(({ count }) => {
+                                setPlayerCount(count || 0);
+                            });
+                            
+                        supabase.from('game_players').select('*', { count: 'exact', head: true })
+                            .eq('game_id', gameId).eq('current_position', -100)
+                            .then(({ count }) => {
+                                setPendingCount(count || 0);
+                            });
 
-                    if (payload.eventType === 'UPDATE') {
-                        // Manejo de tramposos en tiempo real
-                        if (payload.new.is_blocked) {
+                        if (payload.eventType === 'UPDATE' && (payload.new as any).is_blocked && (payload.new as any).current_position !== -999) {
                             setBlockedPlayers(prev => {
                                 if (prev.find(p => p.id === payload.new.id)) return prev;
                                 return [...prev, payload.new];
                             });
-                        } else if (!payload.new.is_blocked) {
+                        } else if (payload.eventType === 'UPDATE' && !(payload.new as any).is_blocked) {
                             setBlockedPlayers(prev => prev.filter(p => p.id !== payload.new.id));
+                        } else if (payload.eventType === 'DELETE') {
+                            setBlockedPlayers(prev => prev.filter(p => p.id !== (payload.old as any).id));
                         }
                     }
                 }

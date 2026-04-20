@@ -66,45 +66,100 @@ export default function Home() {
     }
   }, []);
 
-  // Escuchar si el docente acepta o rechaza al alumno
+  // Escuchar si el docente acepta o rechaza al alumno (Y polling como fallback)
   useEffect(() => {
     if (!waitingGameId) return;
 
     const playerId = sessionStorage.getItem("currentPlayerId");
     if (!playerId) return;
 
+    // Realtime channel
+    console.log("Iniciando escucha Realtime para el jugador:", playerId);
     const channel = supabase.channel(`waiting_room_${playerId}`)
       .on('postgres_changes', { 
         event: 'UPDATE', 
         schema: 'public', 
         table: 'game_players', 
-        filter: `id=eq.${playerId}` 
+        filter: `game_id=eq.${waitingGameId}` 
       }, (payload) => {
-        if (payload.new.current_position === 0) {
-           // Aprobado
-           router.push(`/player/play/${waitingGameId}`);
-        } else if (payload.new.current_position === -999) {
-           // Denegado de alguna otra forma
-           setError("No se te permitio el ingreso.");
-           setWaitingGameId(null);
-           isJoiningRef.current = false;
+        console.log("Cambio detectado via Realtime:", payload.new);
+        if (payload.new.id === playerId) {
+          if (payload.new.current_position >= 0) {
+             console.log("¡Aprobado! Redirigiendo...");
+             router.push(`/player/play/${waitingGameId}`);
+          } else if (payload.new.current_position === -999) {
+             setError("No se te permitió el ingreso.");
+             setWaitingGameId(null);
+             isJoiningRef.current = false;
+          }
         }
       })
       .on('postgres_changes', {
         event: 'DELETE',
         schema: 'public',
         table: 'game_players',
-        filter: `id=eq.${playerId}`
-      }, () => {
-         // Denegado (Registro borrado)
-         setError("No se te permitio el ingreso.");
+        filter: `game_id=eq.${waitingGameId}`
+      }, (payload) => {
+        if (payload.old.id === playerId) {
+           console.log("Registro eliminado. Acceso denegado.");
+           setError("No se te permitió el ingreso.");
+           setWaitingGameId(null);
+           isJoiningRef.current = false;
+        }
+      })
+      .subscribe((status) => {
+        console.log("Estado de suscripción Realtime:", status);
+      });
+
+    // Polling fallback cada 2 segundos (más agresivo para compensar migración)
+    const intervalId = setInterval(async () => {
+      console.log("Ejecutando Polling de seguridad...");
+      const { data, error } = await supabase
+        .from("game_players")
+        .select("current_position")
+        .eq("id", playerId); // Usamos filter normal para evitar error de .single() si no existe
+        
+      if (error) {
+        console.error("Error en polling (Revisa RLS en Supabase):", error);
+        return; // No cortamos el flujo por error de lectura temporal
+      }
+
+      if (!data || data.length === 0) {
+         console.log("Polling: El jugador ya no existe en la base de datos.");
+         setError("No se te permitió el ingreso.");
          setWaitingGameId(null);
          isJoiningRef.current = false;
-      })
-      .subscribe();
+      } else {
+         const player = data[0];
+         console.log("Polling status:", player.current_position);
+         if (player.current_position >= 0) {
+            console.log("¡Aprobado detectado por Polling!");
+            router.push(`/player/play/${waitingGameId}`);
+         } else if (player.current_position === -999) {
+            setError("No se te permitió el ingreso.");
+            setWaitingGameId(null);
+            isJoiningRef.current = false;
+         }
+      }
+    }, 2000);
+
+    // VIGILANTE: Evento de Despedida (Chrome - keepalive)
+    const handleBeforeUnload = () => {
+        // Enviar instrucción de eliminación al backend usando fetch keepalive (más fiable en Nextjs)
+        fetch('/api/leave_game', {
+            method: 'POST',
+            keepalive: true,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ playerId })
+        });
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(intervalId);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [waitingGameId, router]);
 

@@ -118,9 +118,19 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         } catch (e) { }
     };
 
-    // Aviso anti-cierre accidental durante partida activa
+    // Aviso anti-cierre accidental durante partida activa y limpieza zombie
     useEffect(() => {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            const savedPlayerId = sessionStorage.getItem("currentPlayerId");
+            if (savedPlayerId) {
+                fetch('/api/leave_game', {
+                    method: 'POST',
+                    keepalive: true,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ playerId: savedPlayerId })
+                });
+            }
+
             if (sessionStorage.getItem("isKicked") === "true") return;
             if ((gameStatusRef.current === "active" || gameStatusRef.current === "paused") && !hasFinishedAll) {
                 e.preventDefault();

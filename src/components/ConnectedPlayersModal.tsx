@@ -140,19 +140,59 @@ export default function ConnectedPlayersModal({ gameId, isOpen, onClose, onPlaye
         }
     };
 
-    const handleApprove = async (playerId: string) => {
+    const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
+    const [isApprovingAll, setIsApprovingAll] = useState(false);
+
+    const handleApproveAll = async () => {
+        setIsApprovingAll(true);
         try {
-            await supabase.from("game_players").update({ current_position: 0 }).eq("id", playerId);
+            const pending = players.filter(p => p.current_position === -100);
+            if (pending.length === 0) return;
+            
+            const { error } = await supabase.from("game_players")
+                .update({ current_position: 0 })
+                .eq("game_id", gameId)
+                .eq("current_position", -100);
+                
+            if (error) {
+                console.error("Error aprobando a todos:", error);
+                alert("Hubo un error al intentar aprobar a todos masivamente.");
+            }
         } catch (error) {
-            console.error("Error aproving player:", error);
+            console.error("Excepción en handleApproveAll:", error);
+        } finally {
+            setIsApprovingAll(false);
+        }
+    };
+
+    const handleApprove = async (playerId: string) => {
+        setProcessingIds(prev => new Set(prev).add(playerId));
+        try {
+            const { error } = await supabase.from("game_players").update({ current_position: 0 }).eq("id", playerId);
+            if (error) {
+                console.error("Error en base de datos al aprobar:", error);
+                alert("Hubo un error real en la base de datos. Si migraste tu BD, verifica las políticas de seguridad (RLS).");
+            }
+            // No hacemos actualización manual, esperamos a que el Realtime (que es el evento real) mueva al alumno de lista
+        } catch (error) {
+            console.error("Excepción en handleApprove:", error);
+        } finally {
+            setProcessingIds(prev => { const next = new Set(prev); next.delete(playerId); return next; });
         }
     };
 
     const handleDeny = async (playerId: string) => {
+        setProcessingIds(prev => new Set(prev).add(playerId));
         try {
-            await supabase.from("game_players").delete().eq("id", playerId);
+            const { error } = await supabase.from("game_players").delete().eq("id", playerId);
+            if (error) {
+                console.error("Error en base de datos al rechazar:", error);
+                alert("Hubo un error al rechazar. Verifica las políticas RLS.");
+            }
         } catch (error) {
-            console.error("Error denying player:", error);
+            console.error("Excepción en handleDeny:", error);
+        } finally {
+            setProcessingIds(prev => { const next = new Set(prev); next.delete(playerId); return next; });
         }
     };
 
@@ -226,6 +266,21 @@ export default function ConnectedPlayersModal({ gameId, isOpen, onClose, onPlaye
                             {activeTab === 'pending' && (
                                 pendingPlayers.length > 0 ? (
                                     <div className="space-y-3 animate-fade-in">
+                                        <div className="flex justify-between items-center px-2 mb-4 mt-2">
+                                            <p className="text-gray-400 font-bold text-sm">Alumnos en espera: <span className="text-indigo-400">{pendingPlayers.length}</span></p>
+                                            
+                                            {pendingPlayers.length > 1 && (
+                                                <button 
+                                                    onClick={handleApproveAll}
+                                                    disabled={isApprovingAll}
+                                                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all text-white flex items-center gap-2 shadow-lg ${
+                                                        isApprovingAll ? 'bg-gray-600 cursor-not-allowed shadow-none' : 'bg-emerald-600 hover:bg-emerald-500 active:scale-95 shadow-emerald-900/50'
+                                                    }`}
+                                                >
+                                                    <span>✅</span> {isApprovingAll ? 'Procesando...' : 'Permitir a Todos'}
+                                                </button>
+                                            )}
+                                        </div>
                                         {pendingPlayers.map((player) => (
                                             <div key={player.id} className="flex items-center justify-between p-4 rounded-2xl border-2 bg-slate-800/80 border-amber-500/30 hover:border-amber-500/60 transition-all shadow-md">
                                                 <div className="flex items-center gap-4 opacity-90">
@@ -244,15 +299,21 @@ export default function ConnectedPlayersModal({ gameId, isOpen, onClose, onPlaye
                                                 <div className="flex gap-2">
                                                     <button
                                                         onClick={() => handleDeny(player.id)}
-                                                        className="px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all bg-red-600/90 hover:bg-red-500 text-white active:scale-95 flex items-center gap-1.5"
+                                                        disabled={processingIds.has(player.id)}
+                                                        className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all text-white flex items-center gap-1.5 ${
+                                                            processingIds.has(player.id) ? 'bg-gray-600 cursor-not-allowed' : 'bg-red-600/90 hover:bg-red-500 active:scale-95'
+                                                        }`}
                                                     >
-                                                        <span>❌</span> Rechazar
+                                                        <span>❌</span> {processingIds.has(player.id) ? '...' : 'Rechazar'}
                                                     </button>
                                                     <button
                                                         onClick={() => handleApprove(player.id)}
-                                                        className="px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all bg-emerald-600 hover:bg-emerald-500 text-white active:scale-95 flex items-center gap-1.5 shadow-lg shadow-emerald-900/50"
+                                                        disabled={processingIds.has(player.id)}
+                                                        className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all text-white flex items-center gap-1.5 shadow-lg ${
+                                                            processingIds.has(player.id) ? 'bg-gray-600 cursor-not-allowed shadow-none' : 'bg-emerald-600 hover:bg-emerald-500 active:scale-95 shadow-emerald-900/50'
+                                                        }`}
                                                     >
-                                                        <span>✅</span> Permitir
+                                                        <span>✅</span> {processingIds.has(player.id) ? '...' : 'Permitir'}
                                                     </button>
                                                 </div>
                                             </div>
