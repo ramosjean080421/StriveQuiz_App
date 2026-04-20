@@ -19,8 +19,7 @@ function StartGameContent() {
     const [enableQuestionTimer, setEnableQuestionTimer] = useState(true);
     const [gameMode, setGameMode] = useState<'classic' | 'race' | 'mario'>('classic');
     const [marioDifficulty, setMarioDifficulty] = useState<number>(1);
-    const [marioIsGrupal, setMarioIsGrupal] = useState<boolean>(false);
-    const [marioMapTheme, setMarioMapTheme] = useState<'overworld' | 'castle'>('overworld');
+const [marioMapTheme, setMarioMapTheme] = useState<'overworld' | 'castle'>('overworld');
 
     const [dataLoaded, setDataLoaded] = useState(false);
     const [totalQuestions, setTotalQuestions] = useState(0);
@@ -87,7 +86,7 @@ function StartGameContent() {
             const extendedInsertData: any = {
                 ...baseInsertData,
                 bonus_time_per_match: gameMode === 'mario' ? marioDifficulty : null,
-                team_distribution_mode: gameMode === 'mario' ? (marioIsGrupal ? 'multiplayer' : 'individual') : null,
+                team_distribution_mode: gameMode === 'mario' ? 'individual' : null,
                 game_duration: gameMode === 'mario' ? (marioMapTheme === 'castle' ? 2 : 1) : baseInsertData.game_duration
             };
 
@@ -192,7 +191,7 @@ function StartGameContent() {
                                 </span>
                                 {gameMode !== 'mario' && autoEnd && <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold uppercase tracking-wider">🏁 Auto-fin</span>}
                                 {enableGameTimer && !autoEnd && gameDuration > 0 && gameMode !== 'mario' && <span className="text-[9px] px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 font-bold uppercase tracking-wider whitespace-nowrap">⏳ {gameDuration} min</span>}
-                                {gameMode === 'mario' && <span className="text-[9px] px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-400/30 text-purple-300 font-bold uppercase tracking-wider whitespace-nowrap">{marioIsGrupal ? '🌐 Grupal' : '👤 Individual'}</span>}
+                                {gameMode === 'mario' && <span className="text-[9px] px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-400/30 text-purple-300 font-bold uppercase tracking-wider whitespace-nowrap">👤 Individual</span>}
                             </div>
                         </div>
                     </div>
@@ -295,19 +294,6 @@ function StartGameContent() {
                                             <option value="overworld">🟩 TIERRA (Clásico)</option>
                                             <option value="castle">🌋 CASTILLO (Lava)</option>
                                         </select>
-                                    </div>
-                                </div>
-                                <div className="space-y-1 mt-1 relative z-10">
-                                    <span className="text-[11px] font-black text-indigo-300 uppercase tracking-widest block text-center">👥 Modo de Juego</span>
-                                    <div className="flex gap-2">
-                                        <button onClick={() => setMarioIsGrupal(false)}
-                                            className={`flex-1 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all border-2 whitespace-nowrap ${!marioIsGrupal ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg shadow-indigo-500/30' : 'bg-transparent border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10'}`}>
-                                            👤 INDIVIDUAL
-                                        </button>
-                                        <button onClick={() => setMarioIsGrupal(true)}
-                                            className={`flex-1 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all border-2 whitespace-nowrap ${marioIsGrupal ? 'bg-pink-600 border-pink-400 text-white shadow-lg shadow-pink-500/30' : 'bg-transparent border-pink-500/30 text-pink-300 hover:bg-pink-500/10'}`}>
-                                            🌐 GRUPAL (FANTASMAS)
-                                        </button>
                                     </div>
                                 </div>
                             </div>

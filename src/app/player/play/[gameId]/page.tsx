@@ -24,7 +24,6 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
     const [gameStatus, setGameStatus] = useState("waiting");
     const [gameMode, setGameMode] = useState<'classic' | 'race' | 'mario'>('classic');
     const [marioDifficulty, setMarioDifficulty] = useState(1);
-    const [isGrupal, setIsGrupal] = useState(false);
     const [marioMapTheme, setMarioMapTheme] = useState<'overworld' | 'castle'>('overworld');
     const [players, setPlayers] = useState<any[]>([]);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -281,7 +280,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         // 2. Obtener estado de la partida, preguntas y configuracion de recompensas
         const fetchGame = async () => {
             const { data: game } = await supabase.from("games").select(`
-                status, quiz_id, auto_end, game_mode, team_distribution_mode, question_duration, boss_hp, bonus_time_per_match, game_duration,
+                status, quiz_id, auto_end, game_mode, question_duration, boss_hp, bonus_time_per_match, game_duration,
                 quizzes (board_path)
             `).eq("id", gameId).single();
 
@@ -289,7 +288,6 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                 setGameStatus(game.status);
                 setGameMode(game.game_mode as any || "classic");
                 if (game.bonus_time_per_match !== null) setMarioDifficulty(game.bonus_time_per_match);
-                setIsGrupal(game.team_distribution_mode === 'multiplayer');
                 if (game.game_mode === 'mario') {
                     setMarioMapTheme(game.game_duration === 2 ? 'castle' : 'overworld');
                 }
@@ -757,7 +755,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
                         </div>
                     </div>
                 )}
-                <MarioPlayerView gameId={gameId} playerId={playerId} questions={questions} isBlurred={isBlurred} onCheatDetected={lockPlayer} difficulty={marioDifficulty} isGrupal={isGrupal} theme={marioMapTheme} />
+                <MarioPlayerView gameId={gameId} playerId={playerId} questions={questions} isBlurred={isBlurred} onCheatDetected={lockPlayer} difficulty={marioDifficulty} theme={marioMapTheme} />
             </>
         );
     }

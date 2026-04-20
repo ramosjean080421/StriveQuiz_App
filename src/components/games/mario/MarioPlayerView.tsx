@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import * as Ably from "ably";
 
 interface MarioPlayerViewProps {
     gameId: string;
@@ -10,11 +9,10 @@ interface MarioPlayerViewProps {
     isBlurred?: boolean;
     onCheatDetected?: () => void;
     difficulty?: number;
-    isGrupal?: boolean;
     theme?: 'overworld' | 'castle';
 }
 
-export default function MarioPlayerView({ gameId, playerId, questions, isBlurred, onCheatDetected, difficulty = 1, isGrupal = false, theme = 'overworld' }: MarioPlayerViewProps) {
+export default function MarioPlayerView({ gameId, playerId, questions, isBlurred, onCheatDetected, difficulty = 1, theme = 'overworld' }: MarioPlayerViewProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [score, setScore] = useState(0);
     
@@ -205,31 +203,6 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             }
         }
 
-        // --- MULTIPLAYER GHOSTS SETUP ---
-        const ghostsRef = { current: {} as Record<string, any> };
-        const ghostMemes: Record<string, HTMLImageElement> = {};
-        let realtimeChannel: Ably.RealtimeChannel | null = null;
-        let ablyClient: Ably.Realtime | null = null;
-        let syncTimer = 0;
-
-        if (isGrupal && gameId) {
-            ablyClient = new Ably.Realtime({ key: process.env.NEXT_PUBLIC_ABLY_KEY! });
-            realtimeChannel = ablyClient.channels.get(`mario_sync_${gameId}`);
-            realtimeChannel.subscribe('player_move', (msg: Ably.Message) => {
-                const gdata = msg.data;
-                if (gdata && gdata.id !== playerId) {
-                    ghostsRef.current[gdata.id] = { ...ghostsRef.current[gdata.id], ...gdata };
-                    if (gdata.avatarUrl && !ghostMemes[gdata.id]) {
-                        const img = new Image();
-                        img.src = gdata.avatarUrl;
-                        ghostMemes[gdata.id] = img;
-                    }
-                }
-            });
-        }
-
-        // Cache positions para delta checking de realtime
-        let lastSentPos = { x: -1, y: -1, lastDir: 0, crouching: false };
 
 
         const keys: Record<string, boolean> = {
@@ -791,32 +764,6 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
 
             if (player.x < 0) player.x = 0;
 
-            // --- MULTIPLAYER GHOST SYNC ---
-            if (isGrupal && realtimeChannel) {
-                syncTimer++;
-                // 1) Reducimos la frecuencia de envío a un 33% 
-                // (~15 ticks = de 10 msg/s bajamos a ~4 msg/s)
-                if (syncTimer > 60) {
-                    syncTimer = 0;
-                    
-                    // 2) Delta Threshold: No enviar NADA si el jugador está completamente quieto 
-                    const dx = Math.abs(player.x - lastSentPos.x);
-                    const dy = Math.abs(player.y - lastSentPos.y);
-                    const posChanged = dx > 2 || dy > 2; // toleramos vibraciones minúsculas
-                    const stateChanged = player.crouching !== lastSentPos.crouching || player.lastDir !== lastSentPos.lastDir;
-                    
-                    if (posChanged || stateChanged) {
-                        lastSentPos = { x: player.x, y: player.y, crouching: player.crouching, lastDir: player.lastDir };
-                        realtimeChannel.publish('player_move', {
-                            id: playerId,
-                            x: player.x,
-                            y: player.y,
-                            crouching: player.crouching,
-                            lastDir: player.lastDir
-                        }).catch(() => {});
-                    }
-                }
-            }
 
             // Partículas
             for (let i = particles.length - 1; i >= 0; i--) {
@@ -1257,58 +1204,6 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
                 }
             }
 
-            // --- DRAW GHOSTS ---
-            if (isGrupal) {
-                for (let gid in ghostsRef.current) {
-                    const g = ghostsRef.current[gid];
-                    if (Math.abs(g.x - cameraX) < 1200) { // Culling optimization
-                        ctx.save();
-                        ctx.translate(Math.floor(g.x) - cameraX, Math.floor(g.y));
-                        if (g.lastDir === -1) { ctx.scale(-1, 1); }
-                        
-                        ctx.globalAlpha = 0.72; // Fantasmas más visibles
-                        
-                        let gDrawY = g.crouching ? 15 : 0;
-                        const headSize = 36; 
-                        const centerX = 15;
-                        const centerY = gDrawY - 4;
-                        const radius = headSize / 2;
-
-                        // Cuerpo circular (en lugar del overalls cuadrado)
-                        ctx.beginPath();
-                        ctx.arc(centerX, gDrawY + 32, 10, 0, Math.PI * 2);
-                        ctx.fillStyle = g.overalls || '#2038E0';
-                        ctx.fill();
-
-                        // Cabeza circular con avatar recortado
-                        if (ghostMemes[gid] && ghostMemes[gid].complete) {
-                            ctx.save();
-                            ctx.beginPath();
-                            ctx.arc(centerX, centerY + radius, radius, 0, Math.PI * 2);
-                            ctx.clip();
-                            ctx.drawImage(ghostMemes[gid], centerX - radius, centerY, headSize, headSize);
-                            ctx.restore();
-                            // Borde del círculo
-                            ctx.beginPath();
-                            ctx.arc(centerX, centerY + radius, radius, 0, Math.PI * 2);
-                            ctx.strokeStyle = 'rgba(255,255,255,0.8)';
-                            ctx.lineWidth = 2;
-                            ctx.stroke();
-                        } else {
-                            // Fallback: círculo de color
-                            ctx.beginPath();
-                            ctx.arc(centerX, centerY + radius, radius, 0, Math.PI * 2);
-                            ctx.fillStyle = g.color || '#E52521';
-                            ctx.fill();
-                            ctx.strokeStyle = 'rgba(255,255,255,0.8)';
-                            ctx.lineWidth = 2;
-                            ctx.stroke();
-                        }
-
-                        ctx.restore();
-                    }
-                }
-            }
 
             // Player Simple Drawing - Cabeza Cabezona Meme
             let drawY = player.crouching ? player.y + 15 : player.y; // Baja visualmente la cabeza si está agachado
@@ -1427,14 +1322,6 @@ export default function MarioPlayerView({ gameId, playerId, questions, isBlurred
             window.removeEventListener('keydown', keydownHandler);
             window.removeEventListener('keyup', keyupHandler);
             window.removeEventListener('resize', updateCanvasMetrics);
-            if (realtimeChannel) {
-                realtimeChannel.unsubscribe();
-                realtimeChannel = null;
-            }
-            if (ablyClient) {
-                ablyClient.close();
-                ablyClient = null;
-            }
         };
     }, [gameState, selectedCharId, avatarUrl]); // Reiniciar canvas si cambia de estado a playing o el character/avatar
 
