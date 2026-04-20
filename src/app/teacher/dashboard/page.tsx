@@ -96,7 +96,7 @@ export default function TeacherDashboard() {
                         setIsApproved(true);
                     }
                 } else if (profile) {
-                    setIsApproved(true); // TEMP: aprobación deshabilitada para migración
+                    setIsApproved(profile.is_approved === true);
                     setIsAdmin(profile.is_admin === true || authData.user.email?.toLowerCase() === 'jheam2505@gmail.com');
                 }
             } catch (e) {
