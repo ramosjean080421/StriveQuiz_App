@@ -76,7 +76,7 @@ export default function StudentLogin() {
                         game_id: game.id,
                         player_name: playerName,
                         avatar_gif_url: selectedGif,
-                        current_position: 0,
+                        current_position: -100,
                         score: 0
                     }
                 ])

@@ -8,6 +8,7 @@ interface ConnectedPlayersModalProps {
     isOpen: boolean;
     onClose: () => void;
     onPlayerKicked?: () => void;
+    onPlayerApproved?: () => void;
 }
 
 interface Player {
@@ -18,7 +19,7 @@ interface Player {
     score: number;
 }
 
-export default function ConnectedPlayersModal({ gameId, isOpen, onClose, onPlayerKicked }: ConnectedPlayersModalProps) {
+export default function ConnectedPlayersModal({ gameId, isOpen, onClose, onPlayerKicked, onPlayerApproved }: ConnectedPlayersModalProps) {
     const [players, setPlayers] = useState<Player[]>([]);
     const [loading, setLoading] = useState(true);
     const [kickingIds, setKickingIds] = useState<Set<string>>(new Set());
@@ -158,6 +159,8 @@ export default function ConnectedPlayersModal({ gameId, isOpen, onClose, onPlaye
                     supabase.from("game_players").update({ current_position: 0 }).eq("id", p.id)
                 )
             );
+            // Sincronizar inmediatamente con el tablero padre para que vea los nuevos alumnos activos
+            onPlayerApproved?.();
         } catch (error) {
             console.error("Excepción en handleApproveAll:", error);
         } finally {
@@ -176,6 +179,8 @@ export default function ConnectedPlayersModal({ gameId, isOpen, onClose, onPlaye
                 alert("Hubo un error real en la base de datos. Si migraste tu BD, verifica las políticas de seguridad (RLS).");
             }
             // Realtime actualizará el maestro y confirmará el movimiento
+            // Sincronizar inmediatamente con el tablero padre para que vea los nuevos alumnos activos
+            onPlayerApproved?.();
         } catch (error) {
             console.error("Excepción en handleApprove:", error);
         } finally {

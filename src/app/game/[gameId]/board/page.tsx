@@ -24,6 +24,15 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [blockedPlayers, setBlockedPlayers] = useState<any[]>([]);
 
+    const refreshCounts = () => {
+        supabase.from('game_players').select('current_position').eq('game_id', gameId)
+            .then(({ data }) => {
+                if (!data) return;
+                setPlayerCount(data.filter(p => p.current_position >= 0).length);
+                setPendingCount(data.filter(p => p.current_position === -100).length);
+            });
+    };
+
     const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
         setToast({ message, type });
         setTimeout(() => setToast(null), 3500);
@@ -96,16 +105,6 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
             setLoading(false);
         };
         fetchGameAndPerms();
-
-        
-        const refreshCounts = () => {
-            supabase.from('game_players').select('current_position').eq('game_id', gameId)
-                .then(({ data }) => {
-                    if (!data) return;
-                    setPlayerCount(data.filter(p => p.current_position >= 0).length);
-                    setPendingCount(data.filter(p => p.current_position === -100).length);
-                });
-        };
 
         const channel = supabase.channel(`game_room_status_${gameId}`)
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
@@ -524,6 +523,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
                 gameId={gameId}
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
+                onPlayerApproved={refreshCounts}
             />
 
             {/* ALERTA DE ALUMNOS BLOQUEADOS (TRAMPA DETECTADA) - ESTILO ORIGINAL FLOTANTE */}
