@@ -98,6 +98,15 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
         fetchGameAndPerms();
 
         
+        const refreshCounts = () => {
+            supabase.from('game_players').select('current_position').eq('game_id', gameId)
+                .then(({ data }) => {
+                    if (!data) return;
+                    setPlayerCount(data.filter(p => p.current_position >= 0).length);
+                    setPendingCount(data.filter(p => p.current_position === -100).length);
+                });
+        };
+
         const channel = supabase.channel(`game_room_status_${gameId}`)
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
                 (payload) => {
@@ -110,18 +119,7 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
             .on('postgres_changes', { event: '*', schema: 'public', table: 'game_players', filter: `game_id=eq.${gameId}` },
                 (payload) => {
                     if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE' || payload.eventType === 'DELETE') {
-                        // Refetch the exact count to guarantee true synchronization, bypassing +1/-1 drift
-                        supabase.from('game_players').select('*', { count: 'exact', head: true })
-                            .eq('game_id', gameId).gte('current_position', 0)
-                            .then(({ count }) => {
-                                setPlayerCount(count || 0);
-                            });
-                            
-                        supabase.from('game_players').select('*', { count: 'exact', head: true })
-                            .eq('game_id', gameId).eq('current_position', -100)
-                            .then(({ count }) => {
-                                setPendingCount(count || 0);
-                            });
+                        refreshCounts();
 
                         if (payload.eventType === 'UPDATE' && (payload.new as any).is_blocked && (payload.new as any).current_position !== -999) {
                             setBlockedPlayers(prev => {
@@ -142,14 +140,8 @@ export default function GameRoomBoard({ params }: { params: Promise<{ gameId: st
             if (data) setBlockedPlayers(data);
         });
 
-        // Obtener el conteo inicial (usar Math.max para no sobreescribir eventos RT que ya llegaron)
-        supabase.from('game_players').select('*', { count: 'exact', head: true }).eq('game_id', gameId).gte('current_position', 0).then(({ count }) => {
-            setPlayerCount(prev => Math.max(prev, count || 0));
-        });
-        
-        supabase.from('game_players').select('*', { count: 'exact', head: true }).eq('game_id', gameId).eq('current_position', -100).then(({ count }) => {
-            setPendingCount(count || 0);
-        });
+        // Conteo inicial
+        refreshCounts();
 
         return () => { supabase.removeChannel(channel); };
 

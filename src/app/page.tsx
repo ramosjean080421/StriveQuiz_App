@@ -652,6 +652,7 @@ export default function Home() {
           </div>
         </div>
       )}
+      <p className="fixed bottom-3 right-4 text-xs text-gray-400 select-none z-50">2026</p>
     </div>
   );
 }

@@ -183,10 +183,17 @@ export default function ConnectedPlayersModal({ gameId, isOpen, onClose, onPlaye
 
     const handleDeny = async (playerId: string) => {
         setProcessingIds(prev => new Set(prev).add(playerId));
+        setPlayers(prev => prev.filter(p => p.id !== playerId));
         try {
             const { error } = await supabase.from("game_players").delete().eq("id", playerId);
             if (error) {
                 console.error("Error en base de datos al rechazar:", error);
+                // Revertir si falla
+                const { data: restored } = await supabase
+                    .from("game_players")
+                    .select("id, player_name, avatar_gif_url, current_position, score")
+                    .eq("id", playerId).single();
+                if (restored) setPlayers(prev => [...prev, restored as Player]);
                 alert("Hubo un error al rechazar. Verifica las políticas RLS.");
             }
         } catch (error) {

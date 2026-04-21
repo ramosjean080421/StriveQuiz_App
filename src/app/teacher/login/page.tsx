@@ -229,6 +229,7 @@ export default function TeacherLogin() {
                     </form>
                 </div>
             </div>
+            <p className="fixed bottom-3 right-4 text-xs text-gray-400 select-none z-50">2026</p>
         </div>
     );
 }
