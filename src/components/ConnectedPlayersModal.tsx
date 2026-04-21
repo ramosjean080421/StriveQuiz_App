@@ -149,15 +149,15 @@ export default function ConnectedPlayersModal({ gameId, isOpen, onClose, onPlaye
             const pending = players.filter(p => p.current_position === -100);
             if (pending.length === 0) return;
             
-            const { error } = await supabase.from("game_players")
-                .update({ current_position: 0 })
-                .eq("game_id", gameId)
-                .eq("current_position", -100);
-                
-            if (error) {
-                console.error("Error aprobando a todos:", error);
-                alert("Hubo un error al intentar aprobar a todos masivamente.");
-            }
+            // Actualización optimista para que la UI reaccione instantáneamente
+            setPlayers(prev => prev.map(p => p.current_position === -100 ? { ...p, current_position: 0 } : p));
+
+            // Actualizar individualmente para evitar problemas de RLS en actualizaciones masivas
+            await Promise.all(
+                pending.map(p => 
+                    supabase.from("game_players").update({ current_position: 0 }).eq("id", p.id)
+                )
+            );
         } catch (error) {
             console.error("Excepción en handleApproveAll:", error);
         } finally {
@@ -167,13 +167,15 @@ export default function ConnectedPlayersModal({ gameId, isOpen, onClose, onPlaye
 
     const handleApprove = async (playerId: string) => {
         setProcessingIds(prev => new Set(prev).add(playerId));
+        // Actualización optimista
+        setPlayers(prev => prev.map(p => p.id === playerId ? { ...p, current_position: 0 } : p));
         try {
             const { error } = await supabase.from("game_players").update({ current_position: 0 }).eq("id", playerId);
             if (error) {
                 console.error("Error en base de datos al aprobar:", error);
                 alert("Hubo un error real en la base de datos. Si migraste tu BD, verifica las políticas de seguridad (RLS).");
             }
-            // No hacemos actualización manual, esperamos a que el Realtime (que es el evento real) mueva al alumno de lista
+            // Realtime actualizará el maestro y confirmará el movimiento
         } catch (error) {
             console.error("Excepción en handleApprove:", error);
         } finally {
