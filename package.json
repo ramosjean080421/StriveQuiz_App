@@ -14,6 +14,7 @@
     "@supabase/supabase-js": "^2.98.0",
     "@types/three": "^0.183.1",
     "canvas-confetti": "^1.9.4",
+    "framer-motion": "^12.38.0",
     "mammoth": "^1.12.0",
     "next": "16.1.6",
     "pdfjs-dist": "^4.10.38",
