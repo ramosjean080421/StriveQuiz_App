@@ -186,12 +186,16 @@ export default function TeacherDashboard() {
     }, [isAdminModalOpen]);
 
     const handleApproveTeacher = async (id: string, approve: boolean) => {
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from("teacher_profiles")
             .update({ is_approved: approve })
-            .eq("id", id);
+            .eq("id", id)
+            .select();
         
         if (error) showToast("Error al procesar: " + error.message, "error");
+        else if (!data || data.length === 0) {
+            showToast("Error: No tienes permisos para aprobar docentes. Revisa las políticas RLS.", "error");
+        }
         else {
             showToast(approve ? "✅ Profesor aprobado con éxito" : "🔒 Profesor bloqueado con éxito");
             // 🚀 Actualización Local Instantánea
@@ -201,13 +205,16 @@ export default function TeacherDashboard() {
     };
 
     const handleToggleAdminRole = async (id: string, makeAdmin: boolean) => {
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from("teacher_profiles")
             .update({ is_admin: makeAdmin })
-            .eq("id", id);
+            .eq("id", id)
+            .select();
         
         if (error) {
             showToast("Error. Recuerda añadir la columna `is_admin` en Supabase: " + error.message, "error");
+        } else if (!data || data.length === 0) {
+            showToast("Error: No tienes permisos para cambiar roles. Revisa las políticas RLS.", "error");
         } else {
             showToast(makeAdmin ? "👑 Ascendido a Administrador" : "💼 Removido de Administración");
             setTeachersList(prev => prev.map(t => t.id === id ? { ...t, is_admin: makeAdmin } : t));
@@ -456,7 +463,7 @@ export default function TeacherDashboard() {
 
             {/* TOAST FLOTANTE */}
             {toast && (
-                <div className={`fixed bottom-6 right-6 z-50 px-6 py-4 rounded-2xl font-bold flex items-center gap-3 animate-slide-up border ${toast.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-red-50 text-red-800 border-red-200'
+                <div className={`fixed bottom-6 right-6 z-[9999] px-6 py-4 rounded-2xl font-bold flex items-center gap-3 animate-slide-up border ${toast.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-red-50 text-red-800 border-red-200'
                     }`}>
                     <span className="text-xl">{toast.type === 'success' ? '✅' : '🚨'}</span>
                     {toast.message}

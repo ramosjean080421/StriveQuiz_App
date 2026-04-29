@@ -140,58 +140,74 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         return () => { window.removeEventListener("beforeunload", handleBeforeUnload); };
     }, [hasFinishedAll]);
 
-    // Canal unificado: presencia (detección de desconexión) + escucha de cambios de partida
-    // Fusionados en un solo canal para reducir conexiones Realtime a la mitad
+    // 1. Canal para cambios en la PARTIDA (status, mode, etc.)
+    useEffect(() => {
+        const channelName = `game_status_${gameId}`;
+        const statusChannel = supabase.channel(channelName)
+            .on('postgres_changes', { 
+                event: 'UPDATE', 
+                schema: 'public', 
+                table: 'games', 
+                filter: `id=eq.${gameId}` 
+            }, (payload) => {
+                console.log("[Realtime] Cambio en partida detectado:", payload.new.status);
+                if (payload.new.status) setGameStatus(payload.new.status);
+                if (payload.new.game_mode) setGameMode(payload.new.game_mode);
+            })
+            .subscribe((status) => {
+                console.log(`[Realtime] Suscripción a estado (${channelName}):`, status);
+            });
+
+        return () => { supabase.removeChannel(statusChannel); };
+    }, [gameId]);
+
+    // 2. Canal para PRESENCIA y cambios en JUGADORES
     useEffect(() => {
         const savedPlayerId = sessionStorage.getItem("currentPlayerId");
         const savedSecret = sessionStorage.getItem("playerSecret");
         if (!savedPlayerId || !savedSecret) return;
 
-        const presenceChannel = supabase.channel(`game_${gameId}`)
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
-                (payload) => {
-                    setGameStatus(payload.new.status);
-                    if (payload.new.game_mode) setGameMode(payload.new.game_mode);
-                }
-            )
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'game_players', filter: `game_id=eq.${gameId}` },
-                (payload) => {
-                    if (payload.eventType === 'INSERT') {
-                        setPlayers(prev => [...prev, payload.new]);
-                    } else if (payload.eventType === 'UPDATE') {
-                        if (payload.new.current_position < 0) {
-                            setPlayers(prev => prev.filter(p => p.id !== payload.new.id));
-                        } else {
-                            setPlayers(prev => prev.map(p => p.id === payload.new.id ? payload.new : p));
-                        }
+        const playersChannel = supabase.channel(`game_players_${gameId}`)
+            .on('postgres_changes', { 
+                event: '*', 
+                schema: 'public', 
+                table: 'game_players', 
+                filter: `game_id=eq.${gameId}` 
+            }, (payload) => {
+                if (payload.eventType === 'INSERT') {
+                    setPlayers(prev => [...prev, payload.new]);
+                } else if (payload.eventType === 'UPDATE') {
+                    if (payload.new.current_position < 0) {
+                        setPlayers(prev => prev.filter(p => p.id !== payload.new.id));
+                    } else {
+                        setPlayers(prev => prev.map(p => p.id === payload.new.id ? payload.new : p));
+                    }
 
-                        if (payload.new.id === savedPlayerId) {
-                            if (payload.new.current_position === -999) {
-                                sessionStorage.setItem("isKicked", "true");
-                                window.location.href = "/?kicked=true";
-                                return;
-                            }
-                            if (payload.new.is_blocked === false) {
-                                setIsBlurred(false);
-                            }
-                        }
-                    } else if (payload.eventType === 'DELETE') {
-                        setPlayers(prev => prev.filter(p => p.id !== payload.old.id));
-
-                        if (payload.old.id === savedPlayerId) {
+                    if (payload.new.id === savedPlayerId) {
+                        if (payload.new.current_position === -999) {
                             sessionStorage.setItem("isKicked", "true");
                             window.location.href = "/?kicked=true";
+                            return;
+                        }
+                        if (payload.new.is_blocked === false) {
+                            setIsBlurred(false);
                         }
                     }
+                } else if (payload.eventType === 'DELETE') {
+                    setPlayers(prev => prev.filter(p => p.id !== payload.old.id));
+                    if (payload.old.id === savedPlayerId) {
+                        sessionStorage.setItem("isKicked", "true");
+                        window.location.href = "/?kicked=true";
+                    }
                 }
-            )
+            })
             .subscribe(async (status) => {
                 if (status === "SUBSCRIBED") {
-                    await presenceChannel.track({ player_id: savedPlayerId, secret: savedSecret });
+                    await playersChannel.track({ player_id: savedPlayerId, secret: savedSecret });
                 }
             });
 
-        return () => { supabase.removeChannel(presenceChannel); };
+        return () => { supabase.removeChannel(playersChannel); };
     }, [gameId]);
 
     // Lógica Anti-Trampas (Blur, Copiar, Menú contextual)
@@ -372,25 +388,7 @@ export default function StudentPlayArea({ params }: { params: Promise<{ gameId: 
         fetchGame();
     }, [gameId]);
 
-    // 4b. Fallback: si el estudiante no recibió el evento Realtime del inicio del juego
-    // (lag de red, reconexión, etc.), chequea el DB cada 4 segundos mientras está en "waiting".
-    useEffect(() => {
-        if (gameStatus !== "waiting") return;
-
-        const interval = setInterval(async () => {
-            const { data: game } = await supabase
-                .from("games")
-                .select("status, game_mode")
-                .eq("id", gameId)
-                .single();
-            if (game && game.status !== "waiting") {
-                setGameStatus(game.status);
-                if (game.game_mode) setGameMode(game.game_mode as any);
-            }
-        }, 4000);
-
-        return () => clearInterval(interval);
-    }, [gameStatus, gameId]);
+    // 4b. Verificación de seguridad al entrar (Ya manejada en el fetch inicial)
 
     // 4. Re-obtener preguntas si el juego pasa a 'active' (Las preguntas no cargan de inicio por las políticas de seguridad de lectura)
     useEffect(() => {
